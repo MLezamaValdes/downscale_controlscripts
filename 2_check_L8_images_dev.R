@@ -172,6 +172,19 @@ makeL8LST <- function(BTC, lc, datapath){
 
 
 # ATMOSPHERIC CORRECTION
+# ATMOSPHERIC CORRECTION
+# estimate digital number pixel value of dark objects in visible wavelength
+hazeDN    <- estimateHaze(lsat8, hazeBands = c("B3_dn", "B4_dn"),
+                          darkProp = 0.01)
+
+# radiometric calibration and correction of Landsat data 
+lsat8_sdos <- radCor(lsat8, metaData = metaData,
+                     hazeValues = hazeDN,
+                     hazeBands = c("B3_dn", "B4_dn"),
+                     method = "sdos")
+
+
+lsat8.input <- lsat8_sdos[[2:7]]
 
 # IMAGE PATCHING
 
