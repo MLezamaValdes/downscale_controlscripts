@@ -22,7 +22,6 @@ time_range <-  c("2018-01-19", "2018-05-19")
 
 
 ## Login to USGS ERS
-## Not run: 
 #login_USGS("MaiteLezama")
 
 ## set archive directory
