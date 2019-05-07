@@ -1,0 +1,9 @@
+{
+    "path" : "~/PhD/work_packages/auto_downscaling_30m/downscale_controlscripts",
+    "sortOrder" : [
+        {
+            "ascending" : true,
+            "columnIndex" : 2
+        }
+    ]
+}

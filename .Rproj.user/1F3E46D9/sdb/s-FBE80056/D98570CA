@@ -1,0 +1,20 @@
+{
+    "collab_server" : "",
+    "contents" : "\n\n# get L8 data for \nlibrary(getSpatialData)\nlibrary(sf)\nlibrary(rgdal)\nlibrary(raster)\n\nun <- \"MaiteLezama\"\npw <- \"Eos300dmmmmlv\"\n\naoipath <- \"C:/Users/mleza/Documents/PhD/work_packages/auto_downscaling_30m/data/aoi_MDV/\"\naoi <- readOGR(list.files(aoipath, pattern=\".shp\", full.names = T))\n\n\naoiutm <- spTransform(aoi, crs(\"+proj=utm +zone=57 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs \"))\n\nset_aoi(aoiutm)\n\ntime_range <-  c(\"2018-01-19\", \"2018-05-19\")\n\n\n\n## Login to USGS ERS\n## Not run: \nlogin_USGS(\"MaiteLezama\")\n\n## set archive directory\nset_archive(\"E:/L8_MDV/new/\")\n\n## get available products and select one\nproduct_names <- getLandsat_names(username=un, password=pw)\n\n\n## query for records for your AOI, time range and product\nquery <- getLandsat_query(time_range = time_range, \n                          aoi = get_aoi() \n                          #product_names[4]\n                          #username=un, password=pw\n                          )\n\nquerysmall <- query[query$SceneCloudCover < 40.0,]\nquerysmall <- querysmall[querysmall$WRSPath <= 62 & querysmall$WRSPath >= 47 &\n                     querysmall$WRSRow <= 117 & querysmall$WRSRow >= 114,]\n\ndata.frame(querysmall$acquisitionDate, querysmall$WRSPath, querysmall$WRSRow)\n\n# ## preview a record\n# x=1\n# \n# getLandsat_preview(querysmall[x,])\n# x <- x+1\n# excludeim <- c(1)\n# querysmall <- querysmall[!excludeim]\n\n## download with level \"l1\" (will direct to AWS automaticaly)\n\nfor(i in seq(nrow(querysmall))){\n  getLandsat_data(records = querysmall[i,], level = \"l2\", source = \"auto\", \n                         username=un, password=pw)\n}\n\n\n\n\n",
+    "created" : 1556869321315.000,
+    "dirty" : true,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "2097265757",
+    "id" : "D98570CA",
+    "lastKnownWriteTime" : 1556879212,
+    "last_content_update" : 1556879435671,
+    "path" : "~/PhD/work_packages/auto_downscaling_30m/downscale_controlscripts/1_get_L8_MDV_dev.R",
+    "project_path" : "1_get_L8_MDV_dev.R",
+    "properties" : {
+    },
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
