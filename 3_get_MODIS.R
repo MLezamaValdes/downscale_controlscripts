@@ -131,5 +131,24 @@ lst_c <- lapply(seq(lst), function(i){
   return(lstc)
 })
 
-mapview(lst_c[[1]])+mapview(lst_c[[2]])+mapview(lst_c[[3]])  
 
+# view all of them 
+mvc <- character()
+for(i in seq(lst_c)){
+  mvc[i] <- paste0("mapview(lst_c[[", i, "]])+")
+}
+mvc[length(mvc)] <- paste0("mapview(lst_c[[", length(mvc), "]])")
+
+c = parse(text = mvc) 
+eval(c) 
+
+# patch them
+datloc <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/data/"
+m <- do.call(rastermerge, lst_c)
+mosaic <- raster::merge(lst_c[[1]], lst_c[[2]],
+                tolerance=0.1, filename=paste0(datloc, "testmosaic_MODIS.tif"), overwrite=T, overlap=T, ext=NULL)
+
+writeRaster(mosaic, "E:/L8_MDV/mosaic/testmosaic.tif", format="GTiff", 
+            overwrite=T, bylayer=T)
+
+mapview(mosaic[[1]])
