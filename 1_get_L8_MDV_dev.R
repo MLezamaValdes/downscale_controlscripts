@@ -6,61 +6,46 @@ library(sf)
 library(rgdal)
 library(raster)
 
-un <- "MaiteLezama"
-pw <- "Eos300dmmmmlv"
+datpath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/data/L8_data/"
 
-aoipath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/data/aoi_MDV/"
-aoi <- readOGR(list.files(aoipath, pattern=".shp", full.names = T))
-
-
-aoiutm <- spTransform(aoi, crs("+proj=utm +zone=57 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs "))
-
-set_aoi(aoiutm)
-
-time_range <-  c("2018-01-19", "2018-05-19")
-
-
+####### GET DATA ONLINE ##############################################################################################
 
 ## Login to USGS ERS
-#login_USGS("MaiteLezama")
+login_USGS("MaiteLezama")
+
+## set aoi and time range for the query
+aoipath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/data/aoi_MDV/"
+aoi <- readOGR(list.files(aoipath, pattern="aoi_MDV_new.shp", full.names = T))
+aoiutm <- spTransform(aoi, crs("+proj=utm +zone=57 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs "))
+set_aoi(aoiutm)
 
 ## set archive directory
-set_archive("D:/L8_MDV/new/")
+set_archive(datpath)
+
+time_range <-  c("2018-01-19", "2018-01-19")
 
 ## get available products and select one
-product_names <- getLandsat_names(username=un, password=pw)
-services_avail()
-view_aoi()
+product_names <- getLandsat_names(username="MaiteLezama", password = "Eos300dmmmmlv")
+product <- "LANDSAT_8_C1" # output without thermal channels
+product <- "LANDSAT_MSS_C1"
 
 ## query for records for your AOI, time range and product
-query <- getLandsat_query(time_range = time_range, 
-                          aoi = get_aoi(),
-                          username="MaiteLezama", password="Eos300dmmmmlv",
-                          name="LANDSAT_8_C1")
-                          #product_names[4]
-                          #username=un, password=pw
+query <- getLandsat_query(time_range = time_range, name = product,
+                         aoi=get_aoi())
 
-querysmall <- query[query$SceneCloudCover < 40.0,]
-querysmall <- querysmall[querysmall$WRSPath <= 62 & querysmall$WRSPath >= 47 &
-                     querysmall$WRSRow <= 117 & querysmall$WRSRow >= 114,]
+## preview a record
+#getLandsat_preview(query[4,])
 
-data.frame(querysmall$acquisitionDate, querysmall$WRSPath, querysmall$WRSRow)
+## download records
+files <- getLandsat_data(query, level="l1",
+                         espa_order=NULL)
 
-# ## preview a record
-# x=1
-# 
-# getLandsat_preview(querysmall[x,])
-# x <- x+1
-# excludeim <- c(1)
-# querysmall <- querysmall[!excludeim]
+####### UNZIP DATA IF LEVEL = "SR" ##############################################################################################
 
-## download with level "l1" (will direct to AWS automaticaly)
+main <- paste0(datpath, "get_data/LANDSAT/SR/")
+sdirs <- list.files(main, full.names = T)
 
-for(i in seq(nrow(querysmall))){
-  getLandsat_data(records = querysmall[i,], level = "l2", source = "auto", 
-                         username=un, password=pw)
+# unzip 
+for(i in seq(sdirs)){
+  untar(list.files(sdirs[i], full.names = T, pattern=".tar.gz"),  compressed = 'gzip', exdir = sdirs[i])
 }
-
-
-
-
