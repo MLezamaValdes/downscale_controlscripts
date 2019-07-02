@@ -8,20 +8,28 @@ library(gdalUtils)
 library(downscaleRS)
 library(RStoolbox)
 library(mapview)
+library(satellite)
 
-datpath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/data/L8_data/"
-lcpath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/data/LC_training/"
-main <- paste0(datpath, "get_data/LANDSAT/L1/")
+datpath <- "D:/run_everything/Antarctica/"
+l8out <- paste0(datpath, "L8_data/")
+lcpath <- paste0(datpath, "LC_training/")
+
+main <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/data/L8_data/get_data/LANDSAT/L1/"
 sdirs <- list.files(main, full.names = T)
 
 scriptpath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/downscale_controlscripts/"
 source(paste0(scriptpath, "read_meta_L8_PS.R"))
 
+substrRight <- function(x, n){
+  substr(x, nchar(x)-n+1, nchar(x))
+}
+
+
 #### GET AND PROJECT AREA OF INTEREST ####################################################################
 l8proj <- crs("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m
 +no_defs +ellps=WGS84 +towgs84=0,0,0")
-aoipath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/data/aoi_MDV/"
-aoi <- readOGR(list.files(aoipath, pattern="new.shp", full.names = T))
+aoipath <- "D:/run_everything/Antarctica/aoi/MDV/"
+aoi <- readOGR(list.files(aoipath, pattern="adp.shp", full.names = T))
 aoi <- spTransform(aoi, l8proj)
 
 
@@ -59,81 +67,89 @@ names(df) <- names(pathrow[[1]])
 df$scenenumber <- as.numeric(rownames(df))
 df
 
-# find those with consequtive dates, that are not too far from each other
-df <- df[order(as.Date(df$date, format="%Y-%m-%d")),]
-df$date <- as.Date(df$date, format="%Y-%m-%d")
+# # find those with consequtive dates, that are not too far from each other
+# df <- df[order(as.Date(df$date, format="%Y-%m-%d")),]
+# df$date <- as.Date(df$date, format="%Y-%m-%d")
+# 
+# daydiff <- sapply(seq(nrow(df)-1), function(i){
+#     df$date[i] - df$date[i+1]
+#   })
+# dd <- c(0, daydiff)
+# df$daydiff <- dd
+# df$cumdays <- cumsum(abs(df$daydiff))
+# 
+# # take all scenes that are not more than 10 days apart
+# nums <- df$scenenumber[df$cumdays < 10]
 
-daydiff <- sapply(seq(nrow(df)-1), function(i){
-    df$date[i] - df$date[i+1]
-  })
-dd <- c(0, daydiff)
-df$daydiff <- dd
-df$cumdays <- cumsum(abs(df$daydiff))
-
-# take all scenes that are not more than 10 days apart
-nums <- df$scenenumber[df$cumdays < 10]
+nums <- seq(1:nrow(df))
 
 # ordered by time: stacks
-s1 <- lapply(seq(nums), function(i){
+s <- lapply(seq(nums), function(i){
   stackMeta(datloc$meta[[nums[i]]], quantity = 'all')
 })
 
-############# ELIMINATE 0 VALUES ########################################################################## 
 
-for(i in seq(s1)){
-  for(j in seq(nlayers(s1[[1]]))){
-    s1[[i]][[j]][s1[[i]][[j]]==0] <- NA
+############# CHECK WHICH FILES ARE ACTUALLY RELEVANT ######################################################
+
+clpath <- "D:/run_everything/Antarctica/coastline/Coastline_high_res_polygon/"
+# cl <- readOGR(list.files(clpath, pattern=".shp", full.names=T))
+# land <- cl[cl$surface=="land" | cl$surface=="ice tongue",]
+# writeOGR(land, paste0(clpath, "land_contours.shp"), driver = "ESRI Shapefile", layer="land_contours.shp")
+
+# do all tiles overlap with land? 
+land <- readOGR(paste0(clpath, "land_contours.shp"))
+
+t <- lapply(seq(s), function(i){
+  intersect(land, s[[i]])
+})
+
+# subselect scenes, whose amount of pixels is bigger than threshold in 
+# calculate area sums
+tarea <- lapply(seq(t), function(i){
+  if(!is.null(t[[i]])){
+      sum(area(t[[i]]))
   }
-}
+})
 
+bigarea <- lapply(seq(t), function(i){
+    tarea[[i]]>=10000000000
+})
 
-#############  Calculation of TOA (Top of Atmospheric) spectral radiance and ##################### 
-#################  brightness temperature (°C) ########################################
+sel <- s[unlist(bigarea)]
 
-#TO DO: Make Function, make loop!
-
-BTC <- lapply(seq(s1), function(i){
-  
-  # TOA (L) = ML * Qcal + AL
-  # ML = Band-specific multiplicative rescaling factor from the metadata (RADIANCE_MULT_BAND_x, where x is the band number).
-  # Qcal = corresponds to band 10.
-  # AL = Band-specific additive rescaling factor from the metadata (RADIANCE_ADD_BAND_x, where x is the band number).
-  
-  mD <- readMeta(datloc$meta[[i]], raw=T)
-  nam <- mD$METADATA_FILE_INFO["LANDSAT_PRODUCT_ID",]
-  
-  ML <- mD$RADIOMETRIC_RESCALING["RADIANCE_MULT_BAND_10",]
-  AL <- mD$RADIOMETRIC_RESCALING["RADIANCE_ADD_BAND_10",]
-  #TOA = (ML * lsat8$B10_dn) + AL
-  TOA = (ML * lsat8_sdos$B10_bt) + AL
-  
-  
-  # TOA to Brightness Temperature conversion
-  # BT = (K2 / (ln (K1 / L) + 1)) ??? 273.15
-  
-  # K1 = Band-specific thermal conversion constant from the metadata (K1_CONSTANT_BAND_x, where x is the thermal band number).
-  # K2 = Band-specific thermal conversion constant from the metadata (K2_CONSTANT_BAND_x, where x is the thermal band number).
-  # L = TOA
-  # Therefore, to obtain the results in Celsius, the radiant temperature is adjusted 
-  # by adding the absolute zero (approx. -273.15?C).
-  
-  K1 <- mD$TIRS_THERMAL_CONSTANTS["K1_CONSTANT_BAND_10",]
-  K2 <- mD$TIRS_THERMAL_CONSTANTS["K2_CONSTANT_BAND_10",]
-  BTK <- (K2 /(log(K1 / TOA)))+1
-  BTC <- (BTK-273.15)
-  
-  writeRaster(BTC, paste0(datpath, "ac/", nam, "_BTC", ".tif"), 
-              format="GTiff", overwrite=T)
-  
+aoiint <- lapply(seq(sel), function(i){
+  intersect(aoi, sel[[i]])
 })
 
 
+aoiarea <- lapply(seq(aoiint), function(i){
+  if(!is.null(aoiint[[i]])){
+    sum(area(aoiint[[i]]))
+  }
+})
+
+aoibigarea <- lapply(seq(aoiarea), function(i){
+  aoiarea[[i]]>=10000000000
+})
+
+sel_f <- sel[unlist(aoibigarea)]
+
+ss1 <- which(unlist(bigarea)==T)
+ss_f <- ss1[which(aoibigarea==T)]
+
+############# ELIMINATE 0 VALUES ########################################################################## 
+s <- sel_f
+for(i in seq(s)){
+  for(j in seq(nlayers(s[[1]]))){
+    s[[i]][[j]][s[[i]][[j]]==0] <- NA
+  }
+}
 
 ################## ATMOSPHERIC CORRECTION ####################################################################
 
-lapply(c(2:8), function(i){
-  lsat8 <- s1[[i]]
-  names(lsat8) <- names(lsat8o[[i]])
+lsat8_sdos <- lapply(seq(s), function(i){
+  lsat8 <- s[[i]]
+  names(lsat8) <- names(lsat8o[unlist(bigarea)][unlist(aoibigarea)][[i]])
   
   #estimate digital number pixel value of dark objects in visible wavelength
   hazeDN    <- estimateHaze(lsat8, hazeBands = c("B3_dn", "B4_dn"),
@@ -150,65 +166,205 @@ lapply(c(2:8), function(i){
   nam <- mD$METADATA_FILE_INFO["LANDSAT_PRODUCT_ID",]
   
   for(j in seq(nlayers(lsat8_sdos))){
-      writeRaster(lsat8_sdos[[j]], paste0(datpath, "ac/", nam, "_", names(lsat8_sdos)[j], ".tif"), 
-              format="GTiff", overwrite=T)
+    writeRaster(lsat8_sdos[[j]], paste0(l8out, "ac/", nam, "_", names(lsat8_sdos)[j], ".tif"), 
+                format="GTiff", overwrite=T)
   }
+  lsat8_sdos
 })
 
+
+
 # get files in, ordered
-fac <- list.files(paste0(datpath, "ac/"), full.names = T)
-lo <- seq(1,length(metaData)*10, by=10) # *10 because channel 1:11 without channel 8 (pancromatic, in 15m resolution)
+fac <- list.files(paste0(l8out, "ac/"), full.names = T, pattern=".tif$")
+lo <- seq(1,length(metaData[unlist(bigarea)][unlist(aoibigarea)])*10, by=10) # *10 because channel 1:11 without channel 8 (pancromatic, in 15m resolution)
 hi <- lo+9
-ac <- lapply(seq(metaData), function(i){
+lsat8_sdos <- lapply(seq(sel_f), function(i){
   stack(fac[lo[i]:hi[i]])
 })
 
+#############  Calculation of TOA (Top of Atmospheric) spectral radiance and #################### 
+#################  brightness temperature ##################################################
+
+#TO DO: check why values are off!
+
+BTC <- lapply(seq(ss_f), function(i){
+  
+  # TOA (L) = ML * Qcal + AL
+  # ML = Band-specific multiplicative rescaling factor from the metadata (RADIANCE_MULT_BAND_x, where x is the band number).
+  # Qcal = corresponds to band 10.
+  # AL = Band-specific additive rescaling factor from the metadata (RADIANCE_ADD_BAND_x, where x is the band number).
+  
+  mD <- readMeta(datloc$meta[[ss_f[i]]], raw=T)
+  nam <- mD$METADATA_FILE_INFO["LANDSAT_PRODUCT_ID",]
+  
+  ML <- mD$RADIOMETRIC_RESCALING["RADIANCE_MULT_BAND_10",]
+  AL <- mD$RADIOMETRIC_RESCALING["RADIANCE_ADD_BAND_10",]
+  TOA = (ML * lsat8o[[ss_f[i]]]$B10_dn) + AL # this is band 10
+  
+  
+  # TOA to Brightness Temperature conversion
+  # BT = (K2 / (ln (K1 / L) + 1)) ??? 273.15
+  
+  # K1 = Band-specific thermal conversion constant from the metadata (K1_CONSTANT_BAND_x, where x is the thermal band number).
+  # K2 = Band-specific thermal conversion constant from the metadata (K2_CONSTANT_BAND_x, where x is the thermal band number).
+  # L = TOA
+  # Therefore, to obtain the results in Celsius, the radiant temperature is adjusted 
+  # by adding the absolute zero (approx. -273.15?C).
+  
+  K1 <- mD$TIRS_THERMAL_CONSTANTS["K1_CONSTANT_BAND_10",]
+  K2 <- mD$TIRS_THERMAL_CONSTANTS["K2_CONSTANT_BAND_10",]
+  BTK <- (K2 /(log((K1 / TOA) +1)))
+  BTC <- (BTK-273.15)
+  
+  BTC[BTC<=(-90)] <- NA
+  
+  writeRaster(BTC, paste0(l8out, "bt/", nam, "_BTC", ".tif"), 
+              format="GTiff", overwrite=T)
+  BTC
+})
+
+
 ################## MAKE TERRAIN CORRECTION FOR LANDCOVER PREDICTION #############################################
 
+# get DEM
+mos <- raster(list.files("E:/Antarctica/DEM/", full.names=T))
+
+L8exts <- lapply(seq(BTC), function(i){
+  p <- as(extent(BTC[[i]]), 'SpatialPolygons')
+  crs(p) <- l8proj
+  p
+})
+
+m <- do.call(bind, L8exts) 
+
+mos_s <- crop(mos, extent(m))
+mos_s[mos_s < (-300)] <- NA
+
+# write small DEM for runoff path calculation
+writeRaster(mos_s, paste0(l8out, "DEM_MDV_8m_not_corr.tif"), format="GTiff", overwrite=T)
+
+
+# resample DEM to the tile, make slope, aspect and hillshade rasters
+# calculate topographic correction for the tile 
+
+slope <- terrain(mos_s, opt='slope')
+aspect <- terrain(mos_s, opt='aspect')
+writeRaster(slope, paste0(l8out, "slope_8m_s.tif"), format="GTiff", overwrite=T)
+writeRaster(aspect, paste0(l8out, "aspect_8m_s.tif"), format="GTiff", overwrite=T)
+
+
+slope <- raster(paste0(l8out, "slope_8m_s.tif"))
+aspect <- raster(paste0(l8out, "aspect_8m_s.tif"))
+sazel <- lapply(seq(ss_f), function(i){
+  mD <- readMeta(datloc$meta[[ss_f[i]]], raw=T)
+  sun_azimuth <- as.numeric(mD$IMAGE_ATTRIBUTES["SUN_AZIMUTH",])
+  sun_elev <- as.numeric(mD$IMAGE_ATTRIBUTES["SUN_ELEVATION",])
+  list(sun_azimuth, sun_elev)
+})
+
+# take mean of sun elevation and azimuth to be found in Landsat files that are being used in scene
+saz <- mean(unlist(lapply(sazel, `[[`, 1)))
+sev <- mean(unlist(lapply(sazel, `[[`, 2)))
+
+hils <- hillShade(slope, aspect, angle=sev, direction=saz)
+writeRaster(hils, paste0(l8out, "hillshading_8m_s.tif"), format="GTiff")
+
+#hils <- raster(paste0(l8out, "hillshading_8m.tif"))
+
+# run topocorr
+ac <- lsat8_sdos
+for(i in seq(ac)){
+  # does ac L8 fall into land area? 
+  ls <- crop(land, extent(ac[[i]]))
+  testac <- aggregate(ac[[i]][[1]], fact=40)
+  te <- unlist(extract(testac, ls))
+  if(any(!is.na(te)) & any(!is.nan(te))){
+      hs <- crop(hils, extent(ac[[i]][[1]]))
+      hils_30 <- resample(hs, ac[[i]][[1]])
+      x <- calcTopoCorr(ac[[i]], hillsh = hils_30)
+      writeRaster(x, paste0(l8out, "tc/tc_", i, ".tif"), format="GTiff")
+  }
+}
+
+# # compare ac and tc
+# plotRGB(ac[[4]], r=7, g=6, b=5, stretch="hist")
+# plotRGB(x, r=7, g=6, b=5, stretch="hist")
+
+tc <- lapply(seq(2), function(i){
+    stack(list.files(paste0(l8out, "tc/"), full.names=T, pattern="tif$")[i])
+}) 
+
+# merge topographically corrected tiles
 
 
 ################## MAKE LANDCOVER PREDICTION ####################################################################
-# VIS; NIR; SWIR for Landcover training
-lctrdat <- lapply(seq(metaData), function(i){
-  stack(ac[[i]][[4:9]])
-})
+# # VIS; NIR; SWIR for Landcover training
+# lctrdat <- lapply(seq(metaData), function(i){
+#   stack(ac[[i]][[4:9]])
+# })
+
+# TO DO: TEST WITH AC ONLY to see if we can skip tc
+
+lctrdat <- tc
+mos <- merge(lctrdat[[1]], lctrdat[[2]])
+writeRaster(mos, paste0(l8out, "L8_ac_tc_mosaic.tif"), format="GTiff")
+
+mos <- raster(paste0(l8out, "L8_ac_tc_mosaic.tif"))
+hls <- raster(paste0(l8out, "hillshading_8m_s.tif"))
+
+lctrdat <- mos
+
+hlsres <- resample(hls, mos)
 
 # take a look at tiles 
-# mapview(lctrdat[[1]][[1]])+mapview(lctrdat[[2]][[1]])+mapview(lctrdat[[3]][[1]])+mapview(lctrdat[[4]][[1]])+
-# mapview(lctrdat[[5]][[1]])+mapview(lctrdat[[6]][[1]])+mapview(lctrdat[[7]][[1]])+mapview(lctrdat[[8]][[1]])
-
-# select those that are good for classifying
-names(lctrdat[[4]])
-names(lctrdat[[5]])
+# mapview(lctrdat[[1]][[1]])+mapview(lctrdat[[2]][[1]])
 
 # load training shapes from QGis
 lcts <- readOGR(list.files(lcpath, pattern=".shp", full.names = T))
-
 lcts$id <- seq(1:nrow(lcts@data))
-unique(lcts$type)
 
+# subset without wet soil
+lcts <- lcts[lcts$type!="wet soil",]
 
+names(hlsres) <- "hills"
+datstack <- stack(lctrdat, hlsres)
+lctrdat <- datstack
 
+# # to run on another machine
+# writeRaster(lctrdat, paste0(l8out, "extr/lctrdat.tif"), format="GTiff")
+# writeOGR(lcts, paste0(l8out, "extr/lcts.shp"), layer="lcts.shp", driver="ESRI Shapefile")
 
-lctraindf <- lapply(c(4,5), function(i){
-  x <- extract(lctrdat[[i]], lcts)
-  print(i)
-  x
+lctraindf <- lapply(seq(lctrdat), function(i){
+  extract(lctrdat, lcts, df=T)
 })
 
-lctraindf[[c(4:5)]]
-str(lctraindfn)
+lcts$orgID <- lcts$id
+
+is <- lapply(seq(lctrdat), function(i){
+  intersect(lcts, lctrdat)
+})
+
+# run from here
 
 # eliminate NULL listeneinträge
 trainex <- lapply(seq(lctraindf), function(i){
   lctraindf[[i]][vapply(lctraindf[[i]], Negate(is.null), NA)]
 })
 
-sapply(seq(lctraindfn), function(i){
-  seq(lctraindfn[[i]])
+sapply(seq(trainex), function(i){
+  seq(trainex[[i]])
 })
 
-str(trainex[[8]])
+
+trainexdf <- lapply(seq(trainex), function(i){
+  lapply(seq(trainex[[i]]), function(j){
+    df <- data.frame(trainex[[i]][[j]])
+    df$type <- rep(as.character(is[[i]]$type[j]), nrow(trainex[[i]][[j]]))
+    df$sh_ID <- rep(is[[i]]$orgID[j], nrow(trainex[[i]][[j]]))
+    names(df) <- substrRight(names(df), 6)
+    df
+  })
+})
 
 
 # add info concerning sample shape number, type of sample shape content and scene 
@@ -249,7 +405,7 @@ lsat8.aoi <- mask(lsat8.aoi, aoi)
 
 
 # TO DO: Make function!
-# Calculate Emissivity
+# Emissivity
 eta <- lc
 eta[eta==2] <- 0.94 
 eta[eta==1] <- 0.97

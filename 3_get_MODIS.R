@@ -151,41 +151,88 @@ for(i in seq(lst_res)){
               overwrite=T)
 }
 
-# # read them back in
-# lst_cp <- lapply(seq(grep(list.files(path=paste0(datloc, "LST_2018_01_19/"), full.names=T), pattern='res', inv=T, value=T)), function(i){
-#   f <- grep(list.files(path=paste0(datloc, "LST_2018_01_19/"), full.names=T), pattern='res', inv=T, value=T)
-#   raster(f[i])
-# })
-
-################ PROCESS VIEWTIME IN R ########################################################################
-
-# eliminate .met files
-#file.remove(list.files(outdir, pattern="tif.met$", full.names=T))
-
-# get converted tif viewtime rasters
-vtr <- lapply(seq(filescomp), function(i){
-  x <- raster(list.files(outdir, pattern="View", full.names=T)[i])
-  x[x>240] <- NA
-  x
-}) 
-
-hist(vtr[[1]])
-
-# run locmodisviewtime 
-aoianta <- spTransform(aoi, crs(antaproj))
-vt <- lapply(seq(vtr), function(i){
-  x <- locmodisviewtime(ra=extent(aoianta), fnam = basename(filescomp)[i], ltz = "Pacific/Auckland",
-                   newproj= antaproj, viewtime = vtr[[i]])
-  if(typeof(x)=="list"){
-    print(x$fnam_UTC[1]- x$utc_frm_LocST[1])
-  }
-  return(x)
+# read them back in
+lst_cp <- lapply(seq(grep(list.files(path=paste0(datloc, "LST_2018_01_19/"), full.names=T), pattern='res', inv=T, value=T)), function(i){
+  f <- grep(list.files(path=paste0(datloc, "LST_2018_01_19/"), full.names=T), pattern='res', inv=T, value=T)
+  raster(f[i])
 })
 
-saveRDS(vt, file=paste0(datloc, "viewtime1_2.rds"))
+################ PROCESS VIEWTIME IN R ########################################################################
+# 
+# # eliminate .met files
+# #file.remove(list.files(outdir, pattern="tif.met$", full.names=T))
+# 
+# # get converted tif viewtime rasters
+# vtr <- lapply(seq(filescomp), function(i){
+#   x <- raster(list.files(outdir, pattern="View", full.names=T)[i])
+#   x[x>240] <- NA
+#   x
+# }) 
+# 
+# hist(vtr[[1]])
+# 
+# # run locmodisviewtime 
+# aoianta <- spTransform(aoi, crs(antaproj))
+# vt <- lapply(seq(vtr), function(i){
+#   x <- locmodisviewtime(ra=extent(aoianta), fnam = basename(filescomp)[i], ltz = "Pacific/Auckland",
+#                    newproj= antaproj, viewtime = vtr[[i]])
+#   if(typeof(x)=="list"){
+#     print(x$fnam_UTC[1]- x$utc_frm_LocST[1])
+#   }
+#   return(x)
+# })
+# 
+# saveRDS(vt, file=paste0(datloc, "viewtime1_2.rds"))
+# 
+# vt <- readRDS(paste0(datloc, "viewtime1_2.rds"))
+# vt
 
-vt <- readRDS(paste0(datloc, "viewtime1_2.rds"))
-vt
+
+
+# make shapefiles from where data is available in swath and write time info from filename into column
+
+
+outshape <- "D:/run_everything/Antarctica/MODIS/time_shapes/shape1.shp"
+
+## Define the function
+gdal_polygonizeR <- function(x, outshape=NULL, gdalformat = 'ESRI Shapefile',
+                             pypath=NULL, readpoly=TRUE, quiet=TRUE) {
+  if (isTRUE(readpoly)) require(rgdal)
+  if (is.null(pypath)) {
+    pypath <- Sys.which('gdal_polygonize.py')}
+  if (!file.exists(pypath)) stop("Can't find gdal_polygonize.py on your system.")
+  owd <- getwd()
+  on.exit(setwd(owd))
+  setwd(dirname(pypath))
+  if (!is.null(outshape)) {
+    outshape <- sub('\\.shp$', '', outshape)
+    f.exists <- file.exists(paste(outshape, c('shp', 'shx', 'dbf'), sep='.'))
+    if (any(f.exists))
+      stop(sprintf('File already exists: %s',
+                   toString(paste(outshape, c('shp', 'shx', 'dbf'),
+                                  sep='.')[f.exists])), call.=FALSE)
+  } else outshape <- tempfile()
+  if (is(x, 'Raster')) {
+    require(raster)
+    writeRaster(x, {f <- tempfile(fileext='.tif')})
+    rastpath <- normalizePath(f)
+  } else if (is.character(x)) {
+    rastpath <- normalizePath(x)
+  } else stop('x must be a file path (character string), or a Raster object.')
+  system2('python', args=(sprintf('"%1$s" "%2$s" -f "%3$s" "%4$s.shp"', pypath, rastpath, gdalformat, outshape)))
+  if (isTRUE(readpoly)) {
+    shp <- readOGR(dirname(outshape), layer = basename(outshape), verbose=!quiet)
+    return(shp)
+  }
+  return(NULL)
+}
+
+
+pp <- "C:/Python27/gdal_polygonize.py"
+p <- gdal_polygonizeR(x=lst_cp[[1]], pypath = pp)
+
+
+
 
 ############# PATCH IMAGES ####################################################################################
 
@@ -226,6 +273,11 @@ for(i in seq(nlayers(lst_val))){
   print(i)
 }
 
+Sys.time(poly1 <- rasterToPolygons(lst_val[[i]], fun=function(x){x==1}))
+
+
+mapview(lst_val[[1]])
+
 # make cell numbers for extraction
 cn <- c(1:length(lst_s[[1]][]))
 
@@ -244,7 +296,25 @@ writeRaster(rlocr, paste0(datloc, "raslocsum.tif"), format="GTiff",
             overwrite=T, bylayer=T)
 
 # get MODIS dates
+# add viewtime from filename in UTC
+fnam <- list.files("D:/MODIS_MDV/2018_01_19/get_data/MODIS/")
 
-# make batchfunction, with option to process viewtime raster and LST_error
-# get viewtime rasters
-# run locmodisviewtime function to extract the viewtimes
+utc <- lapply(seq(fnam), function(i){
+  # get UTC date from fnam
+  su <- strsplit(fnam[[i]], "A")
+  su <- su[[1]][length(su[[1]])]
+  org <- paste0(substring(su, 1,4), "-01-01")
+  utcday <- as.Date((as.numeric(substring(su, 5,7))-1), origin=org)
+  
+  if(grepl("v", su)){
+    utctime <- NULL
+    utcdate <- utcday
+  } else {
+    utctime <- paste0(substring(su, 9, 10), ":", substring(su, 11, 12))
+    utcdate <- strptime(paste0(utcday,utctime), format='%Y-%m-%d %H:%M', tz="UTC")
+  }
+  
+  utcdate
+})
+
+
