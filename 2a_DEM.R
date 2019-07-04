@@ -1,9 +1,12 @@
 # 2a get DEM
+
+
 library(raster)
 library(mapview)
+library(rgdal)
 
 
-# get DEM
+############  get REMA DEM ###############################
 
 dempath <- "D:/DEM_8m/tiles_westcoast/"
 
@@ -28,6 +31,9 @@ dem_tiles <- lapply(seq(dt), function(i){
 
 dem_tiles
 
+
+########## MERGE TILES ############################
+
 #generate command for merging all the tiles
 cm <- lapply(seq(dem_tiles), function(i){
     if(i < seq(dem_tiles)[length(seq(dem_tiles))]){
@@ -48,58 +54,77 @@ writeRaster(mos, paste0(dempath, "dem_mosaic_8m_westcoast_corrected.tif"), forma
 mos <- raster(paste0(dempath, "dem_mosaic_8m_westcoast.tif"))
 # filter out senseless values
 
-# filter mosaic
+# filter mosaic 3x3 
 mos_3 <- focal(mos, w=matrix(1/9,nrow=3,ncol=3))
-writeRaster(mos_3, paste0(dempath, "dem_mosaic_8m_westcoast_filter_3x3_corr.tif"), format="GTiff", overwrite=T)
-
+mos_c <- mos_3
 # correct for negative NA values
-mos_c <- raster(paste0(dempath, "dem_mosaic_8m_westcoast_filter_3x3_corr.tif"))
 mos_c[mos_c < (-300)] <- NA
 writeRaster(mos_c, paste0(dempath, "dem_mosaic_8m_westcoast_filter_3x3_corr2.tif"), format="GTiff", overwrite=T)
 
-
-# run again!
 # resample to 30m
-mos_3_30 <- aggregate(mos_3, fact=(30/8))
+mos_3_30 <- aggregate(mos_c, fact=(30/8))
 writeRaster(mos_3_30, paste0(dempath, "dem_mosaic_30m_westcoast_filter_3x3_corr.tif"), format="GTiff", overwrite=T)
 
 
-# takes too much time and doesn't work sometimes
-# # make a template polygon, where DEM is not NA
-# tpl_hs <- mos
-# tpl_hs <- setValues(tpl_hs, ifelse(!is.na(tpl_hs[]), 1, NA))
-# 
-# 
-# gdal_polygonizeR <- function(x, outshape=NULL, gdalformat = 'ESRI Shapefile', pypath=NULL, readpoly=TRUE, quiet=TRUE){
-#   if (isTRUE(readpoly)) require(rgdal)
-#   if (is.null(pypath)) {
-#     pypath <- Sys.which('gdal_polygonize.py')}
-#   if (!file.exists(pypath)) stop("Can't find gdal_polygonize.py on your system.")
-#   owd <- getwd()
-#   on.exit(setwd(owd))
-#   setwd(dirname(pypath))
-#   if (!is.null(outshape)) {
-#     outshape <- sub('\\.shp$', '', outshape)
-#     f.exists <- file.exists(paste(outshape, c('shp', 'shx', 'dbf'), sep='.'))
-#     if (any(f.exists))
-#       stop(sprintf('File already exists: %s',
-#                    toString(paste(outshape, c('shp', 'shx', 'dbf'),
-#                                   sep='.')[f.exists])), call.=FALSE)
-#   } else outshape <- tempfile()
-#   if (is(x, 'Raster')) {
-#     require(raster)
-#     writeRaster(x, {f <- tempfile(fileext='.tif')})
-#     rastpath <- normalizePath(f)
-#   } else if (is.character(x)) {
-#     rastpath <- normalizePath(x)
-#   } else stop('x must be a file path (character string), or a Raster object.')
-#   system2('python', args=(sprintf('"%1$s" "%2$s" -f "%3$s" "%4$s.shp"',
-#                                   pypath, rastpath, gdalformat, outshape)))
-#   if (isTRUE(readpoly)) {
-#     shp <- readOGR(dirname(outshape), layer = basename(outshape), verbose=!quiet)
-#     return(shp)
-#   }
-#   return(NULL)
-# }
-# 
-# tpl <- gdal_polygonizeR(tpl_hs, pypath="C:/OSGeo4W64/bin/gdal_polygonize.py")
+mos_c <- raster(paste0(dempath, "dem_mosaic_8m_westcoast_filter_3x3_corr2.tif"))
+
+
+############  get 200m DEM to fill NA values ####################################################################
+
+dpath<- "E:/Antarctica/DEM/demwgs200_v2.tar/wgs84_200m/wgs84_200m/hdr.adf"
+x <- new("GDALReadOnlyDataset", dpath)
+getDriver(x)
+getDriverLongName(getDriver(x))
+xx<-asSGDF_GROD(x)
+dem200 <- raster(xx)
+writeRaster(dem200, "E:/Antarctica/DEM/DEM_WGS200.tif", format="GTiff")
+
+dem200 <- raster("E:/Antarctica/DEM/DEM_WGS200.tif")
+
+
+############  CUT TO AOI ####################################################################
+
+l8proj <- crs("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m
++no_defs +ellps=WGS84 +towgs84=0,0,0")
+aoipath <- "D:/run_everything/Antarctica/aoi/MDV/"
+aoi <- readOGR(list.files(aoipath, pattern="adp.shp", full.names = T))
+aoi <- spTransform(aoi, l8proj)
+
+mos_caoi <- crop(mos_c, aoi)
+dem200aoi <- crop(dem200, aoi)
+
+
+
+############  fill NA values  ####################################################################
+
+# get them to the same resolution
+dem200hr <- resample(dem200aoi, mos_caoi)
+
+# introduce dem200 in mos_c for all locations that are na in mos_c
+mos_filled <- overlay(dem200hr, mos_caoi, fun = function(x, y) {
+  y[is.na(y[])] <- x
+  return(x)
+})
+writeRaster(mos_filled, "E:/Antarctica/DEM/MDV_8m_filled.tif", format="GTiff")
+
+
+############  cut DEM to rock outcrop lower than XXX m in order to try TWI for the valleys ###############################
+
+
+
+
+############################### tranlate to saga grid ##############################################################
+library(gdalUtils)
+library(raster)
+
+path_saga_norm <- "C:/OSGeo4W64/apps/saga-ltr/"
+sagaCmd <- paste0(path_saga_norm, "saga_cmd.exe")
+
+saga_outpath <- "E:/Antarctica/runoff_paths/"
+
+dem <- "E:/Antarctica/DEM/MDV_8m_filled.tif"
+
+gdalUtils::gdalwarp(dem, paste0(saga_outpath,"MDV_DEM_8m_filled.sdat"), 
+                    overwrite=TRUE,  of='SAGA')
+
+

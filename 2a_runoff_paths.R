@@ -76,3 +76,17 @@ dd = gDistance(cn, as(r,"SpatialPoints"), byid=TRUE)
 r[] = apply(dd,1,min)
 plot(r)
 
+
+
+
+
+
+gdalUtils::gdalwarp(paste0(saga_outpath,"FlowAccumulation_30.sdat"),
+                    paste0(saga_outpath,"Flow_Acc_30m.tif") , 
+                    overwrite=TRUE) 
+
+
+gdalUtils::gdalwarp(paste0(saga_outpath,"Topographic Wetness Index.sdat"),
+                    paste0(saga_outpath,"TWI.tif") , 
+                    overwrite=TRUE) 
+
