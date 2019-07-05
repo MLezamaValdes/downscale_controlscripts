@@ -86,7 +86,18 @@ gdalUtils::gdalwarp(paste0(saga_outpath,"FlowAccumulation_30.sdat"),
                     overwrite=TRUE) 
 
 
-gdalUtils::gdalwarp(paste0(saga_outpath,"Topographic Wetness Index.sdat"),
-                    paste0(saga_outpath,"TWI.tif") , 
+gdalUtils::gdalwarp(paste0(saga_outpath,"TWI_valley.sdat"),
+                    paste0(saga_outpath,"TWI_valley.tif") , 
                     overwrite=TRUE) 
+
+
+
+p <- "E:/Antarctica/DEM/MDV_8m_valley_floor.tif"
+gdalUtils::gdalwarp(p, paste0(saga_outpath,"MDV_8m_valley_floor.sdat"), 
+                    overwrite=TRUE,  of='SAGA')
+
+
+p <- "E:/Antarctica/DEM/TWI_valley.tif"
+gdalUtils::gdalwarp(p, paste0(saga_outpath,"TWI_valley.sdat"), 
+                    overwrite=TRUE,  of='SAGA')
 

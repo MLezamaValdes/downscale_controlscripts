@@ -108,9 +108,17 @@ mos_filled <- overlay(dem200hr, mos_caoi, fun = function(x, y) {
 writeRaster(mos_filled, "E:/Antarctica/DEM/MDV_8m_filled.tif", format="GTiff")
 
 
-############  cut DEM to rock outcrop lower than XXX m in order to try TWI for the valleys ###############################
+############  cut DEM to everything lower than XXX m in order to try TWI for the valleys ###############################
 
+valley_DEM <- raster("E:/Antarctica/DEM/MDV_8m_filled.tif")
+# path <- "E:/Antarctica/rock_outcrop/Rock_outcrop_high_res_from_landsat_8/"
+# roc <- readOGR(list.files(path, pattern=".shp", full.names = T))
 
+library(mapview)
+valley_DEM[valley_DEM > 600] <- NA
+mapview(valley_DEM)
+
+writeRaster(valley_DEM, "E:/Antarctica/DEM/MDV_8m_valley_floor.tif", format="GTiff")
 
 
 ############################### tranlate to saga grid ##############################################################
