@@ -182,6 +182,22 @@ lsat8_sdos <- lapply(seq(sel_f), function(i){
   stack(fac[lo[i]:hi[i]])
 })
 
+# get extent of relevant files to crop DEM
+L8exts <- lapply(seq(s), function(i){
+  p <- as(extent(lsat8_sdos[[i]]), 'SpatialPolygons')
+  crs(p) <- l8proj
+  p
+})
+m <- do.call(bind, L8exts)
+
+# SpatialPolygons to SpatialPolygonsDataFrame
+mid <- sapply(slot(m, "polygons"), function(x) slot(x, "ID"))
+m.df <- data.frame( ID=1:length(m), row.names = mid) 
+mn <- SpatialPolygonsDataFrame(m, m.df)
+
+writeOGR(mn, dsn="E:/Antarctica/DEM/L8_ext.shp", layer="L8_ext",
+         driver="ESRI Shapefile")
+
 #############  Calculation of TOA (Top of Atmospheric) spectral radiance and #################### 
 #################  brightness temperature ##################################################
 
@@ -224,174 +240,160 @@ BTC <- lapply(seq(ss_f), function(i){
 })
 
 
-################## MAKE TERRAIN CORRECTION FOR LANDCOVER PREDICTION #############################################
-
-# get DEM
-mos <- raster(list.files("E:/Antarctica/DEM/", full.names=T))
-
-L8exts <- lapply(seq(BTC), function(i){
-  p <- as(extent(BTC[[i]]), 'SpatialPolygons')
-  crs(p) <- l8proj
-  p
-})
-
-m <- do.call(bind, L8exts) 
-
-mos_s <- crop(mos, extent(m))
-mos_s[mos_s < (-300)] <- NA
-
-# write small DEM for runoff path calculation
-writeRaster(mos_s, paste0(l8out, "DEM_MDV_8m_not_corr.tif"), format="GTiff", overwrite=T)
-
-
-# resample DEM to the tile, make slope, aspect and hillshade rasters
-# calculate topographic correction for the tile 
-
-slope <- terrain(mos_s, opt='slope')
-aspect <- terrain(mos_s, opt='aspect')
-writeRaster(slope, paste0(l8out, "slope_8m_s.tif"), format="GTiff", overwrite=T)
-writeRaster(aspect, paste0(l8out, "aspect_8m_s.tif"), format="GTiff", overwrite=T)
-
-
-slope <- raster(paste0(l8out, "slope_8m_s.tif"))
-aspect <- raster(paste0(l8out, "aspect_8m_s.tif"))
-sazel <- lapply(seq(ss_f), function(i){
-  mD <- readMeta(datloc$meta[[ss_f[i]]], raw=T)
-  sun_azimuth <- as.numeric(mD$IMAGE_ATTRIBUTES["SUN_AZIMUTH",])
-  sun_elev <- as.numeric(mD$IMAGE_ATTRIBUTES["SUN_ELEVATION",])
-  list(sun_azimuth, sun_elev)
-})
-
-# take mean of sun elevation and azimuth to be found in Landsat files that are being used in scene
-saz <- mean(unlist(lapply(sazel, `[[`, 1)))
-sev <- mean(unlist(lapply(sazel, `[[`, 2)))
-
-hils <- hillShade(slope, aspect, angle=sev, direction=saz)
-writeRaster(hils, paste0(l8out, "hillshading_8m_s.tif"), format="GTiff")
-
-#hils <- raster(paste0(l8out, "hillshading_8m.tif"))
-
-# run topocorr
-ac <- lsat8_sdos
-for(i in seq(ac)){
-  # does ac L8 fall into land area? 
-  ls <- crop(land, extent(ac[[i]]))
-  testac <- aggregate(ac[[i]][[1]], fact=40)
-  te <- unlist(extract(testac, ls))
-  if(any(!is.na(te)) & any(!is.nan(te))){
-      hs <- crop(hils, extent(ac[[i]][[1]]))
-      hils_30 <- resample(hs, ac[[i]][[1]])
-      x <- calcTopoCorr(ac[[i]], hillsh = hils_30)
-      writeRaster(x, paste0(l8out, "tc/tc_", i, ".tif"), format="GTiff")
-  }
-}
-
-# # compare ac and tc
-# plotRGB(ac[[4]], r=7, g=6, b=5, stretch="hist")
-# plotRGB(x, r=7, g=6, b=5, stretch="hist")
-
-tc <- lapply(seq(2), function(i){
-    stack(list.files(paste0(l8out, "tc/"), full.names=T, pattern="tif$")[i])
-}) 
-
-# merge topographically corrected tiles
-
-
-################## MAKE LANDCOVER PREDICTION ####################################################################
-# # VIS; NIR; SWIR for Landcover training
-# lctrdat <- lapply(seq(metaData), function(i){
-#   stack(ac[[i]][[4:9]])
+# ################## MAKE TERRAIN CORRECTION FOR LANDCOVER PREDICTION #############################################
+# 
+# 
+# # get 200m filled DEM
+# 
+# 
+# # resample DEM to the tile, make slope, aspect and hillshade rasters
+# # calculate topographic correction for the tile 
+# 
+# slope <- terrain(mos_s, opt='slope')
+# aspect <- terrain(mos_s, opt='aspect')
+# writeRaster(slope, paste0(l8out, "slope_8m_s.tif"), format="GTiff", overwrite=T)
+# writeRaster(aspect, paste0(l8out, "aspect_8m_s.tif"), format="GTiff", overwrite=T)
+# 
+# 
+# slope <- raster(paste0(l8out, "slope_8m_s.tif"))
+# aspect <- raster(paste0(l8out, "aspect_8m_s.tif"))
+# sazel <- lapply(seq(ss_f), function(i){
+#   mD <- readMeta(datloc$meta[[ss_f[i]]], raw=T)
+#   sun_azimuth <- as.numeric(mD$IMAGE_ATTRIBUTES["SUN_AZIMUTH",])
+#   sun_elev <- as.numeric(mD$IMAGE_ATTRIBUTES["SUN_ELEVATION",])
+#   list(sun_azimuth, sun_elev)
 # })
-
-# TO DO: TEST WITH AC ONLY to see if we can skip tc
-
-lctrdat <- tc
-mos <- merge(lctrdat[[1]], lctrdat[[2]])
-writeRaster(mos, paste0(l8out, "L8_ac_tc_mosaic.tif"), format="GTiff")
-
-mos <- raster(paste0(l8out, "L8_ac_tc_mosaic.tif"))
-hls <- raster(paste0(l8out, "hillshading_8m_s.tif"))
-
-lctrdat <- mos
-
-hlsres <- resample(hls, mos)
-
-# take a look at tiles 
-# mapview(lctrdat[[1]][[1]])+mapview(lctrdat[[2]][[1]])
-
-# load training shapes from QGis
-lcts <- readOGR(list.files(lcpath, pattern=".shp", full.names = T))
-lcts$id <- seq(1:nrow(lcts@data))
-
-# subset without wet soil
-lcts <- lcts[lcts$type!="wet soil",]
-
-names(hlsres) <- "hills"
-datstack <- stack(lctrdat, hlsres)
-lctrdat <- datstack
-
-# # to run on another machine
-# writeRaster(lctrdat, paste0(l8out, "extr/lctrdat.tif"), format="GTiff")
-# writeOGR(lcts, paste0(l8out, "extr/lcts.shp"), layer="lcts.shp", driver="ESRI Shapefile")
-
-lctraindf <- lapply(seq(lctrdat), function(i){
-  extract(lctrdat, lcts, df=T)
-})
-
-lcts$orgID <- lcts$id
-
-is <- lapply(seq(lctrdat), function(i){
-  intersect(lcts, lctrdat)
-})
-
-# run from here
-
-# eliminate NULL listeneinträge
-trainex <- lapply(seq(lctraindf), function(i){
-  lctraindf[[i]][vapply(lctraindf[[i]], Negate(is.null), NA)]
-})
-
-sapply(seq(trainex), function(i){
-  seq(trainex[[i]])
-})
-
-
-trainexdf <- lapply(seq(trainex), function(i){
-  lapply(seq(trainex[[i]]), function(j){
-    df <- data.frame(trainex[[i]][[j]])
-    df$type <- rep(as.character(is[[i]]$type[j]), nrow(trainex[[i]][[j]]))
-    df$sh_ID <- rep(is[[i]]$orgID[j], nrow(trainex[[i]][[j]]))
-    names(df) <- substrRight(names(df), 6)
-    df
-  })
-})
-
-
-# add info concerning sample shape number, type of sample shape content and scene 
-trainex <- lapply(seq(lctraindf), function(i){
-  if()
-})
-df <- data.frame(lctraindf[[4]][[3]])
-df$sshape <- rep("1", nrow(df))
-df$type <- rep(as.character(lcts@data$type[1]), nrow(df))
-df$scene <- rep("4", nrow(df))
-
-lctraindf[[4]][[2]]$sshape <- rep("1", nrow(lctraindf[[4]][[2]]))
-lctraindf[[4]][[1]]$type <- as.character(lcts@data$type[1])
-
-
-
-
-which(is.null(lctraindf[[4]][[is.null]][[1,]]))
-
-library(plyr)
-df <- ldply(lctraindf, data.frame)
-
-
-lctraindfc <- do.call(rbind, lctraindf)
-rbind()
-
-write.csv(lctraindf, paste0(lcpath, "traindf.csv"))
+# 
+# # take mean of sun elevation and azimuth to be found in Landsat files that are being used in scene
+# saz <- mean(unlist(lapply(sazel, `[[`, 1)))
+# sev <- mean(unlist(lapply(sazel, `[[`, 2)))
+# 
+# hils <- hillShade(slope, aspect, angle=sev, direction=saz)
+# writeRaster(hils, paste0(l8out, "hillshading_8m_s.tif"), format="GTiff")
+# 
+# #hils <- raster(paste0(l8out, "hillshading_8m.tif"))
+# 
+# # run topocorr
+# ac <- lsat8_sdos
+# for(i in seq(ac)){
+#   # does ac L8 fall into land area? 
+#   ls <- crop(land, extent(ac[[i]]))
+#   testac <- aggregate(ac[[i]][[1]], fact=40)
+#   te <- unlist(extract(testac, ls))
+#   if(any(!is.na(te)) & any(!is.nan(te))){
+#       hs <- crop(hils, extent(ac[[i]][[1]]))
+#       hils_30 <- resample(hs, ac[[i]][[1]])
+#       x <- calcTopoCorr(ac[[i]], hillsh = hils_30)
+#       writeRaster(x, paste0(l8out, "tc/tc_", i, ".tif"), format="GTiff")
+#   }
+# }
+# 
+# # # compare ac and tc
+# # plotRGB(ac[[4]], r=7, g=6, b=5, stretch="hist")
+# # plotRGB(x, r=7, g=6, b=5, stretch="hist")
+# 
+# tc <- lapply(seq(2), function(i){
+#     stack(list.files(paste0(l8out, "tc/"), full.names=T, pattern="tif$")[i])
+# }) 
+# 
+# # merge topographically corrected tiles
+# 
+# 
+# ################## MAKE LANDCOVER PREDICTION ####################################################################
+# # # VIS; NIR; SWIR for Landcover training
+# # lctrdat <- lapply(seq(metaData), function(i){
+# #   stack(ac[[i]][[4:9]])
+# # })
+# 
+# # TO DO: TEST WITH AC ONLY to see if we can skip tc
+# 
+# lctrdat <- tc
+# mos <- merge(lctrdat[[1]], lctrdat[[2]])
+# writeRaster(mos, paste0(l8out, "L8_ac_tc_mosaic.tif"), format="GTiff")
+# 
+# mos <- raster(paste0(l8out, "L8_ac_tc_mosaic.tif"))
+# hls <- raster(paste0(l8out, "hillshading_8m_s.tif"))
+# 
+# lctrdat <- mos
+# 
+# hlsres <- resample(hls, mos)
+# 
+# # take a look at tiles 
+# # mapview(lctrdat[[1]][[1]])+mapview(lctrdat[[2]][[1]])
+# 
+# # load training shapes from QGis
+# lcts <- readOGR(list.files(lcpath, pattern=".shp", full.names = T))
+# lcts$id <- seq(1:nrow(lcts@data))
+# 
+# # subset without wet soil
+# lcts <- lcts[lcts$type!="wet soil",]
+# 
+# names(hlsres) <- "hills"
+# datstack <- stack(lctrdat, hlsres)
+# lctrdat <- datstack
+# 
+# # # to run on another machine
+# # writeRaster(lctrdat, paste0(l8out, "extr/lctrdat.tif"), format="GTiff")
+# # writeOGR(lcts, paste0(l8out, "extr/lcts.shp"), layer="lcts.shp", driver="ESRI Shapefile")
+# 
+# lctraindf <- lapply(seq(lctrdat), function(i){
+#   extract(lctrdat, lcts, df=T)
+# })
+# 
+# lcts$orgID <- lcts$id
+# 
+# is <- lapply(seq(lctrdat), function(i){
+#   intersect(lcts, lctrdat)
+# })
+# 
+# # run from here
+# 
+# # eliminate NULL listeneinträge
+# trainex <- lapply(seq(lctraindf), function(i){
+#   lctraindf[[i]][vapply(lctraindf[[i]], Negate(is.null), NA)]
+# })
+# 
+# sapply(seq(trainex), function(i){
+#   seq(trainex[[i]])
+# })
+# 
+# 
+# trainexdf <- lapply(seq(trainex), function(i){
+#   lapply(seq(trainex[[i]]), function(j){
+#     df <- data.frame(trainex[[i]][[j]])
+#     df$type <- rep(as.character(is[[i]]$type[j]), nrow(trainex[[i]][[j]]))
+#     df$sh_ID <- rep(is[[i]]$orgID[j], nrow(trainex[[i]][[j]]))
+#     names(df) <- substrRight(names(df), 6)
+#     df
+#   })
+# })
+# 
+# 
+# # add info concerning sample shape number, type of sample shape content and scene 
+# trainex <- lapply(seq(lctraindf), function(i){
+#   if()
+# })
+# df <- data.frame(lctraindf[[4]][[3]])
+# df$sshape <- rep("1", nrow(df))
+# df$type <- rep(as.character(lcts@data$type[1]), nrow(df))
+# df$scene <- rep("4", nrow(df))
+# 
+# lctraindf[[4]][[2]]$sshape <- rep("1", nrow(lctraindf[[4]][[2]]))
+# lctraindf[[4]][[1]]$type <- as.character(lcts@data$type[1])
+# 
+# 
+# 
+# 
+# which(is.null(lctraindf[[4]][[is.null]][[1,]]))
+# 
+# library(plyr)
+# df <- ldply(lctraindf, data.frame)
+# 
+# 
+# lctraindfc <- do.call(rbind, lctraindf)
+# rbind()
+# 
+# write.csv(lctraindf, paste0(lcpath, "traindf.csv"))
 
 
 ################## CUT TO AOI ##################################################################################
@@ -402,26 +404,52 @@ lsat8.aoi <- mask(lsat8.aoi, aoi)
 
 
 ################## CALCULATE LST ####################################################################
+# get BTC files
+f <- list.files(paste0(l8out, "bt/"), full.names = T, pattern=".tif$")
+BTC <- lapply(seq(f), function(i){
+  raster(f[i])
+})
 
+
+btcmerge <- merge(BTC[[1]], BTC[[2]])
+
+# get rock outcrop to assign emissivity
+roc <- readOGR("E:/Antarctica/rock_outcrop/Rock_outcrop_high_res_from_landsat_8/Rock_outcrop_high_res_from_landsat_8.shp")
+mn <- readOGR("E:/Antarctica/DEM/L8_ext.shp")
+roc <- crop(roc, extent(mn))
+rroc <- rasterize(roc, btcmerge, progress = "text")
+rroc[!is.na(rroc)]<-1
+rroc[is.na(rroc)]<-2
 
 # TO DO: Make function!
 # Emissivity
-eta <- lc
+eta <- rroc
 eta[eta==2] <- 0.94 
 eta[eta==1] <- 0.97
 
 # Calculate the Land Surface Temperature
-LST <- (BTC/(1+(0.0010895*BTC/0.01438)*log(eta))) 
+LST <- lapply(seq(BTC), function(i){
+   x <- (BTC[[i]]/(1+(0.0010895*BTC[[i]]/0.01438)*log(eta))) 
+   
+   # write LST raster
+   writeRaster(x,paste0(l8out, "bt/LST_", i,".tif"), format="GTiff")
+})
 
-# ?? = 0.004 * Pv + 0.986
-# use 0.9668 (Yu, Guo, Wu) as correction value for bare soil
-emis <- 0.004*lsat8.PV+0.9668
+# # ?? = 0.004 * Pv + 0.986
+# # use 0.9668 (Yu, Guo, Wu) as correction value for bare soil
+# emis <- 0.004*lsat8.PV+0.9668
+# 
+# # Calculate the Land Surface Temperature
+# # LST = (BT / (1 + (0.00115 * BT / 1.4388) * Ln(??)))
+# LST <- (BTC/(1+(0.00115*BTC/1.4388)*log(emis))) 
 
-# Calculate the Land Surface Temperature
-# LST = (BT / (1 + (0.00115 * BT / 1.4388) * Ln(??)))
-LST <- (BTC/(1+(0.00115*BTC/1.4388)*log(emis))) 
+
+################ MAKE A BLOCKMASK #######################################
+plot(extent(btcmerge))
 
 
-# write LST raster
-writeRaster(LST, paste0(datapath, "LST.tif"), format="GTiff")
-
+pts <- spsample(aoi, 200, type="regular")
+grd <- makegrid(aoi, n = 200, pretty=T)
+plot(grd)
+grid <- makegrid(aoi, cellsize = 5000)
+plot(grid, add=T, col="red")

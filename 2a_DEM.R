@@ -65,9 +65,10 @@ writeRaster(mos_c, paste0(dempath, "dem_mosaic_8m_westcoast_filter_3x3_corr2.tif
 mos_3_30 <- aggregate(mos_c, fact=(30/8))
 writeRaster(mos_3_30, paste0(dempath, "dem_mosaic_30m_westcoast_filter_3x3_corr.tif"), format="GTiff", overwrite=T)
 
-
 mos_c <- raster(paste0(dempath, "dem_mosaic_8m_westcoast_filter_3x3_corr2.tif"))
 
+############  crop DEM to L8 extent ####################################################################
+mn <- readOGR("E:/Antarctica/DEM/L8_ext.shp")
 
 ############  get 200m DEM to fill NA values ####################################################################
 
