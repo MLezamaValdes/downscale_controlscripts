@@ -13,7 +13,7 @@ library(viridis)
 
 
 # filepath <- "D:/MODIS_MDV/HDF/"
-aoipath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/data/aoi_MDV/"
+aoipath <- "E:/Antarctica/aoi/MDV/"
 hdfpath <- "D:/MODIS_MDV/2018_01_19/hdfs/"
 
 ## set archive directory
@@ -40,8 +40,9 @@ antaproj <- "+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ell
 ####### GET DATA ONLINE ##############################################################################################
 
 ## set aoi and time range for the query
-aoi <- readOGR(list.files(aoipath, pattern="aoi_MDV_new.shp", full.names = T))
+aoi <- readOGR(list.files(aoipath, pattern="adp.shp", full.names = T))
 aoiutm <- spTransform(aoi, crs("+proj=utm +zone=57 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs "))
+aoianta <- spTransform(aoi, antaproj)
 set_aoi(aoiutm)
 
 time_range <-  c("2018-01-19", "2018-01-19")
@@ -94,7 +95,7 @@ runheg(files=filescomp, indir, outdir, tplpath, layer = "View_time|")
 
 ######## GO ON PROCESSING LST IN R ########################################################################################
 
-# get converted tif files
+# get tif files
 lst <- lapply(seq(filescomp), function(i){
   raster(list.files(outdir, pattern=".tif$", full.names=T)[i])
 }) 
@@ -114,123 +115,57 @@ lst_c <- lapply(seq(lst), function(i){
   return(lstc)
 })
 
-
-# # view all of them - does not really make sense
-# mvc <- character()
-# for(i in seq(lst_c)){
-#   mvc[i] <- paste0("mapview(lst_c[[", i, "]])+")
-# }
-# mvc[length(mvc)] <- paste0("mapview(lst_c[[", length(mvc), "]])")
-# 
-# c = parse(text = mvc) 
-# eval(c) 
-
 # project rasters
 lst_cp <- lapply(seq(lst_c), function(i){
   projectRaster(lst_c[[i]], crs = antaproj)
 })
 
-# # look at properties
-# lapply(seq(lst_cp), function(i){
-#   res(lst_cp[[i]])
-# })
+
+# get extent of files
+MODext <- lapply(seq(lst_cp), function(i){
+  p <- as(extent(lst_cp[[i]]), 'SpatialPolygons')
+  crs(p) <- antaproj
+  p
+})
+m <- do.call(bind, MODext)
+
 
 # make a template to force 1x1km pixels
 tmplras <- lst_cp[[1]]
+tmplras
+extent(tmplras) <- extent(m)
 res(tmplras) <- c(1000, 1000)
 tmplras[] <- 1
 
 # resample all rasters to 1km x 1km resolution  
 lst_res <- lapply(seq(lst_cp), function(i){
+  print(i)
   resample(lst_cp[[i]], tmplras)
 })
 
 # save projected and resampled rasters
 for(i in seq(lst_res)){
-  writeRaster(lst_res[[i]], paste0(datloc, "LST_2018_01_19/lst_proj_res", i, ".tif"), format="GTiff", 
+  print(i)
+  writeRaster(lst_res[[i]], paste0(datloc, "LST_2018_01_19/", names(lst_res[[i]]), i, ".tif"), format="GTiff", 
               overwrite=T)
 }
 
-# read them back in
-lst_cp <- lapply(seq(grep(list.files(path=paste0(datloc, "LST_2018_01_19/"), full.names=T), pattern='res', inv=T, value=T)), function(i){
-  f <- grep(list.files(path=paste0(datloc, "LST_2018_01_19/"), full.names=T), pattern='res', inv=T, value=T)
-  raster(f[i])
-})
-
-################ PROCESS VIEWTIME IN R ########################################################################
-# 
-# # eliminate .met files
-# #file.remove(list.files(outdir, pattern="tif.met$", full.names=T))
-# 
-# # get converted tif viewtime rasters
-# vtr <- lapply(seq(filescomp), function(i){
-#   x <- raster(list.files(outdir, pattern="View", full.names=T)[i])
-#   x[x>240] <- NA
-#   x
-# }) 
-# 
-# hist(vtr[[1]])
-# 
-# # run locmodisviewtime 
-# aoianta <- spTransform(aoi, crs(antaproj))
-# vt <- lapply(seq(vtr), function(i){
-#   x <- locmodisviewtime(ra=extent(aoianta), fnam = basename(filescomp)[i], ltz = "Pacific/Auckland",
-#                    newproj= antaproj, viewtime = vtr[[i]])
-#   if(typeof(x)=="list"){
-#     print(x$fnam_UTC[1]- x$utc_frm_LocST[1])
-#   }
-#   return(x)
+# # read converted to °C, projected and resampled tifs back in
+# lst_cp <- lapply(seq(grep(list.files(path=paste0(datloc, "LST_2018_01_19/"), full.names=T), pattern='res', inv=T, value=T)), function(i){
+#   f <- grep(list.files(path=paste0(datloc, "LST_2018_01_19/"), full.names=T), pattern='res', inv=T, value=T)
+#   raster(f[i])
 # })
 # 
-# saveRDS(vt, file=paste0(datloc, "viewtime1_2.rds"))
-# 
-# vt <- readRDS(paste0(datloc, "viewtime1_2.rds"))
-# vt
 
 
 
-# make shapefiles from where data is available in swath and write time info from filename into column
 
 
-outshape <- "D:/run_everything/Antarctica/MODIS/time_shapes/shape1.shp"
-
-## Define the function
-gdal_polygonizeR <- function(x, outshape=NULL, gdalformat = 'ESRI Shapefile',
-                             pypath=NULL, readpoly=TRUE, quiet=TRUE) {
-  if (isTRUE(readpoly)) require(rgdal)
-  if (is.null(pypath)) {
-    pypath <- Sys.which('gdal_polygonize.py')}
-  if (!file.exists(pypath)) stop("Can't find gdal_polygonize.py on your system.")
-  owd <- getwd()
-  on.exit(setwd(owd))
-  setwd(dirname(pypath))
-  if (!is.null(outshape)) {
-    outshape <- sub('\\.shp$', '', outshape)
-    f.exists <- file.exists(paste(outshape, c('shp', 'shx', 'dbf'), sep='.'))
-    if (any(f.exists))
-      stop(sprintf('File already exists: %s',
-                   toString(paste(outshape, c('shp', 'shx', 'dbf'),
-                                  sep='.')[f.exists])), call.=FALSE)
-  } else outshape <- tempfile()
-  if (is(x, 'Raster')) {
-    require(raster)
-    writeRaster(x, {f <- tempfile(fileext='.tif')})
-    rastpath <- normalizePath(f)
-  } else if (is.character(x)) {
-    rastpath <- normalizePath(x)
-  } else stop('x must be a file path (character string), or a Raster object.')
-  system2('python', args=(sprintf('"%1$s" "%2$s" -f "%3$s" "%4$s.shp"', pypath, rastpath, gdalformat, outshape)))
-  if (isTRUE(readpoly)) {
-    shp <- readOGR(dirname(outshape), layer = basename(outshape), verbose=!quiet)
-    return(shp)
-  }
-  return(NULL)
-}
-
-
-pp <- "C:/Python27/gdal_polygonize.py"
-p <- gdal_polygonizeR(x=lst_cp[[1]], pypath = pp)
-
+# read converted to °C, projected and resampled tifs back in
+fls <- list.files(path=paste0(datloc, "LST_2018_01_19/"), full.names=T, pattern='new')
+lst_res <- lapply(seq(fls), function(i){
+  raster(fls[i])
+})
 
 
 
@@ -256,6 +191,8 @@ mapview(mosaic, col.regions = viridis(500), legend = TRUE)
 
 ############ MAKE A RASTER WHICH GIVES INFO ON INPUT RASTER ##########################################################
 
+mosaic <- raster(paste0(datloc, "MDV_MODIS_LST_Mosaic.tif"))
+
 # find max bounding box
 newextent <- compbb(lst_res)
 
@@ -264,44 +201,55 @@ lst_ex <- lapply(seq(lst_res), function(i){
   crop(lst_res[[i]], newextent)
 })
 
-lst_s <- stack(lst_ex)
+lst_ex <- stack(lst_ex)
 
-# find out which rasters with valid values are under each pixel
-lst_val <- lst_s
-for(i in seq(nlayers(lst_val))){
-  lst_val[[i]][!is.na(lst_val[[i]])] <- 1
-  print(i)
+# put in original names
+substrRight <- function(x, n){
+  substr(x, nchar(x)-n+1, nchar(x))
 }
 
-Sys.time(poly1 <- rasterToPolygons(lst_val[[i]], fun=function(x){x==1}))
+nums <- as.numeric(gsub("[^0-9]", "", names(lst_ex))) # take just the numeric parts of the name
+orgnam <- lapply(seq(lst), function(i){
+  x<-names(lst[[nums[i]]])
+  print(i)
+  x
+})
+
+# check if everything went well
+i <- 19
+orgnam[[i]]
+names(lst[[nums[i]]])
+
+# put in original names
+for(i in seq(nlayers(lst_ex))){
+  names(lst_ex[[i]]) <- orgnam[[i]]
+}
+
+# test
+res <- names(lst_ex)
+c <- sapply(seq(lst), function(i){
+  names(lst[[nums[i]]])
+})
+
+res == c
+
+lst_s <- lst_ex
+
+## crop everything to aoi - perhaps here? 
+plot(lst_s[[1]])
+plot(aoianta, add=T)
+
+lst_s <- crop(lst_s, aoianta)
 
 
-mapview(lst_val[[1]])
+################ MAKE DATE RASTERS #################################
 
-# make cell numbers for extraction
-cn <- c(1:length(lst_s[[1]][]))
+fnams <- names(lst_s)
 
-rasloc <- extract(lst_val, cn)
-
-# write / read raster locations table 
-write.csv(rasloc, file=paste0(datloc, "MODIS_swath_locations.csv"))
-rasloc <- read.csv(file=paste0(datloc, "MODIS_swath_locations.csv"))
-
-# make raster with swath sum values
-rassum <- rowSums(rasloc, na.rm = T)
-rlocr <- lst_s[[1]]
-rlocr[] <- rassum
-
-writeRaster(rlocr, paste0(datloc, "raslocsum.tif"), format="GTiff", 
-            overwrite=T, bylayer=T)
-
-# get MODIS dates
-# add viewtime from filename in UTC
-fnam <- list.files("D:/MODIS_MDV/2018_01_19/get_data/MODIS/")
-
-utc <- lapply(seq(fnam), function(i){
+utcdates <- lapply(seq(fnams), function(i) {
+  fnam <- fnams[i]
   # get UTC date from fnam
-  su <- strsplit(fnam[[i]], "A")
+  su <- strsplit(fnam, "A")
   su <- su[[1]][length(su[[1]])]
   org <- paste0(substring(su, 1,4), "-01-01")
   utcday <- as.Date((as.numeric(substring(su, 5,7))-1), origin=org)
@@ -313,8 +261,171 @@ utc <- lapply(seq(fnam), function(i){
     utctime <- paste0(substring(su, 9, 10), ":", substring(su, 11, 12))
     utcdate <- strptime(paste0(utcday,utctime), format='%Y-%m-%d %H:%M', tz="UTC")
   }
-  
-  utcdate
 })
 
+# test
+v <- NULL
+for(i in seq(utcdates)){
+  v[i] <- as.character(utcdates[[i]])
+}
+data.frame(fnams=fnams, utc = v)
+
+# 
+library(lubridate)
+
+
+# function to take minutes, hours and days out of date format
+dates <- utcdates
+
+datestodoymod <- function(dates){
+  
+  doy <- sapply(seq(dates), function(i){
+    fnam <- fnams[i]
+    # get UTC date from fnam
+    su <- strsplit(fnam, "A")
+    su <- su[[1]][length(su[[1]])]
+    doy <- substring(su, 5,7)
+  })
+  
+  minutes <- sapply(seq(dates), function(i){
+    minute(dates[[i]])
+  })
+  
+  hours <- sapply(seq(dates), function(i){
+    hour(dates[[i]])
+  })
+  
+  
+  dateras <- lapply(seq(dates), function(i){
+    d <- lst_s[[i]]
+    d[!is.na(d)] <- doy[[i]]
+    mod <- lst_s[[i]]
+    mod[!is.na(mod)] <- (hours[[i]]*60)+minutes[[i]]
+    stack(d, mod)
+  })
+  
+  drs <- stack(dateras)
+  dayras <- subset(drs, c(seq(1,nlayers(drs), by=2)))
+  timeras <- subset(drs, c(seq(2,nlayers(drs), by=2)))
+  
+  minutesofday <- (hours*60)+minutes
+  
+  return(list(dayofyear = doy, minutesofday = minutesofday, 
+              dayofyearras = dayras, minutesofdayras = timeras))
+}
+
+
+MODdate <- datestodoymod(dates)
+
+# make a raster with min of time range and max of time range 
+# and one with amount of rasters going into the pixel
+
+
+
+emptlay <- lapply(seq(nlayers(MODdate$minutesofdayras)), function(i) {
+  any(!is.na(MODdate$minutesofdayras[[i]])[]==1)
+})
+
+sell <- unlist(emptlay)
+b <- seq(1:length(sell))
+sel <- b[sell]
+
+subtimeras <- subset(MODdate$minutesofdayras, sel)
+plot(subtimeras)
+
+# to get amount of available values
+nonna <- raster(apply(as.array(subtimeras), 1:2, function(x) length(na.omit(x))))
+nv <- nonna[]
+nonnares <- subtimeras[[1]]
+nonnares[] <- nv
+plot(nonnares)
+nonnares
+
+# min and max to get time range
+mi <- min(subtimeras, na.rm = T)
+ma <- max(subtimeras, na.rm=T)
+diff <- ma-mi
+
+writeRaster(nonna, "E:/Antarctica/MODIS/date/amount_available_data.tif", format="GTiff", overwrite=T)
+writeRaster(mi, "E:/Antarctica/MODIS/date/min_time.tif", format="GTiff", overwrite=T)
+writeRaster(ma, "E:/Antarctica/MODIS/date/max_time.tif", format="GTiff", overwrite=T)
+writeRaster(diff, "E:/Antarctica/MODIS/date/time_range.tif", format="GTiff", overwrite=T)
+
+
+# find max bounding box
+tl <- list(nonnares, mi, ma, diff)
+
+newextent <- compbb(tl)
+
+# bring them all to new extent
+tl_ex <- lapply(seq(tl), function(i){
+  crop(tl[[i]], newextent)
+})
+
+
+tstack <- stack(nonnares, mi, ma, diff)
+names(tstack) <- c("sum_av", "min_t", "max_t", "t_range")
+writeRaster(tstack, "E:/Antarctica/MODIS/date/time_rasters.tif", format="GTiff", overwrite=T)
+
+
+############# GOODNESS OF FIT OF ACQUISITION TIME (L8 / MODIS) ##############################
+
+timeex <- data.frame(extract(tstack, extent(tstack)))
+
+L84 <- "2018-01-19 20:38:44"
+L85 <- "2018-01-19 20:39:08"
+
+l8time <- c(L84, L85)
+
+L8date <- lapply(seq(l8time), function(i){
+    strptime(l8time[i], format='%Y-%m-%d %H:%M:%S', tz="UTC")
+})
+
+# convert L8 time to minute of day
+L8dates <- datestodoymod(L8date)
+
+
+timeex$L8time <- rep(mean(L8dates$minutesofday), nrow(timeex))
+
+timeex$fit <- 99
+for(i in seq(nrow(timeex))){
+  if(any(is.na(timeex[i,]))==F){ # are there NA values interfering
+      if(timeex$L8time[i] < timeex$max_t[i] & timeex$L8time[i] > timeex$min_t[i]){
+          timeex$fit[i] <- 1 # one where L8 time lies within MODIS timeframe 
+      } else {
+            timeex$fit[i] <- 0
+          }
+  }
+  print(i)
+}
+timeex$fit[timeex$fit==99] <- NA
+
+
+d <- table(timeex$fit)
+d[2]/d[1]
+d[2]/nrow(timeex) #Anteil Pixel mit �berlappender Zeitspanne
+
+timeex$dev <- 99
+for(i in seq(nrow(timeex))){
+  if(any(is.na(timeex[i,]))==F){ # are there NA values interfering
+    if(timeex$L8time[i] > timeex$max_t[i]){
+      timeex$dev[i] <- timeex$L8time[i] - timeex$max_t[i] # one where L8 time lies within MODIS timeframe 
+    } else if (timeex$L8time[i] < timeex$min_t[i]) {
+      timeex$dev[i] <- timeex$max_t[i] - timeex$L8time[i] 
+    } else if (timeex$fit[i]==1){
+      timeex$dev[i] <- 0
+    }
+  }
+  print(i)
+}
+timeex$dev[timeex$dev==99] <- NA
+
+
+table(timeex$dev)
+timediff <- tstack[[1]]
+
+timediff[] <- timeex$dev
+writeRaster(timediff, "E:/Antarctica/MODIS/date/time_diff_L8_MOD.tif", format="GTiff", overwrite=T)
+
+hist(timediff[])
 

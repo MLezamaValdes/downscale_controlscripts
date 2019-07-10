@@ -10,7 +10,7 @@ library(RStoolbox)
 library(mapview)
 library(satellite)
 
-datpath <- "D:/run_everything/Antarctica/"
+datpath <- "E:/Antarctica/"
 l8out <- paste0(datpath, "L8_data/")
 lcpath <- paste0(datpath, "LC_training/")
 
@@ -28,7 +28,7 @@ substrRight <- function(x, n){
 #### GET AND PROJECT AREA OF INTEREST ####################################################################
 l8proj <- crs("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m
 +no_defs +ellps=WGS84 +towgs84=0,0,0")
-aoipath <- "D:/run_everything/Antarctica/aoi/MDV/"
+aoipath <- "E:/Antarctica/aoi/MDV/"
 aoi <- readOGR(list.files(aoipath, pattern="adp.shp", full.names = T))
 aoi <- spTransform(aoi, l8proj)
 
@@ -49,7 +49,6 @@ lsat8o <- lapply(seq(datloc$meta), function(i){
 # ## Import SR rasters
 # list.files(sdirs,pattern=".tif")
 # rl <- lapply(paste0(path, files), raster)
-
 
 ###### CHECK WHICH SCENES GO TOGETHER #########################################################################
 
@@ -136,6 +135,10 @@ sel_f <- sel[unlist(aoibigarea)]
 
 ss1 <- which(unlist(bigarea)==T)
 ss_f <- ss1[which(aoibigarea==T)]
+
+
+# write date and time for later use with MODIS 
+
 
 ############# ELIMINATE 0 VALUES ########################################################################## 
 s <- sel_f
@@ -412,6 +415,7 @@ BTC <- lapply(seq(f), function(i){
 
 
 btcmerge <- merge(BTC[[1]], BTC[[2]])
+writeRaster(btcmerge, paste0(l8out, "bt/merged_BTC.tif"), format="GTiff")
 
 # get rock outcrop to assign emissivity
 roc <- readOGR("E:/Antarctica/rock_outcrop/Rock_outcrop_high_res_from_landsat_8/Rock_outcrop_high_res_from_landsat_8.shp")
@@ -447,9 +451,10 @@ LST <- lapply(seq(BTC), function(i){
 ################ MAKE A BLOCKMASK #######################################
 plot(extent(btcmerge))
 
+grd <- makegrid(aoi, n = 50, pretty=T)
+grd$val <- seq(1:nrow(grd))
+r <- rasterFromXYZ(grd) 
 
-pts <- spsample(aoi, 200, type="regular")
-grd <- makegrid(aoi, n = 200, pretty=T)
-plot(grd)
-grid <- makegrid(aoi, cellsize = 5000)
-plot(grid, add=T, col="red")
+blockmask <- resample(r, btcmerge, method="ngb")
+writeRaster(blockmask, paste0(l8out, "blockmask.tif"), format="GTiff")
+
