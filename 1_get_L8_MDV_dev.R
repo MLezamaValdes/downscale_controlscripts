@@ -1,12 +1,5 @@
 
-
-# get L8 data for 
-library(getSpatialData)
-library(sf)
-library(rgdal)
-library(raster)
-
-datpath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/data/L8_data/"
+####### LANDSAT 8 ##############################################################################################
 
 ####### GET DATA ONLINE ##############################################################################################
 
