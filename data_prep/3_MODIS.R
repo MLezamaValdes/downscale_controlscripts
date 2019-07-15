@@ -5,7 +5,7 @@ getprocessMODIS <- function(time_range){
   
   ####### LOAD PACKAGES, SET PATHS ###############################################################################
   
-  modisscenepath <- paste0(modispath, time_range[[i]][1], "/")
+  modisscenepath <- paste0(modispath, time_range[[j]][1], "/")
   hdfpath <- paste0(modisscenepath, "hdfs/")
   MODtifHDFoutpath <- paste0(modisscenepath, "translated/")
   MODLSTpath <- paste0(modisscenepath, "LST/")
@@ -28,10 +28,10 @@ getprocessMODIS <- function(time_range){
   # product2 <- grep("MYD11_L2_V6", product_names, value = T)
   
   ## query for records for your AOI, time range and product
-  query1 <- getMODIS_query(time_range = time_range[[i]], name = product1,
+  query1 <- getMODIS_query(time_range = time_range[[j]], name = product1,
                            username="MaiteLezama", password = "Eos300dmmmmlv",
                            aoi=get_aoi())
-  query2 <- getMODIS_query(time_range = time_range[[i]], name = product2,
+  query2 <- getMODIS_query(time_range = time_range[[j]], name = product2,
                            username="MaiteLezama", password = "Eos300dmmmmlv",
                            aoi=get_aoi())
   
@@ -179,6 +179,7 @@ getprocessMODIS <- function(time_range){
   
   writeRaster(mosaic, paste0(modisscenepath, areaname, "_MODIS_LST_Mosaic.tif"), format="GTiff", 
               overwrite=T, bylayer=T)
+  #mosaic <- raster(paste0(modisscenepath, areaname, "_MODIS_LST_Mosaic.tif"))
   
   # visualize mosaic
   #mapview(mosaic, col.regions = viridis(500), legend = TRUE)
@@ -194,48 +195,66 @@ getprocessMODIS <- function(time_range){
   
   # bring them all to new extent
   lst_ex <- lapply(seq(lst_res), function(i){
-    crop(lst_res[[i]], newextent)
+    x <- crop(lst_res[[i]], newextent)
+    names(x) <- names(lst_res[[i]])
+    x
   })
   
   lst_ex <- stack(lst_ex)
   
-  # put in original names if files have been read in or lost original filename
-  if(!grepl("11_L2", names(lst_ex))){
-    
-    nums <- as.numeric(gsub("[^0-9]", "", names(lst_ex))) # take just the numeric parts of the name
-    orgnam <- lapply(seq(lst), function(i){
-      x<-names(lst[[nums[i]]])
-      print(i)
-      x
-    })
-    
-    # check if everything went well
-    i <- 19
-    orgnam[[i]]
-    names(lst[[nums[i]]])
-    
-    # put in original names
-    for(i in seq(nlayers(lst_ex))){
-      names(lst_ex[[i]]) <- orgnam[[i]]
-    }
-    
-    # test
-    res <- names(lst_ex)
-    c <- sapply(seq(lst), function(i){
-      names(lst[[nums[i]]])
-    })
-    
-    res == c
+  # put in correct names if any got missing during processing
+  testnam <- which(grepl( "layer",names(lst_ex)))
+  for(i in seq(testnam)){
+    names(lst_ex[[testnam[i]]]) <- names(lst[[testnam[i]]])
   }
   
-  lst_s <- lst_ex
+  # # put in original names if files have been read in or lost original filename
+  # only to be used when rasters are being read in after writing, which in final
+  # routine shouldn't be the case
+
+  # while(any(!grepl("11_L2", names(lst_ex)))){
+  # 
+  #   nums <- as.numeric(gsub("[^0-9]", "", names(lst_ex))) # take just the numeric parts of the name
+  #   orgnam <- lapply(seq(lst), function(i){
+  #     x<-names(lst[[nums[i]]])
+  #     print(i)
+  #     x
+  #   })
+  # 
+  #   # check if everything went well
+  #   i <- 19
+  #   orgnam[[i]]
+  #   names(lst[[nums[i]]])
+  # 
+  #   # put in original names
+  #   for(i in seq(nlayers(lst_ex))){
+  #     names(lst_ex[[i]]) <- orgnam[[i]]
+  #   }
+  # 
+  #   # test
+  #   res <- names(lst_ex)
+  #   c <- sapply(seq(lst), function(i){
+  #     names(lst[[nums[i]]])
+  #   })
+  # 
+  #   res == c
+  # }
   
-  ## crop everything to aoi - perhaps here? 
-  lst_s <- crop(lst_s, aoianta)
+  # crop everything to aoi - perhaps here? 
+  lst_s <- crop(lst_ex, aoianta)
+  
+  # write
+  for(i in seq(nlayers(lst_s))){
+    print(i)
+    writeRaster(lst_s[[i]], paste0(MODLSTpath, "small_", names(lst_res[[i]]), ".tif"), format="GTiff", 
+                overwrite=T)
+  }
   
   print("indidvidual MODIS images stacked and cut to aoi")
   
   ################ MAKE DATE RASTERS #################################
+  
+  #lst_s <- stack(list.files(MODLSTpath, pattern="small", full.names=T))
   
   fnams <- names(lst_s)
   utcdates <- lapply(seq(fnams), function(i) {
@@ -263,13 +282,18 @@ getprocessMODIS <- function(time_range){
     v[i] <- as.character(utcdates[[i]])
   }
   data.frame(fnams=fnams, utc = v)
-
+  
+  rm(lst_c)
+  rm(lst)
+  rm(lst_ex)
+  rm(lst_cp)
+  rm(lst_res)
   
   MODdate <- datestodoymod(utcdates)
   
   # make a raster with min of time range and max of time range 
   # and one with amount of rasters going into the pixel
-
+  
   emptlay <- lapply(seq(nlayers(MODdate$minutesofdayras)), function(i) {
     any(!is.na(MODdate$minutesofdayras[[i]])[]==1)
   })
@@ -279,7 +303,7 @@ getprocessMODIS <- function(time_range){
   sel <- b[sell]
   
   subtimeras <- subset(MODdate$minutesofdayras, sel)
-
+  
   # to get amount of available values
   nonna <- raster(apply(as.array(subtimeras), 1:2, function(x) length(na.omit(x))))
   nv <- nonna[]
@@ -320,18 +344,13 @@ getprocessMODIS <- function(time_range){
   
   timeex <- data.frame(extract(tstack, extent(tstack)))
   
-  L84 <- "2018-01-19 20:38:44"
-  L85 <- "2018-01-19 20:39:08"
-  
-  l8time <- c(L84, L85)
-  
-  L8date <- lapply(seq(l8time), function(i){
-    strptime(l8time[i], format='%Y-%m-%d %H:%M:%S', tz="UTC")
+  L8time <- read.csv(paste0(L8datpath, "L8_date_", areaname, time_range[[j]][[1]], ".csv"))
+  L8date <- lapply(seq(nrow(L8time)), function(i){
+    strptime(paste(L8time$date[i], L8time$time[i]), format='%Y-%m-%d %H:%M:%S', tz="UTC")
   })
   
   # convert L8 time to minute of day
   L8dates <- datestodoymod(L8date)
-  
   
   timeex$L8time <- rep(mean(L8dates$minutesofday), nrow(timeex))
   
@@ -376,8 +395,9 @@ getprocessMODIS <- function(time_range){
   writeRaster(timediff, "D:/Antarctica/MODIS/date/time_diff_L8_MOD.tif", format="GTiff", overwrite=T)
   
   print("timedifference to L8 written")
+  
+  gc()
 }
-
 
 
 

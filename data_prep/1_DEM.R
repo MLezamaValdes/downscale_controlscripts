@@ -28,6 +28,7 @@ prepDEM <- function(x){
     r
   })
   
+  print("all files in")
   ########## MERGE TILES ############################
   
   # generate command for merging all the tiles
@@ -44,6 +45,7 @@ prepDEM <- function(x){
   writeRaster(mos, paste0(dempath, "DEM_8m_", areaname,".tif"), format="GTiff")
   
   # mos <- raster(paste0(dempath, "DEM_8m_", areaname,".tif"))
+  print("mosaic done")
   
   ########## CLEAN UP DEM ############################
   
@@ -60,6 +62,7 @@ prepDEM <- function(x){
   writeRaster(mos_3_30, paste0(dempath, "DEM_8m_", areaname,"_clean_30m.tif"), format="GTiff", overwrite=T)
   
   #mos_c <- raster(paste0(dempath, "DEM_8m_", areaname,"_clean_30m.tif"))
+  print("DEM cleaned up")
   
   ############  get 200m DEM to fill NA values ####################################################################
   
@@ -92,6 +95,7 @@ prepDEM <- function(x){
   writeRaster(mos_filled, paste0(dempath, "DEM_8m_", areaname,"_clean_filled.tif"), format="GTiff")
   
   
+  print("fill NA values with 200m DEM")
   
   
   
@@ -102,6 +106,7 @@ prepDEM <- function(x){
   for(i in seq(2)){
     writeRaster(slas[[i]], paste0(dempath, names(slas[[i]]), areaname,".tif"), format="GTiff")
   }
+  print("slope and aspect done")
   
   
   ############################### tranlate filled DEM and slope to SAGA grid ##############################################################
@@ -114,6 +119,8 @@ prepDEM <- function(x){
   gdalUtils::gdalwarp(fslopep, paste0(saga_outpath, areaname,"slope.sdat"), 
                       overwrite=TRUE,  of='SAGA')
   
+  print("tifs translated to SAGA")
+  
   
   ################ MAKE A BLOCKMASK #######################################
   r <- raster(paste0(dempath, "DEM_8m_", areaname,"_clean_filled.tif"))
@@ -124,5 +131,6 @@ prepDEM <- function(x){
   blockmask <- resample(rt, r, method="ngb")
   writeRaster(blockmask, paste0(dempath, "blockmask.tif"), format="GTiff")
   
+  print("Blockmask created")
   
 }
