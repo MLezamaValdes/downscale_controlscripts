@@ -8,9 +8,6 @@ getprocessLANDSAT <- function(time_range){
   
   print("STARTING LANDSAT DOWNLOAD AND PREP")
   
-  ## Login to USGS ERS
-  login_USGS("MaiteLezama")
-  
   ## set aoi and time range for the query
   aoiutm <- spTransform(aoi, crs("+proj=utm +zone=57 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs "))
   set_aoi(aoiutm)
@@ -280,7 +277,7 @@ getprocessLANDSAT <- function(time_range){
   LST <- lapply(seq(BTC), function(i){
     x <- (BTC[[i]]/(1+(0.0010895*BTC[[i]]/0.01438)*log(eta))) 
     # write LST raster
-    writeRaster(x,paste0(L8datpath, "bt/LST_", i,".tif"), format="GTiff")
+    writeRaster(x,paste0(L8datpath, "bt/LST_", i,".tif"), format="GTiff", overwrite=T)
   })
   
   print("LST calculated, LANDSAT routine for this timestep done")

@@ -24,7 +24,7 @@ areaname <- "MDV"
 
 # times should be 
 time_range <-  list(
-  c("2019-02-19", "2019-02-19"),
+  #c("2019-02-19", "2019-02-19"),
   c("2019-01-19", "2019-01-19"),
   c("2018-07-19", "2018-07-19"), # to test if useful
   #c("2018-01-19", "2018-01-19"), # already processed
@@ -46,10 +46,12 @@ dempath <- "D:/DEM_8m/tiles_westcoast/"
 aoipath <-  "D:/Antarctica/aoi/MDV/"
 L8datpath <- paste0(main, "L8/")
 modispath <- paste0(main, "MODIS/")
+tdpath <-paste0(main, "timediff/")
 
 dir.create(file.path(aoipath), recursive = T)
 dir.create(file.path(L8datpath), recursive = T)
 dir.create(file.path(modispath), recursive = T)
+dir.create(paste0(main, "timediff/"))
 
 
 ######## determine AOI ################
@@ -100,8 +102,8 @@ if(newarea==1){
 }
 
 ######## functions ################
-scriptpath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/downscale_controlscripts/data_prep/"
-source(paste0(scriptpath, "read_meta_L8_PS.R"))
+scriptsp <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/downscale_controlscripts/"
+source(paste0(scriptsp, "read_meta_L8_PS.R"))
 
 substrRight <- function(x, n){
   substr(x, nchar(x)-n+1, nchar(x))
@@ -118,11 +120,18 @@ source(paste0(scriptpath, "3_MODIS.R"))
 ######## CALL ################
 ######## CALL ################
 
+
+
 if(newarea==1){
   prepDEM()
 }
+
+## Login to USGS ERS
+login_USGS("MaiteLezama")
 
 for(j in seq(time_range)){
   getprocessLANDSAT(time_range)
   getprocessMODIS(time_range)
 }
+
+

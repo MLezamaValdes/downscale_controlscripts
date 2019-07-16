@@ -5,6 +5,8 @@ getprocessMODIS <- function(time_range){
   
   ####### LOAD PACKAGES, SET PATHS ###############################################################################
   
+  print("STARTING MODIS DOWNLOAD AND PREP")
+  
   modisscenepath <- paste0(modispath, time_range[[j]][1], "/")
   hdfpath <- paste0(modisscenepath, "hdfs/")
   MODtifHDFoutpath <- paste0(modisscenepath, "translated/")
@@ -14,6 +16,7 @@ getprocessMODIS <- function(time_range){
   set_archive(modisscenepath)
   
   print("basic settings done")
+  
   
   ####### GET DATA ONLINE ##############################################################################################
   
@@ -147,7 +150,7 @@ getprocessMODIS <- function(time_range){
                 overwrite=T)
   }
   
-  # # read converted to Â°C, projected and resampled tifs back in
+  # # read converted to °C, projected and resampled tifs back in
   # lst_cp <- lapply(seq(grep(list.files(path=paste0(modisscenepath, "LST_2018_01_19/"), full.names=T), pattern='res', inv=T, value=T)), function(i){
   #   f <- grep(list.files(path=paste0(modisscenepath, "LST_2018_01_19/"), full.names=T), pattern='res', inv=T, value=T)
   #   raster(f[i])
@@ -336,7 +339,7 @@ getprocessMODIS <- function(time_range){
   
   tstack <- stack(nonnares, mi, ma, diff)
   names(tstack) <- c("sum_av", "min_t", "max_t", "t_range")
-  writeRaster(tstack, paste0(modispath, "date/time_rasters.tif"), format="GTiff", overwrite=T)
+  writeRaster(tstack, paste0(modispath, "date/time_rasters", areaname, time_range[[j]][[1]], ".tif"), format="GTiff", overwrite=T)
   
   print("time rasters done")
   
@@ -387,12 +390,12 @@ getprocessMODIS <- function(time_range){
   }
   timeex$dev[timeex$dev==99] <- NA
   
-  
   table(timeex$dev)
   timediff <- tstack[[1]]
   
   timediff[] <- timeex$dev
-  writeRaster(timediff, "D:/Antarctica/MODIS/date/time_diff_L8_MOD.tif", format="GTiff", overwrite=T)
+
+  writeRaster(timediff, paste0(modispath, "date/time_rasters", areaname, "_", timerange[[j]][[1]], ".tif"), format="GTiff", overwrite=T)
   
   print("timedifference to L8 written")
   
