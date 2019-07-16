@@ -6,6 +6,8 @@ getprocessLANDSAT <- function(time_range){
   
   ####### GET DATA ONLINE ##############################################################################################
   
+  print("STARTING LANDSAT DOWNLOAD AND PREP")
+  
   ## Login to USGS ERS
   login_USGS("MaiteLezama")
   
@@ -14,15 +16,17 @@ getprocessLANDSAT <- function(time_range){
   set_aoi(aoiutm)
   
   ## set archive directory
-  set_archive(L8datpath)
+  set_archive(paste0(L8datpath, time_range[[j]][[1]], "/"))
   
   ## get available products and select one
   product_names <- getLandsat_names(username="MaiteLezama", password = "Eos300dmmmmlv")
   product <- "LANDSAT_8_C1"
   
   ## query for records for your AOI, time range and product
-  query <- getLandsat_query(time_range = time_range[[i]], name = product,
+  query <- getLandsat_query(time_range = time_range[[j]], name = product,
                             aoi=get_aoi())
+  
+  query[5,]$levels_available
   
   ## preview a record
   #getLandsat_preview(query[3,])
@@ -33,7 +37,7 @@ getprocessLANDSAT <- function(time_range){
   
   #### PREP DOWNLOADED L8 IMAGES  #######################################################
   
-  L8dirs <- paste0(L8datpath, "get_data/LANDSAT/L1/")
+  L8dirs <- paste0(L8datpath, time_range[[j]][[1]], "/get_data/LANDSAT/L1/")
   sdirs <- list.files(L8dirs, full.names = T)
   
   ##### LOAD ALL DOWNLOADED L8 SCENES  #####################################################################
@@ -47,6 +51,15 @@ getprocessLANDSAT <- function(time_range){
   lsat8o <- lapply(seq(datloc$meta), function(i){
     stackMeta(datloc$meta[[i]], category = "image", allResolutions = F)
   })
+  
+  cc <- lapply(seq(metaData), function(i){
+      a <- metaData[[i]]$IMAGE_ATTRIBUTES[rownames(metaData[[i]]$IMAGE_ATTRIBUTES) == "CLOUD_COVER_LAND",]
+      b <- metaData[[i]]$IMAGE_ATTRIBUTES[rownames(metaData[[i]]$IMAGE_ATTRIBUTES) == "CLOUD_COVER",]
+      return(c(a,b))
+  })
+  
+  print(cc)
+  print("data location, metaData and stack done")
   
   ###### CHECK WHICH SCENES GO TOGETHER #########################################################################
   
@@ -71,6 +84,7 @@ getprocessLANDSAT <- function(time_range){
   s <- lapply(seq(nums), function(i){
     stackMeta(datloc$meta[[nums[i]]], quantity = 'all')
   })
+  
   
   
   ############# CHECK WHICH FILES ARE ACTUALLY RELEVANT ######################################################
@@ -119,8 +133,9 @@ getprocessLANDSAT <- function(time_range){
   
   # write date and time for later use with MODIS 
   l8datetime <- df[selnum,]
-  write.csv(l8datetime, paste0(L8datpath, "L8_date_", areaname, time_range[[1]][[1]], ".csv"))
+  write.csv(l8datetime, paste0(L8datpath, "L8_date_", areaname, time_range[[j]][[1]], ".csv"))
   
+  print("relevant files selected and date and time written out")
   ############# ELIMINATE 0 VALUES ########################################################################## 
   s <- sel
   for(i in seq(s)){
@@ -128,16 +143,19 @@ getprocessLANDSAT <- function(time_range){
       s[[i]][[j]][s[[i]][[j]]==0] <- NA
     }
   }
-  
+  print("0 values replaced by NA")
   ################## CUT TO AOI ##################################################################################
   
   # cut out to research area
   s.aoi <- lapply(seq(s), function(i){
-    crop(s[[i]], aoi)
+    crop(s[[i]], extent(aoianta))
   })
   
+  print("cut to research area")
   ################## ATMOSPHERIC CORRECTION ####################################################################
   
+  
+  dir.create(paste0(L8datpath, "ac/"))
   lsat8_sdos <- lapply(seq(s.aoi), function(i){
     lsat8 <- s.aoi[[i]]
     names(lsat8) <- names(lsat8o[[selnum[i]]])
@@ -189,24 +207,26 @@ getprocessLANDSAT <- function(time_range){
   # writeOGR(mn, dsn=paste0(L8datpath, "L8_ext.shp"), layer="L8_ext",
   #          driver="ESRI Shapefile")
   
+  print("AC done")
   #############  Calculation of TOA (Top of Atmospheric) spectral radiance and #################### 
   #################  brightness temperature ##################################################
   
   #TO DO: check why values are off!
+  dir.create(paste0(L8datpath, "bt/"))
   
-  BTC <- lapply(seq(ss_f), function(i){
+  BTC <- lapply(seq(selnum), function(i){
     
     # TOA (L) = ML * Qcal + AL
     # ML = Band-specific multiplicative rescaling factor from the metadata (RADIANCE_MULT_BAND_x, where x is the band number).
     # Qcal = corresponds to band 10.
     # AL = Band-specific additive rescaling factor from the metadata (RADIANCE_ADD_BAND_x, where x is the band number).
     
-    mD <- readMeta(datloc$meta[[ss_f[i]]], raw=T)
+    mD <- readMeta(datloc$meta[[selnum[i]]], raw=T)
     nam <- mD$METADATA_FILE_INFO["LANDSAT_PRODUCT_ID",]
     
     ML <- mD$RADIOMETRIC_RESCALING["RADIANCE_MULT_BAND_10",]
     AL <- mD$RADIOMETRIC_RESCALING["RADIANCE_ADD_BAND_10",]
-    TOA = (ML * lsat8o[[ss_f[i]]]$B10_dn) + AL # this is band 10
+    TOA = (ML * lsat8o[[selnum[i]]]$B10_dn) + AL # this is band 10
     
     
     # TOA to Brightness Temperature conversion
@@ -230,7 +250,7 @@ getprocessLANDSAT <- function(time_range){
     BTC
   })
   
-  
+  print("BTC calculated")
   
   ################## CALCULATE LST ####################################################################
   # # get BTC files
@@ -253,19 +273,8 @@ getprocessLANDSAT <- function(time_range){
   btcmerge <- eval(parse(text=cm))
   writeRaster(btcmerge, paste0(L8datpath, "bt/BTC_merged", areaname,".tif"), format="GTiff")
   
-  # get rock outcrop to assign emissivity
-  roc <- readOGR("E:/Antarctica/rock_outcrop/Rock_outcrop_high_res_from_landsat_8/Rock_outcrop_high_res_from_landsat_8.shp")
-  roc <- crop(roc, aoi)
-  rroc <- rasterize(roc, btcmerge, progress = "text")
-  
-  rroc[!is.na(rroc)]<-1 # everything that's not NA = rock
-  rroc[is.na(rroc)]<-2
-  
-  # TO DO: Make function!
-  # Emissivity
-  eta <- rroc
-  eta[eta==1] <- 0.94 # for rock
-  eta[eta==2] <- 0.97 # for snow & ice
+  # get rock outcrop raster with Emissivity values
+  eta <- raster(paste0(main, "Rock_outcrop_ras.tif"))
   
   # Calculate the Land Surface Temperature
   LST <- lapply(seq(BTC), function(i){
@@ -273,4 +282,7 @@ getprocessLANDSAT <- function(time_range){
     # write LST raster
     writeRaster(x,paste0(L8datpath, "bt/LST_", i,".tif"), format="GTiff")
   })
+  
+  print("LST calculated, LANDSAT routine for this timestep done")
 }
+

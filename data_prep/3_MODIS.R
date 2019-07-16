@@ -68,7 +68,7 @@ getprocessMODIS <- function(time_range){
   filescomp <- list.files(hdfpath, full.names=T)
   
   
-  # clean out batcoutdir if something there from previous run
+  # clean out batchoutdir if something there from previous run
   a <- character(0)
   if(!identical(a, list.files(batchoutdir, pattern=".tif"))){
     file.remove(list.files(batchoutdir, pattern=".tif", full.names = T))

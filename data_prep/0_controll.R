@@ -40,11 +40,17 @@ time_range <-  list(
 
 
 ###### paths #############################
-main <- "D:/Antarctica/"
+scriptpath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/downscale_controlscripts/data_prep/"
+main <- "E:/Antarctica/testrun_loop/"
 dempath <- "D:/DEM_8m/tiles_westcoast/"
-aoipath <- paste0(main, "aoi/MDV/")
+aoipath <-  "D:/Antarctica/aoi/MDV/"
 L8datpath <- paste0(main, "L8/")
 modispath <- paste0(main, "MODIS/")
+
+dir.create(file.path(aoipath), recursive = T)
+dir.create(file.path(L8datpath), recursive = T)
+dir.create(file.path(modispath), recursive = T)
+
 
 ######## determine AOI ################
 antaproj <- crs("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m
@@ -53,6 +59,15 @@ aoi <- readOGR(list.files(aoipath, pattern="adp.shp", full.names = T))
 aoianta <- spTransform(aoi, antaproj)
 aoiutm <- spTransform(aoi, crs("+proj=utm +zone=57 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs "))
 
+####### get rock outcrop to assign emissivity ############
+if(newarea==1){
+  roc <- readOGR("E:/Antarctica/rock_outcrop/Rock_outcrop_high_res_from_landsat_8/Rock_outcrop_high_res_from_landsat_8.shp")
+  roc <- crop(roc, aoianta)
+  rroc <- rasterize(roc, btcmerge, progress = "text")
+  rroc[!is.na(rroc)]<-0.94 # everything that's not NA = rock, eta for rock = 0.94
+  rroc[is.na(rroc)]<-0.97 # what's NA is snow and ice, emissivity = 0.97
+  writeRaster(rroc, paste0(main, "Rock_outcrop_ras_", areaname, ".tif"), format="GTiff", overwrite=T)
+}
 
 
 
@@ -74,7 +89,7 @@ batchoutdir <- paste0(batchrunpath, "outdir/")
 
 
 #### high resolution land polygon for the 
-clpath <- paste0(main, "coastline/Coastline_high_res_polygon/") 
+clpath <- paste0("E:/Antarctica/", "coastline/Coastline_high_res_polygon/") 
 
 if(newarea==1){
   cl <- readOGR(list.files(clpath, pattern="polygon.shp", full.names=T))
@@ -85,7 +100,7 @@ if(newarea==1){
 }
 
 ######## functions ################
-scriptpath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/downscale_controlscripts/"
+scriptpath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/downscale_controlscripts/data_prep/"
 source(paste0(scriptpath, "read_meta_L8_PS.R"))
 
 substrRight <- function(x, n){
@@ -94,15 +109,20 @@ substrRight <- function(x, n){
 
 # until function incorporated in downscaleRS
 source("C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/downscaleRS/R/datestodoymod.R")
+source(paste0(scriptpath, "1_DEM.R"))
+source(paste0(scriptpath, "2_Landsat.R"))
+source(paste0(scriptpath, "3_MODIS.R"))
 
 
 ######## CALL ################
 ######## CALL ################
 ######## CALL ################
 
-prepDEM()
+if(newarea==1){
+  prepDEM()
+}
 
 for(j in seq(time_range)){
-  getprocessMODIS(time_range)
   getprocessLANDSAT(time_range)
+  getprocessMODIS(time_range)
 }
