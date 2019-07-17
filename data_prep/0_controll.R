@@ -24,10 +24,10 @@ areaname <- "MDV"
 
 # times should be 
 time_range <-  list(
-  #c("2019-02-19", "2019-02-19"),
+  c("2019-02-19", "2019-02-19"),
   c("2019-01-19", "2019-01-19"),
   c("2018-07-19", "2018-07-19"), # to test if useful
-  #c("2018-01-19", "2018-01-19"), # already processed
+  c("2018-01-19", "2018-01-19"), # already processed
   c("2018-02-19", "2018-02-19"), 
   c("2017-12-19", "2017-12-19"),
   c("2017-02-19", "2017-02-19"),
@@ -52,7 +52,6 @@ dir.create(file.path(aoipath), recursive = T)
 dir.create(file.path(L8datpath), recursive = T)
 dir.create(file.path(modispath), recursive = T)
 dir.create(paste0(main, "timediff/"))
-
 
 ######## determine AOI ################
 antaproj <- crs("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m
@@ -129,9 +128,9 @@ if(newarea==1){
 ## Login to USGS ERS
 login_USGS("MaiteLezama")
 
-for(j in seq(time_range)){
+j <- 11
+for(j in c(3:11)){
   getprocessLANDSAT(time_range)
   getprocessMODIS(time_range)
 }
-
 

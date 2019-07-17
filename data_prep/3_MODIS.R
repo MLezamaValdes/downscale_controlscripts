@@ -5,12 +5,19 @@ getprocessMODIS <- function(time_range){
   
   ####### LOAD PACKAGES, SET PATHS ###############################################################################
   
+  if(file.exists(paste0(main, "L8/", time_range[[j]][[1]], "/cc.csv"))){
+    print("omitting this date due to cloud cover")
+  } else if(file.exists(paste0(main, "L8/", time_range[[j]][[1]], "/nodat.csv"))){
+    print("omitting this date as there's no data available")
+  } else {
+  
   print("STARTING MODIS DOWNLOAD AND PREP")
   
   modisscenepath <- paste0(modispath, time_range[[j]][1], "/")
   hdfpath <- paste0(modisscenepath, "hdfs/")
   MODtifHDFoutpath <- paste0(modisscenepath, "translated/")
   MODLSTpath <- paste0(modisscenepath, "LST/")
+  
   
   ## set archive directory
   set_archive(modisscenepath)
@@ -259,7 +266,10 @@ getprocessMODIS <- function(time_range){
   
   #lst_s <- stack(list.files(MODLSTpath, pattern="small", full.names=T))
   
-  fnams <- names(lst_s)
+  fnams <- sapply(seq(lst), function(i){
+    names(lst[[i]])
+  })
+
   utcdates <- lapply(seq(fnams), function(i) {
     fnam <- fnams[i]
     # get UTC date from fnam
@@ -375,6 +385,8 @@ getprocessMODIS <- function(time_range){
   d[2]/d[1]
   d[2]/nrow(timeex) #Anteil Pixel mit überlappender Zeitspanne
   
+  # write this one out 
+  
   timeex$dev <- 99
   for(i in seq(nrow(timeex))){
     if(any(is.na(timeex[i,]))==F){ # are there NA values interfering
@@ -391,15 +403,21 @@ getprocessMODIS <- function(time_range){
   timeex$dev[timeex$dev==99] <- NA
   
   table(timeex$dev)
+  
+  # write out as well 
+  
+  
   timediff <- tstack[[1]]
   
   timediff[] <- timeex$dev
 
-  writeRaster(timediff, paste0(modispath, "date/time_rasters", areaname, "_", timerange[[j]][[1]], ".tif"), format="GTiff", overwrite=T)
+  writeRaster(timediff, paste0(modispath, "date/time_rasters", areaname, "_", time_range[[j]][[1]], ".tif"), format="GTiff", overwrite=T)
   
   print("timedifference to L8 written")
   
   gc()
+  
+  }
 }
 
 

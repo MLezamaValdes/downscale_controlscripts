@@ -4,6 +4,7 @@
 
 getprocessLANDSAT <- function(time_range){
   
+  L8scenepath <- paste0(main, "L8/", time_range[[j]][[1]], "/")
   ####### GET DATA ONLINE ##############################################################################################
   
   print("STARTING LANDSAT DOWNLOAD AND PREP")
@@ -20,10 +21,33 @@ getprocessLANDSAT <- function(time_range){
   product <- "LANDSAT_8_C1"
   
   ## query for records for your AOI, time range and product
-  query <- getLandsat_query(time_range = time_range[[j]], name = product,
-                            aoi=get_aoi())
+  nodat <- 0
+  tryCatch( query <- getLandsat_query(time_range = time_range[[j]], name = product,
+                                       aoi=get_aoi()),
+            finally= nodat <- 1)
+  # subselect query directly
+  query$LandCloudCover
+  if(any(grepl( "T2",query$browseUrl)==F)){
+    print("no good quality products available")
+  } else {
+    
+    
+    
+    # put rest of function in here
+    
+  }
   
-  query[5,]$levels_available
+  # what about this??? 
+  if(nodat == 1){
+    print("no data available for this timeframe")
+    txt <- "nodat"
+    write.csv(txt, paste0(L8scenepath, "nodat.csv"))
+  } else {
+    
+  
+  
+  
+  #query[5,]$levels_available
   
   ## preview a record
   #getLandsat_preview(query[3,])
@@ -55,6 +79,14 @@ getprocessLANDSAT <- function(time_range){
       return(c(a,b))
   })
   
+  # if any of the cloud coverage is greater than 30%, don't go on processing this loop, write out info for 
+  # getprocessMODIS, so that this date can be omitted
+  if(any(unlist(cc)>=30)){
+    print("too much cloud cover for this date")
+    txt <- "cc"
+    write.csv(txt, paste0(L8scenepath, "cc.csv"))
+  } else {
+      
   print(cc)
   print("data location, metaData and stack done")
   
@@ -152,7 +184,7 @@ getprocessLANDSAT <- function(time_range){
   ################## ATMOSPHERIC CORRECTION ####################################################################
   
   
-  dir.create(paste0(L8datpath, "ac/"))
+  dir.create(paste0(L8scenepath, "ac/"))
   lsat8_sdos <- lapply(seq(s.aoi), function(i){
     lsat8 <- s.aoi[[i]]
     names(lsat8) <- names(lsat8o[[selnum[i]]])
@@ -172,7 +204,7 @@ getprocessLANDSAT <- function(time_range){
     nam <- mD$METADATA_FILE_INFO["LANDSAT_PRODUCT_ID",]
     
     for(j in seq(nlayers(lsat8_sdos))){
-      writeRaster(lsat8_sdos[[j]], paste0(L8datpath, "ac/", nam, "_", names(lsat8_sdos)[j], ".tif"), 
+      writeRaster(lsat8_sdos[[j]], paste0(L8scenepath, "ac/", nam, "_", names(lsat8_sdos)[j], ".tif"), 
                   format="GTiff", overwrite=T)
     }
     lsat8_sdos
@@ -209,7 +241,7 @@ getprocessLANDSAT <- function(time_range){
   #################  brightness temperature ##################################################
   
   #TO DO: check why values are off!
-  dir.create(paste0(L8datpath, "bt/"))
+  dir.create(paste0(L8scenepath, "bt/"))
   
   BTC <- lapply(seq(selnum), function(i){
     
@@ -242,7 +274,7 @@ getprocessLANDSAT <- function(time_range){
     
     BTC[BTC<=(-90)] <- NA
     
-    writeRaster(BTC, paste0(L8datpath, "bt/", nam, "_BTC", ".tif"), 
+    writeRaster(BTC, paste0(L8scenepath, "bt/", nam, "_BTC", ".tif"), 
                 format="GTiff", overwrite=T)
     BTC
   })
@@ -251,7 +283,7 @@ getprocessLANDSAT <- function(time_range){
   
   ################## CALCULATE LST ####################################################################
   # # get BTC files
-  # f <- list.files(paste0(L8datpath, "bt/"), full.names = T, pattern=".tif$")
+  # f <- list.files(paste0(L8scenepath, "bt/"), full.names = T, pattern=".tif$")
   # BTC <- lapply(seq(f), function(i){
   #   raster(f[i])
   # })
@@ -268,7 +300,7 @@ getprocessLANDSAT <- function(time_range){
   
   # merging 
   btcmerge <- eval(parse(text=cm))
-  writeRaster(btcmerge, paste0(L8datpath, "bt/BTC_merged", areaname,".tif"), format="GTiff")
+  writeRaster(btcmerge, paste0(L8scenepath, "bt/BTC_merged", areaname,".tif"), format="GTiff")
   
   # get rock outcrop raster with Emissivity values
   eta <- raster(paste0(main, "Rock_outcrop_ras.tif"))
@@ -277,9 +309,12 @@ getprocessLANDSAT <- function(time_range){
   LST <- lapply(seq(BTC), function(i){
     x <- (BTC[[i]]/(1+(0.0010895*BTC[[i]]/0.01438)*log(eta))) 
     # write LST raster
-    writeRaster(x,paste0(L8datpath, "bt/LST_", i,".tif"), format="GTiff", overwrite=T)
+    writeRaster(x,paste0(L8scenepath, "bt/LST_", i,".tif"), format="GTiff", overwrite=T)
   })
   
   print("LST calculated, LANDSAT routine for this timestep done")
+  return(list(clouds=cc, LST=LST, l8datetime=l8datetime))
+  }
+  }
 }
 
