@@ -22,21 +22,36 @@ library(lubridate)
 newarea <- 0
 areaname <- "MDV"
 
-# times should be 
-time_range <-  list(
-  c("2019-02-19", "2019-02-19"),
-  c("2019-01-19", "2019-01-19"),
-  c("2018-07-19", "2018-07-19"), # to test if useful
-  c("2018-01-19", "2018-01-19"), # already processed
-  c("2018-02-19", "2018-02-19"), 
-  c("2017-12-19", "2017-12-19"),
-  c("2017-02-19", "2017-02-19"),
-  c("2017-01-19", "2017-01-19"),
-  c("2016-12-19", "2016-12-19"),
-  c("2016-02-19", "2016-02-19"),
-  c("2016-01-19", "2016-01-19"),
-  c("2015-01-19", "2015-01-19"),
-  c("2014-01-19", "2014-01-19"))
+# # # times should be 
+# time_range <-  list(
+#   c("2019-02-19", "2019-02-19"),
+#   c("2019-01-19", "2019-01-19"),
+#   c("2018-07-19", "2018-07-19"), # to test if useful
+#   c("2018-01-19", "2018-01-19"), # already processed
+#   c("2018-02-19", "2018-02-19"),
+#   c("2017-12-19", "2017-12-19"),
+#   c("2017-02-19", "2017-02-19"),
+#   c("2017-01-19", "2017-01-19"),
+#   c("2016-12-19", "2016-12-19"),
+#   c("2016-02-19", "2016-02-19"),
+#   c("2016-01-19", "2016-01-19"),
+#   c("2015-01-19", "2015-01-19"),
+#   c("2014-01-19", "2014-01-19"))
+
+
+## time range parameters (2013-2019, Jan, Feb and December, select the best day from 17 to 21)
+year <- c(2019:2013)
+month <- c("01","02", "12")
+day <- c(17:21)
+
+time_range <- lapply(seq(year), function(j){
+  lapply(seq(month), function(i){
+  y <- paste(paste0(year[j],"-",month[i],"-",day), 
+  paste0(year[j],"-",month[i],"-",day))
+  strsplit(y, " ")
+  })
+})
+
 
 
 ###### paths #############################
@@ -128,9 +143,11 @@ if(newarea==1){
 ## Login to USGS ERS
 login_USGS("MaiteLezama")
 
-j <- 11
-for(j in c(3:11)){
-  getprocessLANDSAT(time_range)
-  getprocessMODIS(time_range)
+
+for(y in seq(year)){
+  for(m in seq(month)){
+      getprocessLANDSAT(time_range)
+      getprocessMODIS(time_range)
+  }
 }
 
