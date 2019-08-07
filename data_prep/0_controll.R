@@ -42,7 +42,7 @@ areaname <- "MDV"
 ## time range parameters (2013-2019, Jan, Feb and December, select the best day from 17 to 21)
 year <- c(2019:2013)
 month <- c("01","02", "12")
-day <- c(17:21)
+day <- c(17:22)
 
 time_range <- lapply(seq(year), function(j){
   lapply(seq(month), function(i){
@@ -56,7 +56,7 @@ time_range <- lapply(seq(year), function(j){
 
 ###### paths #############################
 scriptpath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/downscale_controlscripts/data_prep/"
-main <- "E:/Antarctica/testrun_loop/"
+main <- "D:/Antarctica/testrun_loop_2/"
 dempath <- "D:/DEM_8m/tiles_westcoast/"
 aoipath <-  "D:/Antarctica/aoi/MDV/"
 L8datpath <- paste0(main, "L8/")

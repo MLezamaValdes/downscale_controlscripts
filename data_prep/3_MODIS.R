@@ -12,6 +12,13 @@ getprocessMODIS <- function(time_range){
 
   if(!qualL8[1,] == "no data suitable" && !qualL8[1,]=="no available data for time range"){
     downloadedday <- read.csv(list.files(L8scenepath, pattern="downloaded", full.names=T))
+    
+    
+     ############# ADAPT! #################
+    
+    
+    
+    
     daynum <- as.numeric(downloadedday[,1])
     print("STARTING MODIS DOWNLOAD AND PREP")
     
@@ -166,14 +173,14 @@ getprocessMODIS <- function(time_range){
                   overwrite=T)
     }
     
-    # # read converted to °C, projected and resampled tifs back in
+    # # read converted to ?C, projected and resampled tifs back in
     # lst_cp <- lapply(seq(grep(list.files(path=paste0(modisscenepath, "LST_2018_01_19/"), full.names=T), pattern='res', inv=T, value=T)), function(i){
     #   f <- grep(list.files(path=paste0(modisscenepath, "LST_2018_01_19/"), full.names=T), pattern='res', inv=T, value=T)
     #   raster(f[i])
     # })
     # 
     
-    # # read converted to degree °C, projected and resampled tifs back in
+    # # read converted to degree ?C, projected and resampled tifs back in
     # fls <- list.files(MODLSTpath, full.names=T)
     # lst_resm <- lapply(seq(fls), function(i){
     #   raster(fls[i])
@@ -392,7 +399,7 @@ getprocessMODIS <- function(time_range){
     
     d <- table(timeex$fit)
     d[2]/d[1]
-    d[2]/nrow(timeex) #Anteil Pixel mit überlappender Zeitspanne
+    d[2]/nrow(timeex) #Anteil Pixel mit ?berlappender Zeitspanne
     
     # write this one out 
     

@@ -12,7 +12,8 @@ getprocessLANDSAT <- function(time_range){
   print("STARTING LANDSAT DOWNLOAD AND PREP")
   
   ## set aoi and time range for the query
-  aoiutm <- spTransform(aoi, crs("+proj=utm +zone=57 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs "))
+  l8proj <- crs("+proj=utm +zone=57 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs ")
+  aoiutm <- spTransform(aoi, l8proj)
   set_aoi(aoiutm)
   
   ## set archive directory
@@ -34,17 +35,82 @@ getprocessLANDSAT <- function(time_range){
     class(query[[x]])
   })
   
-  if(any(te!=c("try-error","try-error", "try-error" ,"try-error" ,"try-error"))){
+  if(any(te!="try-error")){
     ######### subselect query directly for high quality images with little cloud cover #########
+    
+    
+    
+    # TO DO!
+    #find out which overlaps mostly with aoi, so that this tile can be checked thoroughly
+    
+    footprints <- lapply(seq(query), function(x){
+      tiles <- lapply(seq(nrow(query[[x]])), function(i){
+        a <- query[[x]]$spatialFootprint[[i]]
+        a1 <- strsplit(substring(a, 11,(nchar(a)-2)), split = ",")
+        ap <- strsplit(a1[[1]], split=" +")
+        
+        abc <- unlist(lapply(seq(ap), function(i){
+          ap[[i]][ap[[i]] != ""] 
+        }))
+        wgsproj <- CRS("+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0")
+        df <- data.frame(matrix(as.numeric(abc), ncol=2, byrow=T))
+        xy <- df[,c(1:2)]
+        fp <- SpatialPointsDataFrame(coords = xy, data = df,
+            proj4string = wgsproj)
+        fpp <- Polygon(fp)
+        Ps1 = SpatialPolygons(list(Polygons(list(fpp), ID = "a")), 
+                              proj4string=wgsproj)
+      })
+      return(tiles)
+    })
+    
+    # are those also in aoi
+    aoiwgs <- spTransform(aoi, wgsproj)
+    
+    footprints
+    aoiint <- lapply(seq(footprints), function(i){
+      lapply(seq(footprints[[i]]), function(j){
+              intersect(aoiwgs, footprints[[i]][[j]])
+      })
+    })
+
+    aoiarea <- lapply(seq(footprints), function(i){
+      lapply(seq(footprints[[i]]), function(j){
+        if(!is.null(aoiint[[i]][[j]])){
+          sum(area(aoiint[[i]][[j]]))
+        } else {
+          0
+        }
+      })
+    })
+    
+    areaaoi <- area(aoiwgs)
+
+    aoiprop <- lapply(seq(footprints), function(i){
+      lapply(seq(footprints[[i]]), function(j){
+        if(aoiarea[[i]][[j]]!=0){
+          aoiarea[[i]][[j]]/areaaoi
+        } else {
+          0
+        }
+      })
+    })
+    
+    # get only tiles that have at least 30% of their area over aoi
+    
+    sel_aoi <- lapply(seq(query), function(x){
+      z <- unlist(aoiprop[[x]])
+      z <- which(z>0.3)
+    }) 
     
     # if there is no data in the query, write a csv file to be picked up by MODIS procedure later
     # and stop this function
     # also, if cloud cover is too great, do the same
-    qualitycheck <- lapply(seq(day), function(x){
+    qualitycheck <- lapply(seq(query), function(x){
       nodat <- 0
       lowqual <- 0
       cc <- 0
-      if(class(query[[x]])=="NULL"){
+      if(class(query[[x]])=="NULL"){ # if no data was found at all for this day
         nodat <- 1
         print("no data for this time frame available")
         txt <- "nodat"
@@ -57,14 +123,16 @@ getprocessLANDSAT <- function(time_range){
         txt <- "lowqual"
         write.csv(txt, paste0(L8scenepath, "lowqual_day_", day[[x]], ".csv"))
       } 
-      meanlandclouds <- mean(query[[x]]$LandCloudCover)
-      if(any((query[[x]]$LandCloudCover>85)==T)){
-        cc <- 1
-        print("too much cloud cover for this date")
-        txt <- "cc"
-        write.csv(txt, paste0(L8scenepath, "cc_day_", day[[x]], ".csv"))
-      }
-      return(list(nodat = nodat, lowqual = lowqual, cc=cc, cloudmean=meanlandclouds))
+      if(!length(sel_aoi[[x]])==0){
+        landclouds_aoi <- mean(query[[x]]$LandCloudCover[sel_aoi[[x]]])
+        if(landclouds_aoi>80){
+          cc <- 1
+          print("too much cloud cover for this date")
+          txt <- "cc"
+          write.csv(txt, paste0(L8scenepath, "cc_day_", day[[x]], ".csv"))
+        }
+      } else {landclouds_aoi <- NA}
+      return(list(nodat = nodat, lowqual = lowqual, cc=cc, cloudmean_aoitiles=landclouds_aoi))
     })
     
     qualitycheckdf <- data.frame(matrix(unlist(qualitycheck), nrow=length(qualitycheck), byrow=T))
@@ -99,6 +167,7 @@ getprocessLANDSAT <- function(time_range){
       ret
     })
     
+    whichtile <- aoiprop[unlist(selectquery==1)]
     
     
     # if more than one suitable scene for the month, select the day with lowest cloud cover
@@ -111,14 +180,74 @@ getprocessLANDSAT <- function(time_range){
       #   subsqopt <- subsq
       # }
       # 
-      subsqopt <- which(unlist(selectquery)==1)
-      write.csv(day[subsqopt], paste0(L8scenepath, "downloaded_days.csv"), row.names = F)
       
-      files <- getLandsat_data(records=query, level="l1", espa_order=NULL)
+      
+      
+      # still not working. need to combine those that are high on aoiprop and low in clouds!!!
+      
+      bigarea <- sapply(seq(aoiprop), function(i){
+        a <- unlist(aoiprop[[i]])[(unlist(aoiprop[[i]]) > 0.30) == T]
+        sapply(seq(a), function(j){
+          which(unlist(aoiprop[[i]]) == a[j])
+        })
+        })
+      
+      subsqopt <- which((selectquery)==1)
+      
+      
+      ############ GO ON HERE! ######################
+
+      selquery <- lapply(seq(selectquery), function(i){ # für alle Tage
+        if(selectquery[[i]]==1){
+          if(length(bigarea[[i]])!=0){
+            s <- lapply(seq(length(bigarea[[i]])), function(j){
+                print(c(i,j))
+                q <- query[[ i ]] [(bigarea[[i]][[j]]),] # nimm die Kacheln mit ausreichend Überlappung mit AOI
+                d <- q$summary
+                ij <- c(i,j)
+                return(list(q,d,ij))
+            })
+          } else {s <- "no good scene here"}
+        } else {s <- "no good scene here"}
+        return(s)
+      })
+      
+      sum_selquery <- lapply(seq(selquery), function(i){ # für alle Tage
+        lapply(seq(length(selquery[[i]])), function(j){
+              if(!selquery[[i]][[j]]=="no good scene here"){
+                print(c(i,j))
+                selquery[[i]][[j]][[2]]
+              }
+            })
+          })
+      querynew <- lapply(seq(selquery), function(i){ # für alle Tage
+        lapply(seq(length(selquery[[i]])), function(j){
+          if(!selquery[[i]][[j]]=="no good scene here"){
+            print(c(i,j))
+            selquery[[i]][[j]][[1]]
+          }
+        })
+      })
+      
+      
+      write.csv(unlist(sum_selquery), paste0(L8scenepath, "downloaded_days.csv"), row.names = F)
+      
+      
+      files <- lapply(seq(querynew), function(i){
+        lapply(seq(querynew[[i]]), function(j){
+                  try(getLandsat_data(records=querynew[[i]][[j]], level="l1", espa_order=NULL), silent=T)
+        })
+      })
+      
+      fte <- sapply(seq(files), function(x){
+        class(files[[x]])
+      })
+      
+      if(any(fte!="try-error")){
       
       #### PREP DOWNLOADED L8 IMAGES  #######################################################
       
-      L8dirs <- paste0(L8datpath, time_range[[y]][[m]][[1]], "/get_data/LANDSAT/L1/")
+      L8dirs <- paste0(L8datpath, substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/get_data/LANDSAT/L1/")
       sdirs <- list.files(L8dirs, full.names = T)
       
       ##### LOAD ALL DOWNLOADED L8 SCENES  #####################################################################
@@ -175,33 +304,15 @@ getprocessLANDSAT <- function(time_range){
         }
       })
       
-      bigarea <- lapply(seq(t), function(i){
+      ba <- lapply(seq(t), function(i){
         tarea[[i]]>=10000000000
       })
       
-      selnum <- which(bigarea==T)
+      selnum <- which(ba==T)
       
-      sel <- s[unlist(bigarea)]
+      sel <- s[unlist(ba)]
       
-      # # are those also in aoi
-      # aoiint <- lapply(seq(sel), function(i){
-      #   intersect(aoi, sel[[i]])
-      # })
-      # 
-      # aoiarea <- lapply(seq(aoiint), function(i){
-      #   if(!is.null(aoiint[[i]])){
-      #     sum(area(aoiint[[i]]))
-      #   }
-      # })
-      # 
-      # aoibigarea <- lapply(seq(aoiarea), function(i){
-      #   aoiarea[[i]]>=10000000000
-      # })
-      # 
-      # sel_f <- sel[unlist(aoibigarea)]
-      # 
-      # ss1 <- which(unlist(bigarea)==T)
-      # ss_f <- ss1[which(aoibigarea==T)]
+
       
       # write date and time for later use with MODIS 
       l8datetime <- df[selnum,]
@@ -372,5 +483,5 @@ getprocessLANDSAT <- function(time_range){
     
   }
   }
-
+}
 
