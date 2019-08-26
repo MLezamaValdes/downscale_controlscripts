@@ -7,19 +7,18 @@ getprocessMODIS <- function(time_range){
   
   # match MODIS downlaod time to available L8 data
   L8scenepath <- paste0(main, "L8/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")
-  qualL8 <- read.csv(list.files(L8scenepath, pattern="quality", full.names=T))
+  try(qualL8 <- read.csv(list.files(L8scenepath, pattern="quality", full.names=T)),
+      silent=T)
 
+  if(exists("qualL8")){
 
   if(!qualL8[1,] == "no data suitable" && !qualL8[1,]=="no available data for time range"){
     downloadedday <- read.csv(list.files(L8scenepath, pattern="downloaded", full.names=T))
     
+    cs <- strsplit(as.character(downloadedday$summary), ",", fixed = TRUE)
+    ad <- lapply(cs, `[[`, 2)
+    daynum <- as.numeric(lapply(strsplit(as.character(lapply(strsplit(as.character(ad), ":"),`[[`, 2)), "-"), `[[`, 1))
     
-     ############# ADAPT! #################
-    
-    
-    
-    
-    daynum <- as.numeric(downloadedday[,1])
     print("STARTING MODIS DOWNLOAD AND PREP")
     
     modisscenepath <- paste0(modispath, substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")
@@ -47,12 +46,14 @@ getprocessMODIS <- function(time_range){
     # product2 <- grep("MYD11_L2_V6", product_names, value = T)
     
     ## query for records for your AOI, time range and product
-    L8day <- NA
+    L8dayc <- NA
     for(i in seq(daynum)){
-      L8day[i] <- which(as.numeric(substring(time_range[[y]][[m]], 12,13))==daynum[i])
+      L8dayc[i] <- which(as.numeric(substring(time_range[[y]][[m]], 12,13))==daynum[i])
     }
     
-    query <- lapply(seq(L8day), function(z){ # for both days
+    L8day <- unique(L8dayc)
+    
+    query <- lapply(seq(length(L8day)), function(z){ # for all days
           query1 <- getMODIS_query(time_range = time_range[[y]][[m]][[L8day[z]]], name = product1,
                              username="MaiteLezama", password = "Eos300dmmmmlv",
                              aoi=get_aoi())
@@ -62,20 +63,98 @@ getprocessMODIS <- function(time_range){
           return(list(query1, query2))
     })
 
+    
+    # TO DO: GET ONLY THOSE IMAGES THAT ARE ACTUALLY OVERLAPPING AOI AS IN LANDSAT! ### 
+    seq(query)
+    wgsproj <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+    footprints <- lapply(seq(query), function(x){
+                    lapply(seq(query[[x]]), function(y){
+                      tiles <- lapply(seq(nrow(query[[x]][[y]])), function(i){
+                        a <- query[[x]][[y]]$spatialFootprint[[i]]
+                        a1 <- strsplit(substring(a, 11,(nchar(a)-2)), split = ",")
+                        ap <- strsplit(a1[[1]], split=" +")
+                        
+                        abc <- unlist(lapply(seq(ap), function(i){
+                          ap[[i]][ap[[i]] != ""] 
+                        }))
+                        df <- data.frame(matrix(as.numeric(abc), ncol=2, byrow=T))
+                        xy <- df[,c(1:2)]
+                        fp <- SpatialPointsDataFrame(coords = xy, data = df,
+                                                     proj4string = CRS(wgsproj))
+                        fpp <- Polygon(fp)
+                        Ps1 = SpatialPolygons(list(Polygons(list(fpp), ID = "a")), 
+                                              proj4string=CRS(wgsproj))
+                      })
+      return(tiles)
+    })
+    })
+    
     ## preview a record
     #getMODIS_preview(query1[9,])
+    
+    
+    # select those that overlap with aoi
+    # are those also in aoi
+    aoiwgs <- spTransform(aoi, wgsproj)
+    
+    aoiint <- lapply(seq(footprints), function(i){
+      lapply(seq(footprints[[i]]), function(j){
+        lapply(seq(footprints[[i]][[j]]), function(k){
+          print(c(i,j,k))
+        try(intersect(aoiwgs, footprints[[i]][[j]][[k]]))
+      })
+      })
+    })
+    
+    aoiarea <- lapply(seq(footprints), function(i){
+      lapply(seq(footprints[[i]]), function(j){
+        lapply(seq(footprints[[i]][[j]]), function(k){
+        if(!is.null(aoiint[[i]][[j]][[k]]) & class(aoiint[[i]][[j]][[k]])!="try-error"){
+          sum(area(aoiint[[i]][[j]][[k]]))
+        } else {
+          0
+        }
+      })
+      })
+    })
+    
+    areaaoi <- area(aoiwgs)
+    
+    aoiprop <- lapply(seq(footprints), function(i){
+      lapply(seq(footprints[[i]]), function(j){
+        lapply(seq(footprints[[i]][[j]]), function(k){
+        if(aoiarea[[i]][[j]][[k]]!=0){
+          aoiarea[[i]][[j]][[k]]/areaaoi
+        } else {
+          0
+        }
+      })
+    })
+    })
+    
+    # get only tiles that have at least 10% of their area over aoi
+    
+    sel_aoi <- lapply(seq(query), function(x){ #days
+      lapply(seq(query[[x]]), function(y){ # MYD and MOD
+      z <- unlist(aoiprop[[x]][[y]])
+      z <- which(z>0.1)
+    }) 
+    })
     
     ## download records
         # create hdfpath
     dir.create(file.path(modisscenepath, "hdfs/"))
     
     for(i in seq(query)){ # amount of days that were ok in Landsat data
-      for(j in seq(query[[1]])){ # 2, MOD and MYD
-        files <- getMODIS_data(query[[i]][[j]])
-        # put all hdfs into one folder (hdfpath)
-        nl <- paste0(hdfpath, basename(files))
-        file.copy(from=files, to=nl, 
-                  overwrite = TRUE)
+      for(j in seq(sel_aoi[[i]])){ # 2, MOD and MYD
+        if(length(sel_aoi[[i]][[j]])!=0){
+          files <- getMODIS_data(query[[i]][[j]][sel_aoi[[i]][[j]],])
+          # put all hdfs into one folder (hdfpath)
+          nl <- paste0(hdfpath, basename(files))
+          file.copy(from=files, to=nl, 
+                    overwrite = TRUE)
+        }
+
       }
     }
     
@@ -121,6 +200,7 @@ getprocessMODIS <- function(time_range){
     
     # convert values to valid range and degree C
     print("converting values to valid range and degree Celsius")
+    dir.create(MODLSTpath)
     lst_c <- lapply(seq(lst), function(i){
       # Valid Range = 7500-65535
       lst[[i]][lst[[i]] == 0 ] <- NA
@@ -131,6 +211,10 @@ getprocessMODIS <- function(time_range){
       
       # convert to degree C
       lstc <- lst_1_conv - 273.15 
+      
+      writeRaster(lstc, paste0(MODLSTpath, "cels_", names(lst[[i]]), ".tif"), format="GTiff", 
+                  overwrite=T)
+      
       print(i)
       return(lstc)
     })
@@ -139,7 +223,10 @@ getprocessMODIS <- function(time_range){
     print("projecting rasters - will take quite a while")
     lst_cp <- lapply(seq(lst_c), function(i){
       print(i)
-      projectRaster(lst_c[[i]], crs = antaproj)
+      x <- projectRaster(lst_c[[i]], crs = antaproj)
+      writeRaster(x, paste0(MODLSTpath, "proj_", names(lst[[i]]), ".tif"), format="GTiff", 
+                  overwrite=T)
+      x
     })
     
     # get extent of files
@@ -148,31 +235,36 @@ getprocessMODIS <- function(time_range){
       crs(p) <- antaproj
       p
     })
-    m <- do.call(bind, MODext)
+    me <- do.call(bind, MODext)
     
     # make a template to force 1x1km pixels
     tmplras <- lst_cp[[1]]
-    extent(tmplras) <- extent(m)
+    extent(tmplras) <- extent(me)
     res(tmplras) <- c(1000, 1000)
     tmplras[] <- 1
+    
+    
+        # save projected and resampled rasters
+    dir.create(file.path(MODLSTpath)) # create MODtifHDFoutpath
     
     # resample all rasters to 1km x 1km resolution  
     lst_res <- lapply(seq(lst_cp), function(i){
       print(i)
-      resample(lst_cp[[i]], tmplras)
+      x <- resample(lst_cp[[i]], tmplras)
+      writeRaster(x, paste0(MODLSTpath, names(lst[[i]]), ".tif"), format="GTiff", 
+                  overwrite=T)
+      x
     })
     
     print("rasters resampled to 1x1km resolution")
     
-    # save projected and resampled rasters
-    dir.create(file.path(MODLSTpath)) # create MODtifHDFoutpath
-    
-    for(i in seq(lst_res)){
-      print(i)
-      writeRaster(lst_res[[i]], paste0(MODLSTpath, names(lst_res[[i]]), ".tif"), format="GTiff", 
-                  overwrite=T)
-    }
-    
+
+    # for(i in seq(lst_res)){
+    #   print(i)
+    #   writeRaster(lst_res[[i]], paste0(MODLSTpath, names(lst_res[[i]]), ".tif"), format="GTiff", 
+    #               overwrite=T)
+    # }
+    # 
     # # read converted to ?C, projected and resampled tifs back in
     # lst_cp <- lapply(seq(grep(list.files(path=paste0(modisscenepath, "LST_2018_01_19/"), full.names=T), pattern='res', inv=T, value=T)), function(i){
     #   f <- grep(list.files(path=paste0(modisscenepath, "LST_2018_01_19/"), full.names=T), pattern='res', inv=T, value=T)
@@ -198,7 +290,8 @@ getprocessMODIS <- function(time_range){
     }
     #mrg[length(mrg)] <- paste0("lst_res[[", length(mrg), "]]")
     mrg <- paste(mrg, sep="", collapse=",") 
-    cm <- paste("raster::mosaic(", mrg, ", tolerance=0.9, filename=paste0(modisscenepath, \"testmosaic_MODIS.tif\"), fun=mean, overwrite=T, overlap=T, ext=NULL)")
+    cm <- paste("raster::mosaic(", mrg, ", tolerance=0.9, 
+                fun=mean, overwrite=T, overlap=T, ext=NULL)")
     
     mosaic <- eval(parse(text=cm))
     mosaic[mosaic < -90] <- NA # correct for too low values
@@ -318,7 +411,7 @@ getprocessMODIS <- function(time_range){
     rm(lst_cp)
     rm(lst_res)
     
-    MODdate <- datestodoymod(utcdates)
+    MODdate <- datestodoymod(utcdates, fnams, lst_s)
     
     # make a raster with min of time range and max of time range 
     # and one with amount of rasters going into the pixel
@@ -344,12 +437,12 @@ getprocessMODIS <- function(time_range){
     ma <- max(subtimeras, na.rm=T)
     diff <- ma-mi
     
-    dir.create(paste0(modispath, "date/"))
+    dir.create(paste0(modisscenepath, "date/"))
     
-    writeRaster(nonna, paste0(modispath, "date/amount_available_data.tif"), format="GTiff", overwrite=T)
-    writeRaster(mi, paste0(modispath, "date/min_time.tif"), format="GTiff", overwrite=T)
-    writeRaster(ma, paste0(modispath, "date/max_time.tif"), format="GTiff", overwrite=T)
-    writeRaster(diff, paste0(modispath, "date/time_range.tif"), format="GTiff", overwrite=T)
+    writeRaster(nonna, paste0(modisscenepath, "date/amount_available_data.tif"), format="GTiff", overwrite=T)
+    writeRaster(mi, paste0(modisscenepath, "date/min_time.tif"), format="GTiff", overwrite=T)
+    writeRaster(ma, paste0(modisscenepath, "date/max_time.tif"), format="GTiff", overwrite=T)
+    writeRaster(diff, paste0(modisscenepath, "date/time_range.tif"), format="GTiff", overwrite=T)
     
     
     # find max bounding box
@@ -365,7 +458,8 @@ getprocessMODIS <- function(time_range){
     
     tstack <- stack(nonnares, mi, ma, diff)
     names(tstack) <- c("sum_av", "min_t", "max_t", "t_range")
-    writeRaster(tstack, paste0(modispath, "date/time_rasters", areaname, time_range[[y]][[m]][[1]], ".tif"), format="GTiff", overwrite=T)
+    writeRaster(tstack, paste0(modisscenepath, "date/time_rasters", areaname, time_range[[y]][[m]][[1]][1], ".tif"), 
+                format="GTiff", overwrite=T)
     
     print("time rasters done")
     
@@ -373,7 +467,8 @@ getprocessMODIS <- function(time_range){
     
     timeex <- data.frame(extract(tstack, extent(tstack)))
     
-    L8time <- read.csv(paste0(L8datpath, "L8_date_", areaname, time_range[[y]][[m]][[1]], ".csv"))
+
+    L8time <- read.csv(paste0(L8datpath, "L8_date_", areaname, time_range[[y]][[m]][[1]][1], ".csv"))
     L8date <- lapply(seq(nrow(L8time)), function(i){
       strptime(paste(L8time$date[i], L8time$time[i]), format='%Y-%m-%d %H:%M:%S', tz="UTC")
     })
@@ -427,7 +522,9 @@ getprocessMODIS <- function(time_range){
     
     timediff[] <- timeex$dev
     
-    writeRaster(timediff, paste0(modispath, "date/time_rasters", areaname, "_", time_range[[y]][[m]][[1]], ".tif"), format="GTiff", overwrite=T)
+    writeRaster(timediff, 
+                paste0(modisscenepath, "date/time_rasters", areaname, "_", time_range[[y]][[m]][[1]][1], ".tif"),
+                format="GTiff", overwrite=T)
     
     print("timedifference to L8 written")
     
@@ -437,7 +534,9 @@ getprocessMODIS <- function(time_range){
   
 
   gc()
-  
+  } else {
+    print("no data downloaded an processed, because no suitable L8 data found")
+  }
 }
 
 

@@ -77,7 +77,7 @@ aoiutm <- spTransform(aoi, crs("+proj=utm +zone=57 +south +ellps=WGS84 +datum=WG
 
 ####### get rock outcrop to assign emissivity ############
 if(newarea==1){
-  roc <- readOGR("E:/Antarctica/rock_outcrop/Rock_outcrop_high_res_from_landsat_8/Rock_outcrop_high_res_from_landsat_8.shp")
+  roc <- readOGR("D:/Antarctica/rock_outcrop/Rock_outcrop_high_res_from_landsat_8/Rock_outcrop_high_res_from_landsat_8.shp")
   roc <- crop(roc, aoianta)
   rroc <- rasterize(roc, btcmerge, progress = "text")
   rroc[!is.na(rroc)]<-0.94 # everything that's not NA = rock, eta for rock = 0.94
@@ -105,7 +105,7 @@ batchoutdir <- paste0(batchrunpath, "outdir/")
 
 
 #### high resolution land polygon for the 
-clpath <- paste0("E:/Antarctica/", "coastline/Coastline_high_res_polygon/") 
+clpath <- paste0("D:/Antarctica/", "coastline/Coastline_high_res_polygon/") 
 
 if(newarea==1){
   cl <- readOGR(list.files(clpath, pattern="polygon.shp", full.names=T))
@@ -142,11 +142,14 @@ if(newarea==1){
 
 ## Login to USGS ERS
 login_USGS("MaiteLezama")
-
+y=3
+m=2
+getprocessLANDSAT(time_range)
+getprocessMODIS(time_range)
 
 for(y in seq(year)){
   for(m in seq(month)){
-      getprocessLANDSAT(time_range)
+      getprocessLANDSAT(time_range) 
       getprocessMODIS(time_range)
   }
 }
