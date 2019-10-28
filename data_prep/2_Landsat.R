@@ -1,4 +1,54 @@
 
+#' Get and process LANDSAT files
+#' 
+#' @description Function gets a query for Landsat 8 C1 data online for the aoi and time-range. 
+#' The query is subselected for high quality images with little cloud cover by taking the footprints from the query, making polygons
+#' out of them and calculating the overlap of the tiles of interest with the area of interest. Only tiles with an aoi-coverage of 
+#' >= 30% will be taken. In case that there is no data in the query, write a csv file to be picked up by MODIS procedure later
+#' and stop this function - also, if cloud cover is too great, do the same. Generate and write a quality check df, which sums up
+#' info on cloud cover, quality of images, etc. Select tiles from query. If any is selected, find out which are the tiles, that
+#' overlap enough and only have 20% cloud cover. Write a summary file "downloaded_days.csv" to L8scenepath 
+#' (paste0(main, "L8/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")). Download the selected tiles from USGS. If there are
+#' are any files to process, summarize and read all available scenes into R with their metadata, get acquisition times summarized.
+#' calculate, how much of the area of the downloaded scenes actually lies in AOI and on land. Write selected files after Cloud cover, 
+#' aoi overlap and land overlap to (paste0(L8datpath, "L8_date_", areaname, time_range[[y]][[m]][[1]][1], ".csv")). 
+#' Change 0 values to NA. 
+#' Cut to AOI.
+#' Make atmospheric correction (stimating digital number pixel value of dark objects in visible wavelength with estimateHaze(), with
+#' hazebands 3 and 4. Radiometric calibration and correction of Landsat data using radCor, method="sdos" and estimated haze values 
+#' from above. Write to paste0(L8scenepath, "ac/").
+#' Calculate Brightness Temperature: Get additive (AL) and multiplicative (ML) radiative rescaling constants from Band 10, calculate
+#' TOA spectral radiance: TOA = (ML * B10_dn) + AL 
+#' To convert TOA spectral radiance into BT, K1 and K2 = Band-specific thermal conversion constants are retrieved from the metadata.
+#' L = TOA.
+#' BTK <- (K2 /(log((K1 / TOA) +1)))
+#' BTC <- (BTK-273.15)
+#' All BTC below -90°C is being set to NA. Files are being written to paste0(L8scenepath, "bt/").
+#' Get rock outcrop raster with Emissivity values (eta) and calculate LST: BTC[[i]]/(1+(0.0010895*BTC[[i]]/0.01438)*log(eta)). 
+#' Mask LST by AOI and bring them all to new extent so that they can be stacked. 
+#' Merge LST files for this time frame.
+#' @param time_range
+#' @return list of LST stack of all tiles that were processed to LST and l8datetime (selection based on cloud cover, aoi overlap
+#' and land overlap)
+#' @author Maite Lezama Valdes
+#' @examples
+#' year <- c(2019:2013)
+#' month <- c("01","02", "12")
+#' day <- c(17:22)
+#' time_range <- lapply(seq(year), function(j){
+#'   lapply(seq(month), function(i){
+#'       y <- paste(paste0(year[j],"-",month[i],"-",day), 
+#'       paste0(year[j],"-",month[i],"-",day))
+#'       strsplit(y, " ")
+#'       })
+#' })
+#' for(y in seq(year)){
+#' for(m in seq(month)){
+#'   getprocessLANDSAT(time_range)
+#'   }
+#' }
+
+
 
 ####### LANDSAT 8 ##############################################################################################
 
@@ -36,14 +86,16 @@ getprocessLANDSAT <- function(time_range){
   })
   
   if(any(te!="try-error")){
+    
+    
+
     ######### subselect query directly for high quality images with little cloud cover #########
     
-    # TO DO!
     #find out which overlaps mostly with aoi, so that this tile can be checked thoroughly
     wgsproj <- CRS("+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0")
     footprints <- lapply(seq(query), function(x){
       tiles <- lapply(seq(nrow(query[[x]])), function(i){
-        a <- query[[x]]$spatialFootprint[[i]]
+        a <- query[[x]]$spatialFootprint[[i]] # get footprint from query
         a1 <- strsplit(substring(a, 11,(nchar(a)-2)), split = ",")
         ap <- strsplit(a1[[1]], split=" +")
         
@@ -52,7 +104,7 @@ getprocessLANDSAT <- function(time_range){
         }))
         df <- data.frame(matrix(as.numeric(abc), ncol=2, byrow=T))
         xy <- df[,c(1:2)]
-        fp <- SpatialPointsDataFrame(coords = xy, data = df,
+        fp <- SpatialPointsDataFrame(coords = xy, data = df, #make spatial points data frame from footprint
             proj4string = wgsproj)
         fpp <- Polygon(fp)
         Ps1 = SpatialPolygons(list(Polygons(list(fpp), ID = "a")), 
@@ -64,13 +116,14 @@ getprocessLANDSAT <- function(time_range){
     # are those also in aoi
     aoiwgs <- spTransform(aoi, wgsproj)
     
-    
+    # find out intersection between aoi and footprints
     aoiint <- lapply(seq(footprints), function(i){
       lapply(seq(footprints[[i]]), function(j){
               intersect(aoiwgs, footprints[[i]][[j]])
       })
     })
-
+    
+    # area of overlap
     aoiarea <- lapply(seq(footprints), function(i){
       lapply(seq(footprints[[i]]), function(j){
         if(!is.null(aoiint[[i]][[j]])){
@@ -83,6 +136,7 @@ getprocessLANDSAT <- function(time_range){
     
     areaaoi <- area(aoiwgs)
 
+    # which proportion of aoi is covered by tile? 
     aoiprop <- lapply(seq(footprints), function(i){
       lapply(seq(footprints[[i]]), function(j){
         if(aoiarea[[i]][[j]]!=0){
@@ -94,7 +148,6 @@ getprocessLANDSAT <- function(time_range){
     })
     
     # get only tiles that have at least 30% of their area over aoi
-    
     sel_aoi <- lapply(seq(query), function(x){
       z <- unlist(aoiprop[[x]])
       z <- which(z>0.3)
@@ -147,7 +200,6 @@ getprocessLANDSAT <- function(time_range){
     names(qualitycheckdf) <- names(qualitycheck[[1]])
     qualitycheckdf$day <- day
     
-    
     #query[5,]$levels_available
     
     ## preview a record
@@ -166,7 +218,7 @@ getprocessLANDSAT <- function(time_range){
     
     write.csv(qualitycheckdf, paste0(L8scenepath, "qualitycheck.csv"), row.names = F)
     
-    ## download only suitable records
+    ## select suitable days 
     selectquery <- lapply(seq(nrow(qualitycheckdf)), function(i){
       ret <- 0
       if(qualitycheckdf$select[i] == "yes"){
@@ -178,7 +230,6 @@ getprocessLANDSAT <- function(time_range){
     #whichtile <- aoiprop[unlist(selectquery==1)]
     
     
-    # if more than one suitable scene for the month, select the day with lowest cloud cover
     if(any(unlist(selectquery)==1)){
       # subsq <- which(unlist(selectquery)==1)
       # # which from those selected to be suitable is lowest in mean cloud cover?
@@ -189,6 +240,7 @@ getprocessLANDSAT <- function(time_range){
       # }
       # 
       
+      # WHICH of the tiles from those days overlaps > 30% over aoi?
       bigarea <- sapply(seq(aoiprop), function(i){
         a <- unlist(aoiprop[[i]])[(unlist(aoiprop[[i]]) > 0.30) == T]
         sapply(seq(a), function(j){
@@ -198,33 +250,11 @@ getprocessLANDSAT <- function(time_range){
       
       subsqopt <- which((selectquery)==1)
       
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      # make sure no empty list elements are passed on or handle somehow
-      
-      
-      
-      
-      
-    
-      
-      
-      
-      subsqopt
-      selquery <- lapply(seq(selectquery), function(i){ # für alle Tage
+      # list of infos concerning the selected tiles selquery[[day]][[1]][[1=query, 2=summary, 3=day and tile # in original query]]
+      selquery <- lapply(seq(selectquery), function(i){ # for all days
         if(selectquery[[i]]==1){
           if(length(bigarea[[i]])!=0){
-            s <- lapply(seq(length(bigarea[[i]])), function(j){
+            s <- lapply(seq(length(bigarea[[i]])), function(j){ # for all tiles of the day
                 print(c(i,j))
                 q <- query[[ i ]] [(bigarea[[i]][[j]]),] # nimm die Kacheln mit ausreichend Überlappung mit AOI
                 d <- q$summary
@@ -236,36 +266,40 @@ getprocessLANDSAT <- function(time_range){
         return(s)
       })
       
+      # get the selected tiles together
       sum_selquery <- lapply(seq(selquery), function(i){ # für alle Tage
-        lapply(seq(length(selquery[[i]])), function(j){
+        lapply(seq(length(selquery[[i]])), function(j){ # für alle Kacheln
               if(!selquery[[i]][[j]][1]=="no good scene here"){
                 print(c(i,j))
                 selquery[[i]][[j]][[2]]
               }
             })
           })
+    
       
-      querynew <- lapply(seq(selquery), function(i){ # für alle Tage
+      # get amount of land cloud cover for the selected tiles
+      cc <- lapply(seq(selquery), function(i){ # für alle Tage
         lapply(seq(length(selquery[[i]])), function(j){
           if(!selquery[[i]][[j]][1]=="no good scene here"){
-            print(c(i,j))
+          selquery[[i]][[j]][[1]]$LandCloudCover}
+        })
+      })
+      
+      # construct the new query out of tiles, which have only 20% cc
+      querynew <- lapply(seq(selquery), function(i){ # für alle Tage
+        lapply(seq(length(selquery[[i]])), function(j){
+          if(!selquery[[i]][[j]][1]=="no good scene here" && cc[[i]][[j]]<20){
             selquery[[i]][[j]][[1]]
           }
         })
       })
       
-      
-      cc <- lapply(seq(querynew), function(i){ # für alle Tage
-        lapply(seq(length(querynew[[i]])), function(j){
-          querynew[[i]][[j]]$LandCloudCover
-        })
-      })
-      
-      
+      # write info file on downloaded tiles
       downloadsumdf <- data.frame(summary= unlist(sum_selquery), lcc = unlist(cc))
-      write.csv(downloadsumdf, paste0(L8scenepath, "downloaded_days.csv"), row.names = F)
+      seldf <- downloadsumdf[downloadsumdf$lcc < 20,]
+      write.csv(seldf, paste0(L8scenepath, "downloaded_days.csv"), row.names = F)
       
-      
+      # get files from USGS
       files <- lapply(seq(querynew), function(i){
         lapply(seq(querynew[[i]]), function(j){
           if(!is.null(querynew[[i]][[j]])){
@@ -274,6 +308,7 @@ getprocessLANDSAT <- function(time_range){
         })
       })
       
+      # get file type of files to check if there is anything in it
       fte <- sapply(seq(files), function(x){
         lapply(seq(querynew[[x]]), function(j){
         class(files[[x]][[j]])
@@ -312,41 +347,41 @@ getprocessLANDSAT <- function(time_range){
         return(list(path=path, row=row, date=date, time=time))
       })
       
+      # make df with Path, Row, Date and Time (GMT)
       df <- data.frame(matrix(unlist(pathrow), ncol = 4, byrow=T))
       names(df) <- names(pathrow[[1]])
       df$scenenumber <- as.numeric(rownames(df))
       df
-      
-      
+  
       nums <- seq(1:nrow(df))
       
       # ordered by time: stacks
       s <- lapply(seq(nums), function(i){
         stackMeta(datloc$meta[[nums[i]]], quantity = 'all')
       })
+      
       ############# CHECK WHICH FILES ARE OVER LAND ######################################################
-      # check, how much of the area of the downloaded scenes that might be selected actually lies in AOI and on land
+      # check, how much of the area of the downloaded scenes that might be selected actually lies on land
       
       # do all tiles overlap with land? 
-      
       t <- lapply(seq(s), function(i){
         intersect(land, s[[i]])
       })
       
-      # subselect scenes, whose amount of pixels is bigger than threshold in 
-      # calculate area sums
+      # how much area overlaps with land?
       tarea <- lapply(seq(t), function(i){
         if(!is.null(t[[i]])){
           sum(area(t[[i]]))
         }
       })
       
+      # which are over 10000000000 area
       ba <- lapply(seq(t), function(i){
         tarea[[i]]>=10000000000
       })
-      
       selnum <- which(ba==T)
       
+      # take those with over 10000000000 area
       sel <- s[unlist(ba)]
       
       # write date and time for later use with MODIS 
@@ -359,7 +394,7 @@ getprocessLANDSAT <- function(time_range){
       
       
       ############# ELIMINATE 0 VALUES ########################################################################## 
-      s <- sel
+      s <- sel # use subselected after cloud cover, aoi overlap and land overlap
       for(i in seq(s)){
         for(j in seq(nlayers(s[[i]]))){
           s[[i]][[j]][s[[i]][[j]]==0] <- NA
@@ -484,20 +519,6 @@ getprocessLANDSAT <- function(time_range){
       # })
       # 
       
-      # generate command for merging all the tiles
-      mrg <- character()
-      for(i in seq(BTC)){
-        mrg[i] <- paste0("BTC[[", i, "]]")
-      }
-      
-      mrg <- paste(mrg, sep="", collapse=",")
-      cm <- paste("raster::mosaic(", mrg, ", tolerance=0.9, fun=mean, overwrite=T, overlap=T, ext=NULL)")
-      
-      # merging 
-      btcmerge <- eval(parse(text=cm))
-      writeRaster(btcmerge, paste0(L8scenepath, "bt/BTC_merged", areaname,".tif"), 
-                  format="GTiff", overwrite=T)
-      
       # get rock outcrop raster with Emissivity values
       eta <- raster(paste0(main, "Rock_outcrop_ras_", areaname, ".tif"))
       
@@ -505,14 +526,71 @@ getprocessLANDSAT <- function(time_range){
       LST <- lapply(seq(BTC), function(i){
         x <- (BTC[[i]]/(1+(0.0010895*BTC[[i]]/0.01438)*log(eta))) 
         # write LST raster
-        writeRaster(x,paste0(L8scenepath, "bt/LST_", i,".tif"), 
-                    format="GTiff", overwrite=T)
+        # writeRaster(x,paste0(L8scenepath, "bt/LST_", i,".tif"), 
+        #             format="GTiff", overwrite=T)
       })
+      print("LST calculated")
+      
+      if(length(LST)>1){
+            # bring them all to the same extent
+            
+            # LST <- lapply(seq(list.files(paste0(L8scenepath, "bt/"), pattern="LST")), function(i){
+            #   raster(list.files(paste0(L8scenepath, "bt/"), pattern="LST", full.names = T)[i])
+            # })
+      
+            
+            # # mask LST by AOI
+            lst_aoi <- lapply(seq(LST), function(i){
+              x <- mask(LST[[i]], aoianta)
+              names(x) <- names(LST[[i]])
+              x
+            })
+            
+            #newextent <- extent(compbbmax(lst_aoi))
+            #rnew <- lst_aoi[[1]]+lst_aoi[[2]]+lst_aoi[[3]]+lst_aoi[[4]]
+            newextent <- compbbmax(lst_aoi)
+            p <- as(newextent, 'SpatialPolygons')  
+            crs(p) <- crs(lst_aoi[[1]])
+            
+            # bring them all to new extent
+            lst_aoi_ex <- lapply(seq(LST), function(i){
+              x <- extend(LST[[i]], p)
+              names(x) <- names(LST[[i]])
+              x
+            })
+            
+            lst_ex <- stack(lst_aoi_ex)
+          
+            for(j in seq(nlayers(lst_ex))){
+              writeRaster(lst_ex[[j]], paste0(L8scenepath, "ac/", names(BTC)[j], ".tif"), 
+                          format="GTiff", overwrite=T)
+            }
+            
+            # MERGE LST
+            print("starting to merge LST")
+            
+            mrg <- character()
+            for(i in seq(LST)){
+              mrg[i] <- paste0("LST[[", i, "]]")
+            }
+            
+            mrg <- paste(mrg, sep="", collapse=",")
+            cm <- paste("raster::mosaic(", mrg, ", tolerance=0.9, fun=mean, overwrite=T, overlap=T, ext=NULL)")
+            
+            # merging 
+            LSTmerge <- eval(parse(text=cm))
+            writeRaster(LSTmerge, paste0(L8scenepath, "bt/LST_merged", areaname,".tif"), 
+                        format="GTiff", overwrite=T)
+            
+            
+      }
       
       print("LST calculated, LANDSAT routine for this timestep done")
-      return(list(clouds=cc, LST=LST, l8datetime=l8datetime))
+      return(list(LST=LST, l8datetime=l8datetime))
+      
     } else {
       txtf <- "no data suitable"
+      print(txtf)
       write.csv(txtf, paste0(L8scenepath, "qualitycheck.csv"), row.names = F)
     }
   } else {

@@ -219,14 +219,27 @@ getprocessMODIS <- function(time_range){
       return(lstc)
     })
     
+    # save projected and resampled rasters
+    dir.create(file.path(MODLSTpath)) # create MODtifHDFoutpath
+    
+    
     # project rasters
     print("projecting rasters - will take quite a while")
-    lst_cp <- lapply(seq(lst_c), function(i){
+    lapply(seq(lst_c), function(i){
       print(i)
       x <- projectRaster(lst_c[[i]], crs = antaproj)
       writeRaster(x, paste0(MODLSTpath, "proj_", names(lst[[i]]), ".tif"), format="GTiff", 
                   overwrite=T)
       x
+    })
+    
+  
+    rm(lst_c)
+    gc()
+      
+    projfiles <- list.files(MODLSTpath, pattern="proj", full.names = T)
+    lst_cp <- lapply(seq(projfiles), function(i){
+      raster(projfiles[i])
     })
     
     # get extent of files
@@ -243,10 +256,7 @@ getprocessMODIS <- function(time_range){
     res(tmplras) <- c(1000, 1000)
     tmplras[] <- 1
     
-    
-        # save projected and resampled rasters
-    dir.create(file.path(MODLSTpath)) # create MODtifHDFoutpath
-    
+  
     # resample all rasters to 1km x 1km resolution  
     lst_res <- lapply(seq(lst_cp), function(i){
       print(i)
@@ -404,12 +414,12 @@ getprocessMODIS <- function(time_range){
       v[i] <- as.character(utcdates[[i]])
     }
     data.frame(fnams=fnams, utc = v)
-    
-    rm(lst_c)
-    rm(lst)
-    rm(lst_ex)
-    rm(lst_cp)
-    rm(lst_res)
+    # 
+    # rm(lst_c)
+    # rm(lst)
+    # rm(lst_ex)
+    # rm(lst_cp)
+    # rm(lst_res)
     
     MODdate <- datestodoymod(utcdates, fnams, lst_s)
     
@@ -474,7 +484,41 @@ getprocessMODIS <- function(time_range){
     })
     
     # convert L8 time to minute of day
-    L8dates <- datestodoymod(L8date)
+    
+              #L8dates <- datestodoymod(L8date, fnams, lst_s)
+              doy <- sapply(seq(L8date), function(i){
+                  strftime(L8date[[i]], format = "%j")
+              })
+              
+              minutes <- sapply(seq(L8date), function(i){
+                minute(L8date[[i]])
+              })
+              
+              hours <- sapply(seq(L8date), function(i){
+                hour(L8date[[i]])
+              })
+              
+              L8LST <- lapply(seq(list.files(paste0(L8scenepath, "bt/"), pattern="LST")), function(i){
+                raster(list.files(paste0(L8scenepath, "bt/"), pattern="LST", full.names = T)[i])
+              })
+                
+              
+              dateras <- lapply(seq(L8LST), function(i){
+                d <- L8LST[[i]]
+                d[!is.na(d[])] <- as.numeric(doy[[i]])
+                mod <- L8LST[[i]]
+                mod[!is.na(mod)] <- (hours[[i]]*60)+minutes[[i]]
+                y <- stack(d, mod)
+                print(i)
+                return(y)
+              })
+              
+              drs <- stack(dateras)
+              dayras <- subset(drs, c(seq(1,nlayers(drs), by=2)))
+              timeras <- subset(drs, c(seq(2,nlayers(drs), by=2)))
+              
+              minutesofday <- (hours*60)+minutes
+    
     
     timeex$L8time <- rep(mean(L8dates$minutesofday), nrow(timeex))
     

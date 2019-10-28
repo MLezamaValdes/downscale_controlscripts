@@ -53,12 +53,11 @@ time_range <- lapply(seq(year), function(j){
 })
 
 
-
 ###### paths #############################
 scriptpath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/downscale_controlscripts/data_prep/"
-main <- "D:/Antarctica/testrun_loop_2/"
-dempath <- "D:/DEM_8m/tiles_westcoast/"
-aoipath <-  "D:/Antarctica/aoi/MDV/"
+main <- "E:/Antarctica/testrun_loop_2/"
+dempath <- "E:/DEM_8m/tiles_westcoast/"
+aoipath <-  "E:/Antarctica/aoi/MDV/"
 L8datpath <- paste0(main, "L8/")
 modispath <- paste0(main, "MODIS/")
 tdpath <-paste0(main, "timediff/")
@@ -142,9 +141,11 @@ if(newarea==1){
 
 ## Login to USGS ERS
 login_USGS("MaiteLezama")
-y=3
+# for MODIS: 2, 3
+y=4
 m=2
 getprocessLANDSAT(time_range)
+# to do: adapt MODIS script to new data structure in Landsat script
 getprocessMODIS(time_range)
 
 for(y in seq(year)){
