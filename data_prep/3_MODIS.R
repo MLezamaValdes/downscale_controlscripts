@@ -1,5 +1,39 @@
-
-
+#' Get and process MODIS LST Swath files
+#' 
+#' @description 
+#' First, MODIS tries to read the qualitycheck.csv file from the getprocessLandsat() function. If it doesn't only contain 
+#' the information, that "no data suitable" or "no available data for time range", the day of the month that was being downloaded
+#' for is being extracted. 
+#' For those days, "MODIS_MOD11_L2_V6" and "MODIS_MYD11_L2_V6" products are queried, and check the queries' tile's overlap with the aoi.
+#' Only tiles that have at least 10% area intersection with the aoi will be downloaded and hdfs put into one folder together.
+#' The MODIS Swath file is batch tranlated via the HEG tool and collected in one folder.
+#' The LST files are being read into R and values converted to valid range (7500-65535) and a scale factor = 0.02 applied. 
+#' Data was also converted from K to °C by subtracting 273.15. Tiles are projected  to EPSG 3031 WGS 84 / Antarctic Polar Stereographic.
+#' Find a common extent for all files and resample to a clean 1x1km resolution. All MODIS files are being mosaiced. 
+#' Find the  max bounding box, bring them all to this resolution and then stack the files and crop to aoi extent. 
+#' Next, 4 date rasters are being created, which inform on the amount of available datapoints for each pixel, the minimum and maximum 
+#' time and time range covered (time_rasters_MDV_time_range.tif)
+#' Then, the goodness of fit between the acquisition time of Landsat 8 and MODIS is calculated by retrieving the L8_date_MDV_timerange.csv
+#' file. The L8 time is converted to minute of day and the time difference is being calculated. 
+#' @param time_range
+#' @return -
+#' @author Maite Lezama Valdes
+#' @examples
+#' year <- c(2019:2013)
+#' month <- c("01","02", "12")
+#' day <- c(17:22)
+#' time_range <- lapply(seq(year), function(j){
+#'   lapply(seq(month), function(i){
+#'       y <- paste(paste0(year[j],"-",month[i],"-",day), 
+#'       paste0(year[j],"-",month[i],"-",day))
+#'       strsplit(y, " ")
+#'       })
+#' })
+#' for(y in seq(year)){
+#' for(m in seq(month)){
+#'   getprocessMODIS(time_range)
+#'   }
+#' }
 
 getprocessMODIS <- function(time_range){
   
@@ -64,7 +98,6 @@ getprocessMODIS <- function(time_range){
     })
 
     
-    # TO DO: GET ONLY THOSE IMAGES THAT ARE ACTUALLY OVERLAPPING AOI AS IN LANDSAT! ### 
     seq(query)
     wgsproj <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
     footprints <- lapply(seq(query), function(x){
@@ -171,7 +204,6 @@ getprocessMODIS <- function(time_range){
     
     # list all files in hdf dir
     filescomp <- list.files(hdfpath, full.names=T)
-    
     
     # clean out batchoutdir if something there from previous run
     a <- character(0)

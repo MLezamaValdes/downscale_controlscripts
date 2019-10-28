@@ -539,7 +539,7 @@ getprocessLANDSAT <- function(time_range){
             # })
       
             
-            # # mask LST by AOI
+            # # mask LST by AOI (NECESSARY??? SHOULD BE DONE ALREADY!   )
             lst_aoi <- lapply(seq(LST), function(i){
               x <- mask(LST[[i]], aoianta)
               names(x) <- names(LST[[i]])

@@ -1,6 +1,7 @@
 # 1 DEM
 
 
+
 prepDEM <- function(x){
   
   demtilepath <- paste0(dempath, "all/")
