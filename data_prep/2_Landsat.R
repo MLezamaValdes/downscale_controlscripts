@@ -334,6 +334,20 @@ getprocessLANDSAT <- function(time_range){
         stackMeta(datloc$meta[[i]], category = "image", allResolutions = F)
       })
       
+      dir.create(paste0(L8scenepath, "bt/"))
+      
+      lapply(seq(datloc$tifs), function(i){
+        bqa <- raster(grep('BQA', datloc$tifs[[i]], value=TRUE))
+        bqa[bqa >= 3 & bqa <= 2720] <- 9999
+        bqa[bqa >= 3744 & bqa <= 3756] <- 9999
+        bqa[bqa!=9999] <- NA
+        # if(crs(bqa)== antaproj){
+        #   bqa <- projectRaster(bqa, crs=antaproj, method="bilinear")
+        # }
+        writeRaster(bqa, paste0(L8scenepath, "bt/", basename(grep('BQA', datloc$tifs[[i]], value=TRUE))),
+                    overwrite=T)
+      })
+      
       print("data location, metaData and stack done")
       
       ###### CHECK WHICH SCENES GO TOGETHER #########################################################################
@@ -518,6 +532,9 @@ getprocessLANDSAT <- function(time_range){
       #   raster(f[i])
       # })
       # 
+      
+      # get quality band
+      
       
       # get rock outcrop raster with Emissivity values
       eta <- raster(paste0(main, "Rock_outcrop_ras_", areaname, ".tif"))

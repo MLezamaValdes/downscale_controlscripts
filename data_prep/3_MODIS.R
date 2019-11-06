@@ -81,7 +81,7 @@ getprocessMODIS <- function(time_range){
     
     ## query for records for your AOI, time range and product
     L8dayc <- NA
-    for(i in seq(daynum)){
+    for(i in seq(length(daynum))){
       L8dayc[i] <- which(as.numeric(substring(time_range[[y]][[m]], 12,13))==daynum[i])
     }
     
@@ -273,18 +273,21 @@ getprocessMODIS <- function(time_range){
     lst_cp <- lapply(seq(projfiles), function(i){
       raster(projfiles[i])
     })
-    
-    # get extent of files
-    MODext <- lapply(seq(lst_cp), function(i){
-      p <- as(extent(lst_cp[[i]]), 'SpatialPolygons')
-      crs(p) <- antaproj
-      p
-    })
-    me <- do.call(bind, MODext)
-    
-    # make a template to force 1x1km pixels
     tmplras <- lst_cp[[1]]
-    extent(tmplras) <- extent(me)
+    
+    if(length(lst_cp)>1){
+      # get extent of files
+      MODext <- lapply(seq(lst_cp), function(i){
+        p <- as(extent(lst_cp[[i]]), 'SpatialPolygons')
+        crs(p) <- antaproj
+        p
+      })
+      me <- do.call(bind, MODext)
+      
+      # make a template to force 1x1km pixels
+      extent(tmplras) <- extent(me)
+    }
+
     res(tmplras) <- c(1000, 1000)
     tmplras[] <- 1
     
@@ -325,27 +328,30 @@ getprocessMODIS <- function(time_range){
     
     ############# PATCH IMAGES ####################################################################################
     
-    # write mosaic command 
-    mrg <- character()
-    for(i in seq(lst_res)){
-      mrg[i] <- paste0("lst_res[[", i, "]]")
+    if(length(lst_res) > 1){
+            # write mosaic command 
+      mrg <- character()
+      for(i in seq(lst_res)){
+        mrg[i] <- paste0("lst_res[[", i, "]]")
+      }
+      #mrg[length(mrg)] <- paste0("lst_res[[", length(mrg), "]]")
+      mrg <- paste(mrg, sep="", collapse=",") 
+      cm <- paste("raster::mosaic(", mrg, ", tolerance=0.9, 
+                  fun=mean, overwrite=T, overlap=T, ext=NULL)")
+      
+      mosaic <- eval(parse(text=cm))
+      mosaic[mosaic < -90] <- NA # correct for too low values
+      
+      writeRaster(mosaic, paste0(modisscenepath, areaname, "_MODIS_LST_Mosaic.tif"), format="GTiff", 
+                  overwrite=T, bylayer=T)
+      #mosaic <- raster(paste0(modisscenepath, areaname, "_MODIS_LST_Mosaic.tif"))
+      
+      # visualize mosaic
+      #mapview(mosaic, col.regions = viridis(500), legend = TRUE)
+      
+      print("MODIS images patched")
     }
-    #mrg[length(mrg)] <- paste0("lst_res[[", length(mrg), "]]")
-    mrg <- paste(mrg, sep="", collapse=",") 
-    cm <- paste("raster::mosaic(", mrg, ", tolerance=0.9, 
-                fun=mean, overwrite=T, overlap=T, ext=NULL)")
-    
-    mosaic <- eval(parse(text=cm))
-    mosaic[mosaic < -90] <- NA # correct for too low values
-    
-    writeRaster(mosaic, paste0(modisscenepath, areaname, "_MODIS_LST_Mosaic.tif"), format="GTiff", 
-                overwrite=T, bylayer=T)
-    #mosaic <- raster(paste0(modisscenepath, areaname, "_MODIS_LST_Mosaic.tif"))
-    
-    # visualize mosaic
-    #mapview(mosaic, col.regions = viridis(500), legend = TRUE)
-    
-    print("MODIS images patched")
+
     
     ############ MAKE A RASTER WHICH GIVES INFO ON INPUT RASTER ##########################################################
     
