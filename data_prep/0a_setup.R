@@ -63,6 +63,10 @@ if(newarea==1){
 ######## functions ################
 scriptsp <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/downscale_controlscripts/"
 source(paste0(scriptsp, "read_meta_L8_PS.R"))
+source(paste0("C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/downscaleRS/R/", "compbb.R"))
+
+
+
 
 substrRight <- function(x, n){
   substr(x, nchar(x)-n+1, nchar(x))

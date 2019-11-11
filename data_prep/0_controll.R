@@ -65,7 +65,7 @@ login_USGS("MaiteLezama")
 
 
       y=1
-      m=1
+      m=2
       time_range[[y]][[m]]
       getprocessLANDSAT(time_range)
       getprocessMODIS(time_range)

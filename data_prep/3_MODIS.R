@@ -270,6 +270,10 @@ getprocessMODIS <- function(time_range){
     gc()
       
     projfiles <- list.files(MODLSTpath, pattern="proj", full.names = T)
+    projfiles <- projfiles[  sapply(seq(projfiles), function(i){
+      !grepl("small", projfiles[i])
+    })]
+    
     lst_cp <- lapply(seq(projfiles), function(i){
       raster(projfiles[i])
     })
@@ -459,6 +463,7 @@ getprocessMODIS <- function(time_range){
     # rm(lst_cp)
     # rm(lst_res)
     
+    # MODdate contains dayofyear, minutesofday as data and as rasters as well 
     MODdate <- datestodoymod(utcdates, fnams, lst_s)
     
     # make a raster with min of time range and max of time range 
@@ -503,7 +508,8 @@ getprocessMODIS <- function(time_range){
       crop(tl[[i]], newextent)
     })
     
-    
+    # time_rastersMDV2019-01-17.tif:
+    # which pixels are not na, minimum minute of day, maximum minute of day, difference between minimum and maximum
     tstack <- stack(nonnares, mi, ma, diff)
     names(tstack) <- c("sum_av", "min_t", "max_t", "t_range")
     writeRaster(tstack, paste0(modisscenepath, "date/time_rasters", areaname, time_range[[y]][[m]][[1]][1], ".tif"), 
@@ -523,7 +529,7 @@ getprocessMODIS <- function(time_range){
     
     # convert L8 time to minute of day
     
-              #L8dates <- datestodoymod(L8date, fnams, lst_s)
+              L8dates <- datestodoymod(L8date, fnams, lst_s)
               doy <- sapply(seq(L8date), function(i){
                   strftime(L8date[[i]], format = "%j")
               })
@@ -536,11 +542,11 @@ getprocessMODIS <- function(time_range){
                 hour(L8date[[i]])
               })
               
-              L8LST <- lapply(seq(list.files(paste0(L8scenepath, "bt/"), pattern="LST")), function(i){
-                raster(list.files(paste0(L8scenepath, "bt/"), pattern="LST", full.names = T)[i])
+              L8LST <- lapply(seq(list.files(paste0(L8scenepath, "bt/"), pattern="BTC")), function(i){
+                raster(list.files(paste0(L8scenepath, "bt/"), pattern="BTC", full.names = T)[i])
               })
                 
-              
+              # dateras / drs [[1]] = day of year = dayras, [[2]]=minute of day=timeras
               dateras <- lapply(seq(L8LST), function(i){
                 d <- L8LST[[i]]
                 d[!is.na(d[])] <- as.numeric(doy[[i]])
@@ -591,7 +597,6 @@ getprocessMODIS <- function(time_range){
           timeex$dev[i] <- 0
         }
       }
-      print(i)
     }
     timeex$dev[timeex$dev==99] <- NA
     
@@ -609,6 +614,18 @@ getprocessMODIS <- function(time_range){
                 format="GTiff", overwrite=T)
     
     print("timedifference to L8 written")
+    
+    daydiff <- abs(as.numeric(MODdate$dayofyear)-as.numeric(doy))
+    minutesdiff <- abs(MODdate$minutesofday-minutesofday)
+    
+    (datediff <- paste("MODIS day of year:", MODdate$dayofyear,
+                "; Landsat 8 day of year", doy , 
+                "; MODIS minutes of day:", MODdate$minutesofday, 
+                "; Landsat 8 minutesofday", minutesofday,
+                "MINUTESDIFF:", minutesdiff, 
+                "DAYDIFF:", daydiff))
+    
+    write.csv2(datediff, paste0(modisscenepath, "date/datediff.csv"))
     
   } else {
     print("no data downloaded and processed, because no suitable L8 data found")
