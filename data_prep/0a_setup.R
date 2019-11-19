@@ -25,7 +25,7 @@ time_range <- lapply(seq(year), function(j){
 dir.create(file.path(L8datpath), recursive = T)
 dir.create(file.path(modispath), recursive = T)
 dir.create(file.path(tdpath), recursive = T)
-#dir.create(paste0(main, "timediff/"))
+dir.create(paste0(main, "timediff/"))
 
 
 ######## determine AOI ################

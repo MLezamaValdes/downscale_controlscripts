@@ -13,7 +13,7 @@ areaname <- "MDV"
 
 ## time range parameters (2013-2019, Jan, Feb and December, select the best day from 17 to 21)
 year <- c(2019:2013)
-month <- c("01","02", "12")
+month <- c("01","02","03","04", "09", "10","11", "12")
 day <- c(17:22)
 
 
@@ -64,23 +64,32 @@ if(newarea==1){
 login_USGS("MaiteLezama")
 
 
-      y=1
-      m=2
-      time_range[[y]][[m]]
-      getprocessLANDSAT(time_range)
-      getprocessMODIS(time_range)
+      # y=1
+      # m=5
+      # time_range[[y]][[m]]
+      # getprocessLANDSAT(time_range)
+      # getprocessMODIS(time_range)
+      # 
 
 
-# # should be like this when it all works: 
+# from 2019-11 on 
+# # should be like this when it all works:
 # for(y in seq(year)){
 #   for(m in seq(month)){
-#       getprocessLANDSAT(time_range) 
+#       getprocessLANDSAT(time_range)
 #       getprocessMODIS(time_range)
 #   }
 # }
-# 
 
+y=2
+m=2
 
+for(y in c(2)){
+  for(m in seq(month)){
+      getprocessLANDSAT(time_range)
+      getprocessMODIS(time_range)
+  }
+}
 
 
 

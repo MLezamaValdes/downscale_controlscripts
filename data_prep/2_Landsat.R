@@ -271,7 +271,7 @@ getprocessLANDSAT <- function(time_range){
         lapply(seq(length(selquery[[i]])), function(j){ # für alle Kacheln
               if(!selquery[[i]][[j]][1]=="no good scene here"){
                 print(c(i,j))
-                selquery[[i]][[j]][[2]]
+                paste(selquery[[i]][[j]][[2]], ",", selquery[[i]][[j]][[1]]$StartTime)
               }
             })
           })
@@ -295,7 +295,11 @@ getprocessLANDSAT <- function(time_range){
       })
       
       # write info file on downloaded tiles
-      downloadsumdf <- data.frame(summary= unlist(sum_selquery), lcc = unlist(cc))
+      downloadsumdf <- paste(unlist(sum_selquery), ",", lcc = unlist(cc))
+      downloadsumdf <- data.frame(matrix(data=unlist(strsplit(downloadsumdf, ",")), ncol=6, byrow=T))
+      names(downloadsumdf) <- c("fnam", "date", "path", "row", "datetime", "lcc")
+      downloadsumdf$lcc <-  as.numeric(levels(downloadsumdf$lcc))[downloadsumdf$lcc]
+
       seldf <- downloadsumdf[downloadsumdf$lcc < 20,]
       write.csv(seldf, paste0(L8scenepath, "downloaded_days.csv"), row.names = F)
       
