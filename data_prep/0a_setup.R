@@ -13,10 +13,25 @@ library(lubridate)
 
 
 
-time_range <- lapply(seq(year), function(j){
-  lapply(seq(month), function(i){
-    y <- paste(paste0(year[j],"-",month[i],"-",day), 
-               paste0(year[j],"-",month[i],"-",day))
+## time range parameters (2013-2019, Jan, Feb and December, select the best day from 17 to 21)
+year <- c(2019:2013)
+month <- c("01","02","03","04", "09", "10","11", "12")
+
+# getting every day
+d_feb <- c(28, 28, 28, 29, 28, 28, 28)
+names(d_feb) <- year
+
+# years 2019:2013 days in all months listed above
+dom <- lapply(seq(year), function(y){
+  d <- c(31, d_feb[y], 31, 30, 30, 31, 30, 31)
+  names(d) <- month
+  d
+})
+
+time_range <- lapply(seq(year), function(i){
+  lapply(seq(month), function(j){
+    y <- paste(paste0(year[i],"-",month[j],"-", formatC(seq(1, dom[[i]][j]), width=2, flag=0)), 
+               paste0(year[i],"-",month[j],"-",formatC(seq(1, dom[[i]][j]), width=2, flag=0)))
     strsplit(y, " ")
   })
 })

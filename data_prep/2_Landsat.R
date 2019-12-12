@@ -73,8 +73,10 @@ getprocessLANDSAT <- function(time_range){
   #product_names <- getLandsat_names(username="MaiteLezama", password = "Eos300dmmmmlv")
   product <- "LANDSAT_8_C1"
   
-  ## query for records for your AOI, time range and product
+  ## query records for AOI, time range and product
   nodat <- list(0)
+  
+  day <- seq(length(time_range[[y]][[m]]))
   
   query <- lapply(seq(day), function(d){
     try(getLandsat_query(time_range = time_range[[y]][[m]][[d]], name = product,
@@ -86,9 +88,8 @@ getprocessLANDSAT <- function(time_range){
   })
   
   if(any(te!="try-error")){
+    ######### check, whether there are MODIS files 2h around this time #########
     
-    
-
     ######### subselect query directly for high quality images with little cloud cover #########
     
     #find out which overlaps mostly with aoi, so that this tile can be checked thoroughly
@@ -293,6 +294,7 @@ getprocessLANDSAT <- function(time_range){
           }
         })
       })
+    
       
       # write info file on downloaded tiles
       downloadsumdf <- paste(unlist(sum_selquery), ",", lcc = unlist(cc))
@@ -303,20 +305,167 @@ getprocessLANDSAT <- function(time_range){
       seldf <- downloadsumdf[downloadsumdf$lcc < 20,]
       write.csv(seldf, paste0(L8scenepath, "downloaded_days.csv"), row.names = F)
       
-      # get files from USGS
-      files <- lapply(seq(querynew), function(i){
+      if(nrow(seldf)!=0){
+        # do everything except for the ifs above
+
+      
+      ##### select only those L8 tiles, where MODIS matches
+    
+      # get L8 times from selected in querynew
+      L8time <- lapply(seq(querynew), function(i){
         lapply(seq(querynew[[i]]), function(j){
-          if(!is.null(querynew[[i]][[j]])){
-            try(getLandsat_data(records=querynew[[i]][[j]], level="l1", espa_order=NULL), silent=T)
-          }
+          if(length(querynew[[i]][[j]]$StartTime)!=0){
+            x <- querynew[[i]][[j]]$StartTime
+            x <- as.POSIXlt(x, format="%Y:%j:%H:%M:%S", tz="UTC")
+          } else {x=NULL}
+          x
         })
       })
       
-      # get file type of files to check if there is anything in it
-      fte <- sapply(seq(files), function(x){
-        lapply(seq(querynew[[x]]), function(j){
-        class(files[[x]][[j]])
+
+      # +/- 2h around L8datetime
+      
+      l8days <- sapply(seq(L8time), function(i){
+        lapply(seq(querynew[[i]]), function(j){
+        if(length(L8time[[i]][[j]])!=0){
+          maxtimerange <- L8time[[i]][[j]]+hours(1)
+          mintimerange <- L8time[[i]][[j]]-hours(1)
+          daynum <- unique(c(day(maxtimerange), day(mintimerange)))
+        }
       })
+      })
+      
+      l8days <- unique(unlist(l8days))
+
+      # take all days that are in the range of 2h around L8date
+      print("CHECK MODIS availability 2h around L8 dates")
+      
+      modisscenepath <- paste0(modispath, substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")
+      hdfpath <- paste0(modisscenepath, "hdfs/")
+      MODtifHDFoutpath <- paste0(modisscenepath, "translated/")
+      MODLSTpath <- paste0(modisscenepath, "LST/")
+      
+      
+      ## set archive directory
+      set_archive(modisscenepath)
+    
+      ## set aoi and time range for the query
+      set_aoi(aoiutm)
+      
+      ## get available products and select one
+      product1 <- "MODIS_MOD11_L2_V6"
+      product2 <- "MODIS_MYD11_L2_V6"
+      # product_names <- getMODIS_names(username="MaiteLezama", password = "Eos300dmmmmlv")
+      # product1 <- grep("MOD11_L2_V6", product_names, value = T)
+      # product2 <- grep("MYD11_L2_V6", product_names, value = T)
+      
+      ## query for records for your AOI, time range and product
+      L8dayc <- NA
+      for(i in seq(length(l8days))){
+        L8dayc[i] <- which(as.numeric(substring(time_range[[y]][[m]], 12,13))==l8days[i])
+      }
+    
+      modquery <- lapply(seq(length(L8dayc)), function(z){ # for all days
+        query1 <- getMODIS_query(time_range = time_range[[y]][[m]][[L8dayc[z]]], name = product1,
+                                 username="MaiteLezama", password = "Eos300dmmmmlv",
+                                 aoi=get_aoi())
+        query2 <- getMODIS_query(time_range = time_range[[y]][[m]][[L8dayc[z]]], name = product2,
+                                 username="MaiteLezama", password = "Eos300dmmmmlv",
+                                 aoi=get_aoi())
+        return(list(query1, query2))
+      })
+      
+      # extract times from MODIS query
+      # get exact time of scene capturing
+          
+      datetimeMODISquery <-lapply(seq(length(L8dayc)), function(i){
+        lapply(seq(modquery[[i]]), function(j){
+          lapply(seq(modquery[[i]][[j]]$displayId), function(x){
+          y <- strsplit(modquery[[i]][[j]]$displayId[[x]], "A")[[1]][2]
+          y1 <- paste0(substring(y, 1, 4), ":", substring(y, 5, 7), ":", 
+                       substring(y, 9, 10), ":", substring(y, 11, 12))
+          y2 <- as.POSIXlt(y1, format="%Y:%j:%H:%M", tz="UTC")
+        })
+      })
+      })
+
+      # compare time of MODIS scene with L8 capturing time
+      timediff <- lapply(seq(length(L8time)), function(z){
+        lapply(seq(length(L8time[[z]])), function(zi){
+          lapply(seq(length(datetimeMODISquery)), function(yz){
+            lapply(seq(length(datetimeMODISquery[[yz]])), function(yz1){
+              lapply(seq(length(datetimeMODISquery[[yz]][[yz1]])), function(yz2){
+                
+                if(length(L8time[[z]][[zi]])!=0 & length(datetimeMODISquery[[yz]][[yz1]][[yz2]])!=0){
+                    posinfo <- c(z, zi, yz, yz1, yz2)
+                    x <- as.numeric(abs(difftime(L8time[[z]][[zi]], datetimeMODISquery[[yz]][[yz1]][[yz2]], units="hours")))
+                    c(x, posinfo)
+                }
+          })
+          })
+        })
+        })
+      })
+    
+      # make df 
+      timediff_df <- data.frame(matrix(unlist(timediff), ncol = 6, byrow=T))
+      names(timediff_df) <- c("timediff", "L_days", "L_scene", "M_L_days", "MODMYD", "M_scene")
+      timediff_df <- timediff_df[timediff_df$timediff<2,]
+      write.csv2(timediff_df, paste0(L8scenepath, "timediff_df.csv"))
+      
+      MODmatcheddf <- unique(timediff_df[,c("M_L_days", "MODMYD", "M_scene")])
+      
+      MODquerymatched <- lapply(seq(unique(MODmatcheddf$M_L_days)), function(i){ # for all days that were selected
+        lapply(seq(unique(MODmatcheddf$MODMYD[MODmatcheddf$M_L_days==unique(MODmatcheddf$M_L_days)[i]])), function(j){ # for all MOD and MYD that are there per day i
+          #lapply(seq(unique(MODmatcheddf$M_scene[MODmatcheddf$M_L_days==i & MODmatcheddf$MODMYD==j])), function(k){ # for all scenes that are there per day i, MOD/MYD j
+            #print(i,j,k)
+            snums <- MODmatcheddf$M_scene[MODmatcheddf$M_L_days==i & MODmatcheddf$MODMYD==j]
+            modquery[[unique(MODmatcheddf$M_L_days)[i]]][[j]][snums,]
+          #})
+        })
+      })
+      
+      
+      msel <- MODquerymatched
+      saveRDS(msel, paste0(L8scenepath, "MODquerymatched_msel.rds"))
+      
+      # any combination <2h?
+      if(length(msel)!=0){
+      ## SELECT ONLY THOSE L8 scenes that are being matched by MODIS
+      l8matcheddf <- unique(timediff_df[,c("L_days","L_scene")])
+      
+      L8querymatched <- lapply(seq(unique(l8matcheddf$L_days)), function(i){ # for all days that were selected
+        #lapply(seq(nrow(l8matcheddf[l8matcheddf$L_days==unique(l8matcheddf$L_days)[i],])), function(j){ # for all scenes that are there per day
+          snums <- l8matcheddf$L_scene[l8matcheddf$L_days==unique(l8matcheddf$L_days)[i]]
+          query[[unique(l8matcheddf$L_days)[i]]][snums,]
+        #})
+      })
+      saveRDS(L8querymatched, paste0(L8scenepath, "L8querymatched.rds"))
+      
+      
+      # reset archive directory and product names to get LANDSAT 
+      ## set archive directory
+      set_archive(L8scenepath)
+      
+      ## get available products and select one
+      #product_names <- getLandsat_names(username="MaiteLezama", password = "Eos300dmmmmlv")
+      #product <- "LANDSAT_8_C1"
+        
+      
+      # get L8 files from USGS
+      files <- lapply(seq(querynew), function(i){
+        #lapply(seq(querynew[[i]]), function(j){
+          if(!is.null(querynew[[i]])){
+            try(getLandsat_data(records=L8querymatched[[i]], level="l1", espa_order=NULL), silent=T)
+          }
+        #})
+      })
+      
+      # get file type of files to check if there is anything in it
+      fte <- sapply(seq(L8querymatched), function(x){
+        #lapply(seq(L8querymatched[[x]]), function(j){
+        class(files[[x]])
+      #})
       })
       
       if(any(unlist(fte)!="try-error" & unlist(fte)!="NULL")){ # if there is any scene to process
@@ -430,65 +579,64 @@ getprocessLANDSAT <- function(time_range){
       print("cut to research area")
       
       ################## ATMOSPHERIC CORRECTION ####################################################################
-      
-      dir.create(paste0(L8scenepath, "ac/"))
-      lsat8_sdos <- lapply(seq(s.aoi), function(i){
-        lsat8 <- s.aoi[[i]]
-        names(lsat8) <- names(lsat8o[[selnum[i]]])
-        
-        #estimate digital number pixel value of dark objects in visible wavelength
-        hazeDN    <- estimateHaze(lsat8, hazeBands = c("B3_dn", "B4_dn"),
-                                  darkProp = 0.01)
-        
-        # radiometric calibration and correction of Landsat data 
-        lsat8_sdos <- radCor(lsat8, 
-                             metaData = readMeta(datloc$meta[[i]], raw=F),
-                             hazeValues = hazeDN,
-                             hazeBands = c("B3_dn", "B4_dn"),
-                             method = "sdos")
-        
-        mD <- readMeta(datloc$meta[[i]], raw=T)
-        nam <- mD$METADATA_FILE_INFO["LANDSAT_PRODUCT_ID",]
-        dir.create(paste0(L8scenepath, "ac/", nam, "/"))
-        for(j in seq(nlayers(lsat8_sdos))){
-          writeRaster(lsat8_sdos[[j]], paste0(L8scenepath, "ac/", nam, "/", nam, "_", names(lsat8_sdos)[j], ".tif"), 
-                      format="GTiff", overwrite=T)
-        }
-        lsat8_sdos
-      })
-      
-      
-      # # get files in, ordered
-      # fac <- list.files(paste0(L8datpath, "ac/"), full.names = T, pattern=".tif$")
-      # lo <- seq(1,length(metaData[unlist(bigarea)][unlist(aoibigarea)])*10, by=10) # *10 because channel 1:11 without channel 8 (pancromatic, in 15m resolution)
-      # hi <- lo+9
-      # lsat8_sdos <- lapply(seq(sel_f), function(i){
-      #   stack(fac[lo[i]:hi[i]])
+      # 
+      # dir.create(paste0(L8scenepath, "ac/"))
+      # lsat8_sdos <- lapply(seq(s.aoi), function(i){
+      #   lsat8 <- s.aoi[[i]]
+      #   names(lsat8) <- names(lsat8o[[selnum[i]]])
+      #   
+      #   #estimate digital number pixel value of dark objects in visible wavelength
+      #   hazeDN    <- estimateHaze(lsat8, hazeBands = c("B3_dn", "B4_dn"),
+      #                             darkProp = 0.01)
+      #   
+      #   # radiometric calibration and correction of Landsat data 
+      #   lsat8_sdos <- radCor(lsat8, 
+      #                        metaData = readMeta(datloc$meta[[i]], raw=F),
+      #                        hazeValues = hazeDN,
+      #                        hazeBands = c("B3_dn", "B4_dn"),
+      #                        method = "sdos")
+      #   
+      #   mD <- readMeta(datloc$meta[[i]], raw=T)
+      #   nam <- mD$METADATA_FILE_INFO["LANDSAT_PRODUCT_ID",]
+      #   dir.create(paste0(L8scenepath, "ac/", nam, "/"))
+      #   for(j in seq(nlayers(lsat8_sdos))){
+      #     writeRaster(lsat8_sdos[[j]], paste0(L8scenepath, "ac/", nam, "/", nam, "_", names(lsat8_sdos)[j], ".tif"), 
+      #                 format="GTiff", overwrite=T)
+      #   }
+      #   lsat8_sdos
       # })
       # 
-      
-
-      # # get extent of relevant files to crop DEM
-      # L8exts <- lapply(seq(s), function(i){
-      #   p <- as(extent(lsat8_sdos[[i]]), 'SpatialPolygons')
-      #   crs(p) <- antaproj
-      #   p
-      # })
-      # m <- do.call(bind, L8exts)
       # 
-      # # SpatialPolygons to SpatialPolygonsDataFrame
-      # mid <- sapply(slot(m, "polygons"), function(x) slot(x, "ID"))
-      # m.df <- data.frame( ID=1:length(m), row.names = mid) 
-      # mn <- SpatialPolygonsDataFrame(m, m.df)
+      # # # get files in, ordered
+      # # fac <- list.files(paste0(L8datpath, "ac/"), full.names = T, pattern=".tif$")
+      # # lo <- seq(1,length(metaData[unlist(bigarea)][unlist(aoibigarea)])*10, by=10) # *10 because channel 1:11 without channel 8 (pancromatic, in 15m resolution)
+      # # hi <- lo+9
+      # # lsat8_sdos <- lapply(seq(sel_f), function(i){
+      # #   stack(fac[lo[i]:hi[i]])
+      # # })
+      # # 
       # 
-      # writeOGR(mn, dsn=paste0(L8datpath, "L8_ext.shp"), layer="L8_ext",
-      #          driver="ESRI Shapefile")
-      
-      print("AC done")
+      # 
+      # # # get extent of relevant files to crop DEM
+      # # L8exts <- lapply(seq(s), function(i){
+      # #   p <- as(extent(lsat8_sdos[[i]]), 'SpatialPolygons')
+      # #   crs(p) <- antaproj
+      # #   p
+      # # })
+      # # m <- do.call(bind, L8exts)
+      # # 
+      # # # SpatialPolygons to SpatialPolygonsDataFrame
+      # # mid <- sapply(slot(m, "polygons"), function(x) slot(x, "ID"))
+      # # m.df <- data.frame( ID=1:length(m), row.names = mid) 
+      # # mn <- SpatialPolygonsDataFrame(m, m.df)
+      # # 
+      # # writeOGR(mn, dsn=paste0(L8datpath, "L8_ext.shp"), layer="L8_ext",
+      # #          driver="ESRI Shapefile")
+      # 
+      # print("AC done")
       #############  Calculation of TOA (Top of Atmospheric) spectral radiance and #################### 
       #################  brightness temperature ##################################################
       
-      #TO DO: check why values are off!
       dir.create(paste0(L8scenepath, "bt/"))
       
       BTC <- lapply(seq(selnum), function(i){
@@ -530,16 +678,13 @@ getprocessLANDSAT <- function(time_range){
       print("BTC calculated")
       
       ################## CALCULATE LST ####################################################################
-      # # get BTC files
-      # f <- list.files(paste0(L8scenepath, "bt/"), full.names = T, pattern=".tif$")
-      # BTC <- lapply(seq(f), function(i){
-      #   raster(f[i])
-      # })
-      # 
-      
-      # get quality band
-      
-      
+      # # # get BTC files
+      mr <- list.files(paste0(L8scenepath, "bt/"), pattern="BTC", full.names=T)
+      f <- mr[grep('tif$', mr)]
+      BTC <- lapply(seq(f), function(i){
+        raster(f[i])
+      })
+
       # get rock outcrop raster with Emissivity values
       eta <- raster(paste0(main, "Rock_outcrop_ras_", areaname, ".tif"))
       
@@ -552,7 +697,9 @@ getprocessLANDSAT <- function(time_range){
       })
       print("LST calculated")
       
-      if(length(LST)>1){
+      # bring to same extent and write LST 
+        dir.create(paste0(L8scenepath, "LST/"))
+        
             # bring them all to the same extent
             
             # LST <- lapply(seq(list.files(paste0(L8scenepath, "bt/"), pattern="LST")), function(i){
@@ -560,7 +707,7 @@ getprocessLANDSAT <- function(time_range){
             # })
       
             
-            # # mask LST by AOI (NECESSARY??? SHOULD BE DONE ALREADY!   )
+            # # mask LST by AOI
             lst_aoi <- lapply(seq(LST), function(i){
               x <- mask(LST[[i]], aoianta)
               names(x) <- names(LST[[i]])
@@ -574,52 +721,66 @@ getprocessLANDSAT <- function(time_range){
             crs(p) <- crs(lst_aoi[[1]])
             
             # bring them all to new extent
-            lst_aoi_ex <- lapply(seq(LST), function(i){
-              x <- extend(LST[[i]], p)
+            lst_aoi_ex <- lapply(seq(lst_aoi), function(i){
+              x <- extend(lst_aoi[[i]], p)
               names(x) <- names(LST[[i]])
               x
             })
             
             lst_ex <- stack(lst_aoi_ex)
-          
+            
+            #dir.create(paste0(L8scenepath, "mos/"))
             for(j in seq(nlayers(lst_ex))){
-              writeRaster(lst_ex[[j]], paste0(L8scenepath, "ac/", names(BTC)[j], ".tif"), 
+              writeRaster(lst_ex[[j]], paste0(L8scenepath, "LST/", names(BTC[[j]]), ".tif"), 
                           format="GTiff", overwrite=T)
             }
             
-            # MERGE LST
-            print("starting to merge LST")
+            # # MERGE LST
+            # print("starting to merge LST")
+            # 
+            # mrg <- character()
+            # for(i in seq(LST)){
+            #   mrg[i] <- paste0("LST[[", i, "]]")
+            # }
+            # 
+            # mrg <- paste(mrg, sep="", collapse=",")
+            # cm <- paste("raster::mosaic(", mrg, ", tolerance=0.9, fun=mean, overwrite=T, overlap=T, ext=NULL)")
+            # 
+            # # merging 
+            # LSTmerge <- eval(parse(text=cm))
+            # writeRaster(LSTmerge, paste0(L8scenepath, "bt/LST_merged", areaname,".tif"), 
+            #             format="GTiff", overwrite=T)
+            # 
             
-            mrg <- character()
-            for(i in seq(LST)){
-              mrg[i] <- paste0("LST[[", i, "]]")
-            }
-            
-            mrg <- paste(mrg, sep="", collapse=",")
-            cm <- paste("raster::mosaic(", mrg, ", tolerance=0.9, fun=mean, overwrite=T, overlap=T, ext=NULL)")
-            
-            # merging 
-            LSTmerge <- eval(parse(text=cm))
-            writeRaster(LSTmerge, paste0(L8scenepath, "bt/LST_merged", areaname,".tif"), 
-                        format="GTiff", overwrite=T)
-            
-            
-      }
-      
+
       print("LST calculated, LANDSAT routine for this timestep done")
-      return(list(LST=LST, l8datetime=l8datetime))
+      return(list(msel=msel, LST=LST, l8datetime=l8datetime))
       
     } else {
       txtf <- "no data suitable"
       print(txtf)
       write.csv(txtf, paste0(L8scenepath, "qualitycheck.csv"), row.names = F)
+      return("nothing")
     }
-  } else {
-    txt <- "no available data for time range"
+  } else {print("no time match in MODIS found")
+    file.rename(L8scenepath, paste0(substring(L8scenepath, 1, (nchar(L8scenepath)-nchar(basename(L8scenepath))-1)), 
+                                    paste0("no_tmatch_",basename(L8scenepath))))
+    file.remove(paste0(L8scenepath, "qualitycheck.csv"))
+    return("nothing")
+    }# for if there are MODIS scenes within <2h of L8
+    
+      } else {txt <- "no available data for time range"
     print(txt)
     write.csv(txt, paste0(L8scenepath, "qualitycheck.csv"), row.names = F)
-    
+    return("nothing")} 
+      
+     } else {txt <- "no available data for time range"
+    print(txt)
+    write.csv(txt, paste0(L8scenepath, "qualitycheck.csv"), row.names = F)
+    return("nothing")}
+      
+    } else {txt <- "no available data for time range"
+    print(txt)
+    write.csv(txt, paste0(L8scenepath, "qualitycheck.csv"), row.names = F)
+    return("nothing")}
   }
-  }
-}
-

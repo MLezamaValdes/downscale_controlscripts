@@ -64,7 +64,8 @@ for(y in seq(year)){
       modmatchl8 <- sapply(seq(datL8$doy), function(i){
               doymatch <- which(datMOD$doy==datL8$doy[i])
               for(i in seq(doymatch)){
-                
+                datMOD$minday
+                datL8$minday
               }
       })
       

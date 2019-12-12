@@ -11,20 +11,16 @@ rm(list=ls())
 newarea <- 0
 areaname <- "MDV"
 
-## time range parameters (2013-2019, Jan, Feb and December, select the best day from 17 to 21)
-year <- c(2019:2013)
-month <- c("01","02","03","04", "09", "10","11", "12")
-day <- c(17:22)
 
-
+library(rgeos)
 
 #######################    SET PATHS    ###################################################################################### 
 
 scriptpath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/downscale_controlscripts/data_prep/"
 # E = IRONWOLF
-main <- "E:/downscaling/data_download_preprocessing/"
-dempath <- "E:/downscaling/DEM_8m/tiles_westcoast/"
-aoipath <-  "E:/downscaling/aoi/MDV/"
+main <- "D:/new_downscaling/data_download_preprocessing/"
+dempath <- "D:/new_downscaling/tiles_westcoast/"
+aoipath <-  "D:/new_downscaling/aoi/MDV/"
 L8datpath <- paste0(main, "L8/")
 modispath <- paste0(main, "MODIS/")
 tdpath <-paste0(main, "timediff/")
@@ -33,7 +29,7 @@ tdpath <-paste0(main, "timediff/")
 aoip <- list.files(aoipath, pattern="adp.shp", full.names = T)
 
 #### set path to high resolution land polygon
-clpath <- paste0("E:/downscaling/", "coastline/Coastline_high_res_polygon/") 
+clpath <- "D:/new_downscaling/coastline/Coastline_high_res_polygon/" 
 
 ######## set paths for translating to SAGA
 path_saga_norm <- "C:/OSGeo4W64/apps/saga-ltr/"
@@ -70,26 +66,27 @@ login_USGS("MaiteLezama")
       # getprocessLANDSAT(time_range)
       # getprocessMODIS(time_range)
       # 
-
-
-# from 2019-11 on 
-# # should be like this when it all works:
-# for(y in seq(year)){
-#   for(m in seq(month)){
-#       getprocessLANDSAT(time_range)
-#       getprocessMODIS(time_range)
-#   }
-# }
-
 y=2
 m=2
 
-for(y in c(2)){
+
+# from 2019-11 on 
+# should be like this when it all works:
+for(y in seq(year)){
   for(m in seq(month)){
       getprocessLANDSAT(time_range)
       getprocessMODIS(time_range)
   }
 }
+
+
+# 
+# # for(y in c(2)){
+# #   for(m in seq(month)){
+#       msel <- getprocessLANDSAT(time_range)
+#       getprocessMODIS(time_range)
+# #   }
+# # }
 
 
 
