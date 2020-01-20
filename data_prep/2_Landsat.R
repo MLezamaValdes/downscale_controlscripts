@@ -76,7 +76,8 @@ getprocessLANDSAT <- function(time_range){
   ## query records for AOI, time range and product
   nodat <- list(0)
   
-  day <- seq(length(time_range[[y]][[m]]))
+  day <- seq(length(time_range[[y]][[m]]))  
+ 
   
   query <- lapply(seq(day), function(d){
     try(getLandsat_query(time_range = time_range[[y]][[m]][[d]], name = product,
@@ -114,10 +115,9 @@ getprocessLANDSAT <- function(time_range){
       return(tiles)
     })
     
-    # are those also in aoi
-    aoiwgs <- spTransform(aoi, wgsproj)
-    
+    # are those also in aoi?
     # find out intersection between aoi and footprints
+    aoiwgs <- spTransform(aoi, wgsproj)
     aoiint <- lapply(seq(footprints), function(i){
       lapply(seq(footprints[[i]]), function(j){
               intersect(aoiwgs, footprints[[i]][[j]])
@@ -185,7 +185,7 @@ getprocessLANDSAT <- function(time_range){
         cm <- paste("as.numeric(paste0(", mrg, "))")
         selaoi <- eval(parse(text=cm))
 
-        if(landclouds_aoi>65){
+        if(landclouds_aoi>20){
           cc <- 1
           print("too much cloud cover for this date")
           txt <- "cc"
@@ -203,9 +203,7 @@ getprocessLANDSAT <- function(time_range){
     
     #query[5,]$levels_available
     
-    ## preview a record
-    #getLandsat_preview(query[[3]][3,])
-    
+
     qualitycheckdf$select <- unlist(lapply(seq(nrow(qualitycheckdf)), function(i){
       if(all(qualitycheckdf[i,1:3]==c(0,1,0))==TRUE & qualitycheckdf$selaoi[i] !=0){
         x="yes"
@@ -411,6 +409,25 @@ getprocessLANDSAT <- function(time_range){
       timediff_df <- data.frame(matrix(unlist(timediff), ncol = 6, byrow=T))
       names(timediff_df) <- c("timediff", "L_days", "L_scene", "M_L_days", "MODMYD", "M_scene")
       timediff_df <- timediff_df[timediff_df$timediff<2,]
+
+      # get names of scenes
+      for(i in seq(nrow(timediff_df))){
+          # MODIS
+          modsum <- modquery[[timediff_df$M_L_days[i]]][[timediff_df$MODMYD[i]]][timediff_df$M_scene[i],]$summary
+          timediff_df$MODname[i] <- strsplit(strsplit(modsum, ",")[[1]][[1]], ":")[[1]][[2]]
+          
+          # L8
+          l8sum <- selquery[[timediff_df$L_days[i]]][[timediff_df$L_scene[i]]][[2]]
+          print(l8sum)
+          if(!is.null(l8sum)){
+            l8sum1 <- strsplit(strsplit(l8sum, ",")[[1]][[1]], ":")[[1]][[2]]
+            timediff_df$L8name[i] <- substring(l8sum1, 1, nchar(l8sum1)-15)
+          }
+
+      }
+      
+      timediff_df$L8name <- substring(timediff_df$L8name, 2, nchar(timediff_df$L8name)) # eliminate leading space
+
       write.csv2(timediff_df, paste0(L8scenepath, "timediff_df.csv"))
       
       MODmatcheddf <- unique(timediff_df[,c("M_L_days", "MODMYD", "M_scene")])
@@ -442,6 +459,21 @@ getprocessLANDSAT <- function(time_range){
       })
       saveRDS(L8querymatched, paste0(L8scenepath, "L8querymatched.rds"))
       
+      
+      ## preview records
+      #source(paste0(scriptpath, "fun_EE_preview.R"))
+      
+      dir.create(paste0(L8scenepath,"previews/"))
+      
+      for(i in seq(L8querymatched)){
+        if(nrow(L8querymatched[[i]])>0){
+          for(j in seq(nrow(L8querymatched[[i]]))){
+            map <- getLandsat_preview(L8querymatched[[i]][j,])
+            mapshot(map, file=paste0(L8scenepath, "previews/query",i,"tile",rownames(L8querymatched[[i]])[j],".png"))
+            print(c(i,j))
+          }
+        }
+      }
       
       # reset archive directory and product names to get LANDSAT 
       ## set archive directory
@@ -511,15 +543,16 @@ getprocessLANDSAT <- function(time_range){
         row <- metaData[[i]]$PRODUCT_METADATA[rownames(metaData[[i]]$PRODUCT_METADATA) == "WRS_ROW",]
         date <- metaData[[i]]$PRODUCT_METADATA[rownames(metaData[[i]]$PRODUCT_METADATA) == "DATE_ACQUIRED",]
         time <- metaData[[i]]$PRODUCT_METADATA[rownames(metaData[[i]]$PRODUCT_METADATA) == "SCENE_CENTER_TIME",]
-        return(list(path=path, row=row, date=date, time=time))
+        fn <- metaData[[i]]$PRODUCT_METADATA[rownames(metaData[[i]]$PRODUCT_METADATA) == "FILE_NAME_BAND_1",]
+        fname <- substring(fn, 1, nchar(fn)-22)
+        sceneID <- metaData[[i]]$METADATA_FILE_INFO[rownames(metaData[[i]]$METADATA_FILE_INFO) == "LANDSAT_SCENE_ID",]
+        return(list(path=path, row=row, date=date, time=time, fname=fname, sceneID=sceneID))
       })
       
       # make df with Path, Row, Date and Time (GMT)
-      df <- data.frame(matrix(unlist(pathrow), ncol = 4, byrow=T))
+      df <- data.frame(matrix(unlist(pathrow), ncol = 6, byrow=T))
       names(df) <- names(pathrow[[1]])
       df$scenenumber <- as.numeric(rownames(df))
-      df
-  
       nums <- seq(1:nrow(df))
       
       # ordered by time: stacks
@@ -553,12 +586,60 @@ getprocessLANDSAT <- function(time_range){
       
       # write date and time for later use with MODIS 
       l8datetime <- df[selnum,]
+      l8datetime$fname <- as.character(l8datetime$fname)
       write.csv(l8datetime, paste0(L8datpath, "L8_date_", areaname, time_range[[y]][[m]][[1]][1], ".csv"))
       
       print("relevant files selected and date and time written out")
       
+      # write Landsat time into timediff_df
+      timediff_df$L8time <- NA
+      timediff_df$L8date <- NA
+      df$fname <- as.character(df$fname)
+      for(i in seq(nrow(timediff_df))){
+        ind <- which(grepl(timediff_df$L8name[i],df$fname))
+        print(c(timediff_df$L8name[i], df$fname[ind]))
+        if(length(ind)>0){
+          timediff_df$L8time[i] <- as.character(df[ind,"time"])
+          timediff_df$L8date[i] <- as.character(df[ind,"date"])
+        }
+      }
       
+      write.csv2(timediff_df, paste0(L8scenepath, "timediff_df.csv"))
       
+      # actualize MODIS query
+
+      
+      mselsummary <- sapply(seq(mselnew), function(i){
+        mselnew[[i]]$summary
+      })
+      
+      timediff_comp <- timediff_df[complete.cases(timediff_df),]
+      timediff_comp$MODname <- substring(timediff_comp$MODname,2,nchar(timediff_comp$MODname))
+      
+      mselsummary <- substring(mselsummary, 12,55)
+      n_occur <- data.frame(table(mselsummary))
+      timediff_comp$Mdupl <- NA
+      timediff_comp$Mdupl[timediff_comp$MODname %in% n_occur$mselsummary[n_occur$Freq > 1]] <- 1
+      
+      timediff_comp$sel <- 0
+      timediff_comp$sel[is.na(timediff_comp$Mdupl)] <- 1
+      
+      a <- n_occur$mselsummary[n_occur$Freq==2]
+      for(i in seq(a)){
+        timediff_comp$sel[min(which(timediff_comp$MODname == a[i]))] <- 1
+      }
+      
+      timediff_msel <- timediff_comp[timediff_comp$sel==1,]
+      
+      # row in timediff_msel corresponds to list index in msel
+      mselnew <- lapply(seq(nrow(timediff_msel)), function(i){
+        modquery[[timediff_msel$M_L_days[i]]][[timediff_msel$MODMYD[i]]][timediff_msel$M_scene[i],]
+      })      
+      write.csv2(timediff_msel, paste0(L8scenepath, "timediff_msel.csv"))
+      write.csv2(timediff_comp, paste0(L8scenepath, "timediff_comp.csv"))
+      
+      msel <- mselnew
+      saveRDS(msel, paste0(L8scenepath, "MODquerymatched_msel.rds"))
       
       ############# ELIMINATE 0 VALUES ########################################################################## 
       s <- sel # use subselected after cloud cover, aoi overlap and land overlap
