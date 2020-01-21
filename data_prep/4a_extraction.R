@@ -54,16 +54,76 @@ for(i in seq(nrow(matchdf))){
 
 # resample to 30m 
 modl8res <- lapply(seq(nrow(matchdf)), function(i){
-   resample(mras[[matchdf[i,"mrstackpos"]]], L8ras[[matchdf[i,"L8stackpos"]]])
+   x <- resample(mras[[matchdf[i,"mrstackpos"]]], L8ras[[matchdf[i,"L8stackpos"]]])
+   x[x<100] <- NA
+})
+
+# stack respective scenes
+L8MODstacks <- lapply(seq(nrow(matchdf)), function(i){
+  stack(L8ras[[matchdf[i,"L8stackpos"]]], modl8res[[i]])
+})
+
+allstacks <- stack(L8MODstacks)
+
+# add terrain data to stack
+
+# # stack MODIS and L8, DEM, TWI, (aspect), hillshade, spatial blocks for CV
+# dempath <- "D:/new_downscaling/tiles_westcoast/"
+# dem <- raster(paste0(dempath, "DEM_8m_", areaname,"_clean_filled_15.tif"))
+# blockmask <- raster(paste0(dempath, "blockmask.tif"))
+# slope <- raster(paste0(dempath, "slopeMDV.tif"))
+# hillsh <- raster(paste0(dempath, "hillshading_8m.tif"))
+# hillshade <- crop(hillsh, dem)
+# twipath <- "D:/Antarctica/runoff_paths/"
+# twi <- raster(paste0(twipath, "TWI_Rslope.tif"))
+# twires <- resample(twi, dem)
+# 
+# s <- stack(dem, slope, twires, hillshade, blockmask)
+# 
+# # save terrain data stack
+# writeRaster(s, paste0(main, paste0(main, "_auxiliary_data_8m.tif")))
+# 
+# # resample s to fit with satstack
+# sres <- resample(s, L8MODstacks[[1]])
+# writeRaster(sres, paste0(main, paste0(main, "_auxiliary_data_30m.tif")))
+
+sres <- stack(paste0(main, paste0(main, "_auxiliary_data_30m.tif")))
+
+
+stack.complete <- stack(allstacks,sres)
+writeRaster(stack.complete, paste0(L8scenepath, areaname, "_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7),"_complete.tif"))
+
+
+# extract data
+names(stack.complete) <- c(names(allstacks),"DEM", "slope","TWI","hillsh","blockmask")
+
+# extract
+exdat <- extract(stack.complete, aoianta)
+saveRDS(exdat, paste0(L8scenepath, "exdat.rds"))
+
+# select what's auxiliary and what satellite data
+sat <- exdat[[1]][,c(1:(ncol(exdat[[1]])-5))]
+aux <- exdat[[1]][,c((ncol(exdat[[1]])-4):ncol(exdat[[1]]))]
+
+x <- seq(ncol(sat))
+ls <- x[lapply(x, "%%", 2) != 0]
+mod <- x[lapply(x, "%%", 2) == 0]
+
+# bring dataset into correct form
+lapply(seq(ncol(sat)/2), function(i){
+
+  # select which go together
+  pair <- sat[,c(ls[i],mod[i])]
+  
+  # take MODIS date
+  
+  id <- rep(substring(colnames(pair)[2], 22, 33),length(pair[,1]))
+  pairid <- cbind(pair, id)
+
 })
 
 
+satord <- rbind(, sat[,c(3,4)], sat[,c(5,6)])
 
-
-satstack <- stack(L8ras[[2]], modl8resval)
-
-
-# stack respective scenes
-# extract data
-# merge datasets for all matched scenes
+# write csv dataset for respective month
 
