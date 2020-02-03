@@ -57,11 +57,18 @@ write.csv2(matchdf, paste0(L8scenepath, "matchdf_final.csv"))
 modl8res <- lapply(seq(nrow(matchdf)), function(i){
    x <- resample(mras[[matchdf[i,"mrstackpos"]]], L8ras[[matchdf[i,"L8stackpos"]]])
    x[x<100] <- NA
+   x
+})
+
+modl8res_nam <- lapply(seq(modl8res), function(i){
+  x <- modl8res[[1]]
+  names(x) <- names(mras[[matchdf[i,"mrstackpos"]]])
+  x
 })
 
 # stack respective scenes
 L8MODstacks <- lapply(seq(nrow(matchdf)), function(i){
-  stack(L8ras[[matchdf[i,"L8stackpos"]]], modl8res[[i]])
+  stack(L8ras[[matchdf[i,"L8stackpos"]]], modl8res_nam[[i]])
 })
 
 allstacks <- stack(L8MODstacks)
@@ -137,5 +144,11 @@ cm <- paste("rbind(", mrg, ")")
 satord <- eval(parse(text=cm))
 
 # write csv dataset for respective month
-write.saveRDS(satord, paste0(L8scenepath, areaname, "_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7),"_extraction_ordered.rds"))
-csv2(satord, paste0(L8scenepath, areaname, "_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7),"_extraction_ordered.csv"))
+saveRDS(satord, paste0(L8scenepath, areaname, "_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7),"_extraction_ordered.rds"))
+write.csv2(satord, paste0(L8scenepath, areaname, "_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7),"_extraction_ordered.csv"))
+
+head(satord)
+satord.comp <- satord[complete.cases(satord),]
+# write csv dataset for respective month
+saveRDS(satord.comp, paste0(L8scenepath, areaname, "_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7),"_extraction_ordered.rds"))
+write.csv2(satord.comp, paste0(L8scenepath, areaname, "_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7),"_extraction_ordered.csv"))

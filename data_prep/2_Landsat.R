@@ -88,7 +88,7 @@ getprocessLANDSAT <- function(time_range){
     class(query[[x]])
   })
   
-  if(any(te!="try-error")){
+  if(any(te!="try-error") & !is.null(unlist(query))){
     ######### check, whether there are MODIS files 2h around this time #########
     
     ######### subselect query directly for high quality images with little cloud cover #########
@@ -429,6 +429,7 @@ getprocessLANDSAT <- function(time_range){
       timediff_df$L8name <- substring(timediff_df$L8name, 2, nchar(timediff_df$L8name)) # eliminate leading space
 
       write.csv2(timediff_df, paste0(L8scenepath, "timediff_df.csv"))
+      #timediff_df <- read.csv2(paste0(L8scenepath, "timediff_df.csv"))
       
       MODmatcheddf <- unique(timediff_df[,c("M_L_days", "MODMYD", "M_scene")])
       
@@ -445,6 +446,7 @@ getprocessLANDSAT <- function(time_range){
       
       msel <- MODquerymatched
       saveRDS(msel, paste0(L8scenepath, "MODquerymatched_msel.rds"))
+      #msel <- readRDS(paste0(L8scenepath, "MODquerymatched_msel.rds"))
       
       # any combination <2h?
       if(length(msel)!=0){
@@ -459,7 +461,7 @@ getprocessLANDSAT <- function(time_range){
       })
       saveRDS(L8querymatched, paste0(L8scenepath, "L8querymatched.rds"))
       
-      
+      L8querymatched <- readRDS(paste0(L8scenepath, "L8querymatched.rds"))
       ## preview records
       #source(paste0(scriptpath, "fun_EE_preview.R"))
       
@@ -485,9 +487,9 @@ getprocessLANDSAT <- function(time_range){
         
       
       # get L8 files from USGS
-      files <- lapply(seq(querynew), function(i){
+      files <- lapply(seq(L8querymatched), function(i){
         #lapply(seq(querynew[[i]]), function(j){
-          if(!is.null(querynew[[i]])){
+          if(!is.null(L8querymatched[[i]])){
             try(getLandsat_data(records=L8querymatched[[i]], level="l1", espa_order=NULL), silent=T)
           }
         #})
@@ -607,235 +609,193 @@ getprocessLANDSAT <- function(time_range){
       write.csv2(timediff_df, paste0(L8scenepath, "timediff_df.csv"))
       
       # actualize MODIS query
-
-      
-      mselsummary <- sapply(seq(mselnew), function(i){
-        mselnew[[i]]$summary
-      })
-      
       timediff_comp <- timediff_df[complete.cases(timediff_df),]
-      timediff_comp$MODname <- substring(timediff_comp$MODname,2,nchar(timediff_comp$MODname))
       
-      mselsummary <- substring(mselsummary, 12,55)
-      n_occur <- data.frame(table(mselsummary))
-      timediff_comp$Mdupl <- NA
-      timediff_comp$Mdupl[timediff_comp$MODname %in% n_occur$mselsummary[n_occur$Freq > 1]] <- 1
-      
-      timediff_comp$sel <- 0
-      timediff_comp$sel[is.na(timediff_comp$Mdupl)] <- 1
-      
-      a <- n_occur$mselsummary[n_occur$Freq==2]
-      for(i in seq(a)){
-        timediff_comp$sel[min(which(timediff_comp$MODname == a[i]))] <- 1
-      }
-      
-      timediff_msel <- timediff_comp[timediff_comp$sel==1,]
-      
-      # row in timediff_msel corresponds to list index in msel
-      mselnew <- lapply(seq(nrow(timediff_msel)), function(i){
-        modquery[[timediff_msel$M_L_days[i]]][[timediff_msel$MODMYD[i]]][timediff_msel$M_scene[i],]
-      })      
-      write.csv2(timediff_msel, paste0(L8scenepath, "timediff_msel.csv"))
-      write.csv2(timediff_comp, paste0(L8scenepath, "timediff_comp.csv"))
-      
-      msel <- mselnew
-      saveRDS(msel, paste0(L8scenepath, "MODquerymatched_msel.rds"))
-      
-      ############# ELIMINATE 0 VALUES ########################################################################## 
-      s <- sel # use subselected after cloud cover, aoi overlap and land overlap
-      for(i in seq(s)){
-        for(j in seq(nlayers(s[[i]]))){
-          s[[i]][[j]][s[[i]][[j]]==0] <- NA
-        }
-      }
-      print("0 values replaced by NA")
-      
-      ################## CUT TO AOI ##################################################################################
-      
-      # cut out to research area
-      s.aoi <- lapply(seq(s), function(i){
-        crop(s[[i]], extent(aoianta))
-      })
-      
-      print("cut to research area")
-      
-      ################## ATMOSPHERIC CORRECTION ####################################################################
-      # 
-      # dir.create(paste0(L8scenepath, "ac/"))
-      # lsat8_sdos <- lapply(seq(s.aoi), function(i){
-      #   lsat8 <- s.aoi[[i]]
-      #   names(lsat8) <- names(lsat8o[[selnum[i]]])
-      #   
-      #   #estimate digital number pixel value of dark objects in visible wavelength
-      #   hazeDN    <- estimateHaze(lsat8, hazeBands = c("B3_dn", "B4_dn"),
-      #                             darkProp = 0.01)
-      #   
-      #   # radiometric calibration and correction of Landsat data 
-      #   lsat8_sdos <- radCor(lsat8, 
-      #                        metaData = readMeta(datloc$meta[[i]], raw=F),
-      #                        hazeValues = hazeDN,
-      #                        hazeBands = c("B3_dn", "B4_dn"),
-      #                        method = "sdos")
-      #   
-      #   mD <- readMeta(datloc$meta[[i]], raw=T)
-      #   nam <- mD$METADATA_FILE_INFO["LANDSAT_PRODUCT_ID",]
-      #   dir.create(paste0(L8scenepath, "ac/", nam, "/"))
-      #   for(j in seq(nlayers(lsat8_sdos))){
-      #     writeRaster(lsat8_sdos[[j]], paste0(L8scenepath, "ac/", nam, "/", nam, "_", names(lsat8_sdos)[j], ".tif"), 
-      #                 format="GTiff", overwrite=T)
-      #   }
-      #   lsat8_sdos
-      # })
-      # 
-      # 
-      # # # get files in, ordered
-      # # fac <- list.files(paste0(L8datpath, "ac/"), full.names = T, pattern=".tif$")
-      # # lo <- seq(1,length(metaData[unlist(bigarea)][unlist(aoibigarea)])*10, by=10) # *10 because channel 1:11 without channel 8 (pancromatic, in 15m resolution)
-      # # hi <- lo+9
-      # # lsat8_sdos <- lapply(seq(sel_f), function(i){
-      # #   stack(fac[lo[i]:hi[i]])
-      # # })
-      # # 
-      # 
-      # 
-      # # # get extent of relevant files to crop DEM
-      # # L8exts <- lapply(seq(s), function(i){
-      # #   p <- as(extent(lsat8_sdos[[i]]), 'SpatialPolygons')
-      # #   crs(p) <- antaproj
-      # #   p
-      # # })
-      # # m <- do.call(bind, L8exts)
-      # # 
-      # # # SpatialPolygons to SpatialPolygonsDataFrame
-      # # mid <- sapply(slot(m, "polygons"), function(x) slot(x, "ID"))
-      # # m.df <- data.frame( ID=1:length(m), row.names = mid) 
-      # # mn <- SpatialPolygonsDataFrame(m, m.df)
-      # # 
-      # # writeOGR(mn, dsn=paste0(L8datpath, "L8_ext.shp"), layer="L8_ext",
-      # #          driver="ESRI Shapefile")
-      # 
-      # print("AC done")
-      #############  Calculation of TOA (Top of Atmospheric) spectral radiance and #################### 
-      #################  brightness temperature ##################################################
-      
-      dir.create(paste0(L8scenepath, "bt/"))
-      
-      BTC <- lapply(seq(selnum), function(i){
+      # if matches were found
+      if(nrow(timediff_comp)!=0){
+        # eliminate leading space
+        timediff_comp$MODname <- substring(timediff_comp$MODname,2,nchar(timediff_comp$MODname))
         
-        # TOA (L) = ML * Qcal + AL
-        # ML = Band-specific multiplicative rescaling factor from the metadata (RADIANCE_MULT_BAND_x, where x is the band number).
-        # Qcal = corresponds to band 10.
-        # AL = Band-specific additive rescaling factor from the metadata (RADIANCE_ADD_BAND_x, where x is the band number).
+        n_occur <- data.frame(table(timediff_comp$MODname))
         
-        mD <- readMeta(datloc$meta[[selnum[i]]], raw=T)
-        nam <- mD$METADATA_FILE_INFO["LANDSAT_PRODUCT_ID",]
-        
-        ML <- mD$RADIOMETRIC_RESCALING["RADIANCE_MULT_BAND_10",]
-        AL <- mD$RADIOMETRIC_RESCALING["RADIANCE_ADD_BAND_10",]
-        TOA = (ML * lsat8o[[selnum[i]]]$B10_dn) + AL # this is band 10
-        
-        
-        # TOA to Brightness Temperature conversion
-        # BT = (K2 / (ln (K1 / L) + 1)) ??? 273.15
-        
-        # K1 = Band-specific thermal conversion constant from the metadata (K1_CONSTANT_BAND_x, where x is the thermal band number).
-        # K2 = Band-specific thermal conversion constant from the metadata (K2_CONSTANT_BAND_x, where x is the thermal band number).
-        # L = TOA
-        # Therefore, to obtain the results in Celsius, the radiant temperature is adjusted 
-        # by adding the absolute zero (approx. -273.15?C).
-        
-        K1 <- mD$TIRS_THERMAL_CONSTANTS["K1_CONSTANT_BAND_10",]
-        K2 <- mD$TIRS_THERMAL_CONSTANTS["K2_CONSTANT_BAND_10",]
-        BTK <- (K2 /(log((K1 / TOA) +1)))
-        BTC <- (BTK-273.15)
-        
-        BTC[BTC<=(-90)] <- NA
-        
-        writeRaster(BTC, paste0(L8scenepath, "bt/", nam, "_BTC", ".tif"), 
-                    format="GTiff", overwrite=T)
-        BTC
-      })
-      
-      print("BTC calculated")
-      
-      ################## CALCULATE LST ####################################################################
-      # # # get BTC files
-      mr <- list.files(paste0(L8scenepath, "bt/"), pattern="BTC", full.names=T)
-      f <- mr[grep('tif$', mr)]
-      BTC <- lapply(seq(f), function(i){
-        raster(f[i])
-      })
+        timediff_comp$Mdupl <- NA
+        timediff_comp$Mdupl[timediff_comp$MODname %in% n_occur$Var1[n_occur$Freq > 1]] <- 1
 
-      # get rock outcrop raster with Emissivity values
-      eta <- raster(paste0(main, "Rock_outcrop_ras_", areaname, ".tif"))
-      
-      # Calculate the Land Surface Temperature
-      LST <- lapply(seq(BTC), function(i){
-        x <- (BTC[[i]]/(1+(0.0010895*BTC[[i]]/0.01438)*log(eta))) 
-        # write LST raster
-        # writeRaster(x,paste0(L8scenepath, "bt/LST_", i,".tif"), 
-        #             format="GTiff", overwrite=T)
-      })
-      print("LST calculated")
-      
-      # bring to same extent and write LST 
+
+        # get which MODIS scenes are double 
+        timediff_comp$Msel <- 0
+        modmatchind <- sapply(seq(nrow(n_occur)), function(i){
+          match(as.character(n_occur$Var1[i]), timediff_comp$MODname)
+        })
+        timediff_comp$Msel[modmatchind] <- 1
+        
+        # row in timediff_msel corresponds to list index in msel
+        timediff_msel <- timediff_comp[timediff_comp$Msel==1,]
+        mselnew <- lapply(seq(nrow(timediff_msel)), function(i){
+          modquery[[timediff_msel$M_L_days[i]]][[timediff_msel$MODMYD[i]]][timediff_msel$M_scene[i],]
+        })      
+        mselsummary <- sapply(seq(mselnew), function(i){
+          mselnew[[i]]$summary
+        })
+        
+        mselsummary <- substring(mselsummary, 12,55)
+        
+        a <- n_occur$mselsummary[n_occur$Freq==2]
+        for(i in seq(a)){
+          timediff_comp$sel[min(which(timediff_comp$MODname == a[i]))] <- 1
+        }
+        
+        
+        write.csv2(timediff_msel, paste0(L8scenepath, "timediff_msel.csv"))
+        write.csv2(timediff_comp, paste0(L8scenepath, "timediff_comp.csv"))
+        
+        msel <- mselnew
+        saveRDS(msel, paste0(L8scenepath, "MODquerymatched_msel.rds"))
+        
+        ############# ELIMINATE 0 VALUES ########################################################################## 
+        s <- sel # use subselected after cloud cover, aoi overlap and land overlap
+        for(i in seq(s)){
+          for(j in seq(nlayers(s[[i]]))){
+            s[[i]][[j]][s[[i]][[j]]==0] <- NA
+          }
+        }
+        print("0 values replaced by NA")
+        
+        ################## CUT TO AOI ##################################################################################
+        
+        # cut out to research area
+        s.aoi <- lapply(seq(s), function(i){
+          crop(s[[i]], extent(aoianta))
+        })
+        
+        print("cut to research area")
+        
+        
+        #############  Calculation of TOA (Top of Atmospheric) spectral radiance and #################### 
+        #################  brightness temperature ##################################################
+        
+        dir.create(paste0(L8scenepath, "bt/"))
+        
+        BTC <- lapply(seq(selnum), function(i){
+          
+          # TOA (L) = ML * Qcal + AL
+          # ML = Band-specific multiplicative rescaling factor from the metadata (RADIANCE_MULT_BAND_x, where x is the band number).
+          # Qcal = corresponds to band 10.
+          # AL = Band-specific additive rescaling factor from the metadata (RADIANCE_ADD_BAND_x, where x is the band number).
+          
+          mD <- readMeta(datloc$meta[[selnum[i]]], raw=T)
+          nam <- mD$METADATA_FILE_INFO["LANDSAT_PRODUCT_ID",]
+          
+          ML <- mD$RADIOMETRIC_RESCALING["RADIANCE_MULT_BAND_10",]
+          AL <- mD$RADIOMETRIC_RESCALING["RADIANCE_ADD_BAND_10",]
+          TOA = (ML * lsat8o[[selnum[i]]]$B10_dn) + AL # this is band 10
+          
+          
+          # TOA to Brightness Temperature conversion
+          # BT = (K2 / (ln (K1 / L) + 1)) ??? 273.15
+          
+          # K1 = Band-specific thermal conversion constant from the metadata (K1_CONSTANT_BAND_x, where x is the thermal band number).
+          # K2 = Band-specific thermal conversion constant from the metadata (K2_CONSTANT_BAND_x, where x is the thermal band number).
+          # L = TOA
+          # Therefore, to obtain the results in Celsius, the radiant temperature is adjusted 
+          # by adding the absolute zero (approx. -273.15?C).
+          
+          K1 <- mD$TIRS_THERMAL_CONSTANTS["K1_CONSTANT_BAND_10",]
+          K2 <- mD$TIRS_THERMAL_CONSTANTS["K2_CONSTANT_BAND_10",]
+          BTK <- (K2 /(log((K1 / TOA) +1)))
+          BTC <- (BTK-273.15)
+          
+          BTC[BTC<=(-90)] <- NA
+          
+          writeRaster(BTC, paste0(L8scenepath, "bt/", nam, "_BTC", ".tif"), 
+                      format="GTiff", overwrite=T)
+          BTC
+        })
+        
+        print("BTC calculated")
+        
+        ################## CALCULATE LST ####################################################################
+        # # # get BTC files
+        mr <- list.files(paste0(L8scenepath, "bt/"), pattern="BTC", full.names=T)
+        f <- mr[grep('tif$', mr)]
+        BTC <- lapply(seq(f), function(i){
+          raster(f[i])
+        })
+        
+        # get rock outcrop raster with Emissivity values
+        eta <- raster(paste0(main, "Rock_outcrop_ras_", areaname, ".tif"))
+        
+        # Calculate the Land Surface Temperature
+        LST <- lapply(seq(BTC), function(i){
+          x <- (BTC[[i]]/(1+(0.0010895*BTC[[i]]/0.01438)*log(eta))) 
+          # write LST raster
+          # writeRaster(x,paste0(L8scenepath, "bt/LST_", i,".tif"), 
+          #             format="GTiff", overwrite=T)
+        })
+        print("LST calculated")
+        
+        # bring to same extent and write LST 
         dir.create(paste0(L8scenepath, "LST/"))
         
-            # bring them all to the same extent
-            
-            # LST <- lapply(seq(list.files(paste0(L8scenepath, "bt/"), pattern="LST")), function(i){
-            #   raster(list.files(paste0(L8scenepath, "bt/"), pattern="LST", full.names = T)[i])
-            # })
-      
-            
-            # # mask LST by AOI
-            lst_aoi <- lapply(seq(LST), function(i){
-              x <- mask(LST[[i]], aoianta)
-              names(x) <- names(LST[[i]])
-              x
-            })
-            
-            #newextent <- extent(compbbmax(lst_aoi))
-            #rnew <- lst_aoi[[1]]+lst_aoi[[2]]+lst_aoi[[3]]+lst_aoi[[4]]
-            newextent <- compbbmax(lst_aoi)
-            p <- as(newextent, 'SpatialPolygons')  
-            crs(p) <- crs(lst_aoi[[1]])
-            
-            # bring them all to new extent
-            lst_aoi_ex <- lapply(seq(lst_aoi), function(i){
-              x <- extend(lst_aoi[[i]], p)
-              names(x) <- names(LST[[i]])
-              x
-            })
-            
-            lst_ex <- stack(lst_aoi_ex)
-            
-            #dir.create(paste0(L8scenepath, "mos/"))
-            for(j in seq(nlayers(lst_ex))){
-              writeRaster(lst_ex[[j]], paste0(L8scenepath, "LST/", names(BTC[[j]]), ".tif"), 
-                          format="GTiff", overwrite=T)
-            }
-            
-            # # MERGE LST
-            # print("starting to merge LST")
-            # 
-            # mrg <- character()
-            # for(i in seq(LST)){
-            #   mrg[i] <- paste0("LST[[", i, "]]")
-            # }
-            # 
-            # mrg <- paste(mrg, sep="", collapse=",")
-            # cm <- paste("raster::mosaic(", mrg, ", tolerance=0.9, fun=mean, overwrite=T, overlap=T, ext=NULL)")
-            # 
-            # # merging 
-            # LSTmerge <- eval(parse(text=cm))
-            # writeRaster(LSTmerge, paste0(L8scenepath, "bt/LST_merged", areaname,".tif"), 
-            #             format="GTiff", overwrite=T)
-            # 
-            
-
-      print("LST calculated, LANDSAT routine for this timestep done")
-      return(list(msel=msel, LST=LST, l8datetime=l8datetime))
+        # bring them all to the same extent
+        
+        # LST <- lapply(seq(list.files(paste0(L8scenepath, "bt/"), pattern="LST")), function(i){
+        #   raster(list.files(paste0(L8scenepath, "bt/"), pattern="LST", full.names = T)[i])
+        # })
+        
+        
+        # # mask LST by AOI
+        lst_aoi <- lapply(seq(LST), function(i){
+          x <- mask(LST[[i]], aoianta)
+          names(x) <- names(LST[[i]])
+          x
+        })
+        
+        #newextent <- extent(compbbmax(lst_aoi))
+        #rnew <- lst_aoi[[1]]+lst_aoi[[2]]+lst_aoi[[3]]+lst_aoi[[4]]
+        newextent <- compbbmax(lst_aoi)
+        p <- as(newextent, 'SpatialPolygons')  
+        crs(p) <- crs(lst_aoi[[1]])
+        
+        # bring them all to new extent
+        lst_aoi_ex <- lapply(seq(lst_aoi), function(i){
+          x <- extend(lst_aoi[[i]], p)
+          names(x) <- names(LST[[i]])
+          x
+        })
+        
+        lst_ex <- stack(lst_aoi_ex)
+        
+        #dir.create(paste0(L8scenepath, "mos/"))
+        for(j in seq(nlayers(lst_ex))){
+          writeRaster(lst_ex[[j]], paste0(L8scenepath, "LST/", names(BTC[[j]]), ".tif"), 
+                      format="GTiff", overwrite=T)
+        }
+        
+        # # MERGE LST
+        # print("starting to merge LST")
+        # 
+        # mrg <- character()
+        # for(i in seq(LST)){
+        #   mrg[i] <- paste0("LST[[", i, "]]")
+        # }
+        # 
+        # mrg <- paste(mrg, sep="", collapse=",")
+        # cm <- paste("raster::mosaic(", mrg, ", tolerance=0.9, fun=mean, overwrite=T, overlap=T, ext=NULL)")
+        # 
+        # # merging 
+        # LSTmerge <- eval(parse(text=cm))
+        # writeRaster(LSTmerge, paste0(L8scenepath, "bt/LST_merged", areaname,".tif"), 
+        #             format="GTiff", overwrite=T)
+        # 
+        
+        
+        print("LST calculated, LANDSAT routine for this timestep done")
+        return(list(msel=msel, LST=LST, l8datetime=l8datetime))
+      } else {txt <- "no available data for time range"
+      print(txt)
+      write.csv(txt, paste0(L8scenepath, "qualitycheck.csv"), row.names = F)
+      return("nothing")} 
       
     } else {
       txtf <- "no data suitable"

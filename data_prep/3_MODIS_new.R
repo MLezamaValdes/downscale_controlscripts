@@ -35,7 +35,7 @@
 #'   }
 #' }
 
-getprocessMODIS <- function(time_range){
+getprocessMODIS_new <- function(time_range){
   
   ####### LOAD PACKAGES, SET PATHS ###############################################################################
   
@@ -48,6 +48,7 @@ getprocessMODIS <- function(time_range){
   L8scenepath <- paste0(main, "L8/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")
   msel <- readRDS(paste0(L8scenepath, "MODquerymatched_msel.rds"))
   msel$msel <- readRDS(paste0(L8scenepath, "MODquerymatched_msel.rds"))
+  wgsproj <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
 
   if(any(msel!="nothing")){
     
@@ -58,7 +59,7 @@ getprocessMODIS <- function(time_range){
   #if(exists("qualL8")){
     
   if(!qualL8[1,] == "no data suitable" && !qualL8[1,]=="no available data for time range"){
-  downloadedday <- read.csv(list.files(L8scenepath, pattern="downloaded", full.names=T))
+  downloadedday <- read.csv(list.files(L8scenepath, pattern="downloaded_days.csv", full.names=T))
 
   # cs <- strsplit(as.character(downloadedday$summary), ",", fixed = TRUE)
   # ad <- lapply(cs, `[[`, 2)
@@ -122,39 +123,39 @@ getprocessMODIS <- function(time_range){
     
     query <- msel$msel
     wgsproj <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
-    footprints <- lapply(seq(query), function(x){
-          a <- query[[x]]$spatialFootprint
-          a1 <- strsplit(substring(a, 11,(nchar(a)-2)), split = ",")
-          ap <- strsplit(a1[[1]], split=" +")
-          
-          abc <- unlist(lapply(seq(ap), function(i){
-            ap[[i]][ap[[i]] != ""]
-          }))
-          df <- data.frame(matrix(as.numeric(abc), ncol=2, byrow=T))
-          #df <- df[1:4,1:2]
-          # change position 3 and 4
-          #df <- df[c(1,2,4,3,5),]
-          xy <- df[,c(1:2)]
-          names(xy) <- c("X", "Y")
-          fp <- SpatialPointsDataFrame(coords = xy, data = df,
-                                       proj4string = CRS(wgsproj))
-          fpp <- Polygon(fp)
-          Ps1 = SpatialPolygons(list(Polygons(list(fpp), ID = "a")),
-                                proj4string=CRS(wgsproj))
-          if(!gIsValid(Ps1)){
-            df <- df[c(1,2,4,3,5),]
-            xy <- df[,c(1:2)]
-            names(xy) <- c("X", "Y")
-            fp <- SpatialPointsDataFrame(coords = xy, data = df,
-                                         proj4string = CRS(wgsproj))
-            fpp <- Polygon(fp)
-            Ps1 = SpatialPolygons(list(Polygons(list(fpp), ID = "a")),
-                                  proj4string=CRS(wgsproj))
-          }
-          Ps1
-        })
-    
- 
+    # footprints <- lapply(seq(query), function(x){
+    #       a <- query[[x]]$spatialFootprint
+    #       a1 <- strsplit(substring(a, 11,(nchar(a)-2)), split = ",")
+    #       ap <- strsplit(a1[[1]], split=" +")
+    #       
+    #       abc <- unlist(lapply(seq(ap), function(i){
+    #         ap[[i]][ap[[i]] != ""]
+    #       }))
+    #       df <- data.frame(matrix(as.numeric(abc), ncol=2, byrow=T))
+    #       #df <- df[1:4,1:2]
+    #       # change position 3 and 4
+    #       #df <- df[c(1,2,4,3,5),]
+    #       xy <- df[,c(1:2)]
+    #       names(xy) <- c("X", "Y")
+    #       fp <- SpatialPointsDataFrame(coords = xy, data = df,
+    #                                    proj4string = CRS(wgsproj))
+    #       fpp <- Polygon(fp)
+    #       Ps1 = SpatialPolygons(list(Polygons(list(fpp), ID = "a")),
+    #                             proj4string=CRS(wgsproj))
+    #       if(!gIsValid(Ps1)){
+    #         df <- df[c(1,2,4,3,5),]
+    #         xy <- df[,c(1:2)]
+    #         names(xy) <- c("X", "Y")
+    #         fp <- SpatialPointsDataFrame(coords = xy, data = df,
+    #                                      proj4string = CRS(wgsproj))
+    #         fpp <- Polygon(fp)
+    #         Ps1 = SpatialPolygons(list(Polygons(list(fpp), ID = "a")),
+    #                               proj4string=CRS(wgsproj))
+    #       }
+    #       Ps1
+    #     })
+    # 
+    # 
       
  
 
@@ -386,9 +387,7 @@ getprocessMODIS <- function(time_range){
           })
           
           # cut to & mask by aoi
-          lst_c <- 
-          lst_cm <- 
-          lst <- lst_cm
+        
             
           # convert values to valid range and degree C
           print("converting values to valid range and degree Celsius")
@@ -822,11 +821,11 @@ getprocessMODIS <- function(time_range){
 
     }
 
-        } } else {print("no temporally matching scenes")
+         } else {print("no temporally matching scenes")
 
           file.rename(L8scenepath, paste0(substring(L8scenepath, 1, (nchar(L8scenepath)-nchar(basename(L8scenepath))-1)),
                                           paste0("no_tmatch_",basename(L8scenepath))))
-          }# for if there are MODIS scenes within <2h of L8
+          } # for if there are MODIS scenes within <2h of L8
     }
 
     gc()

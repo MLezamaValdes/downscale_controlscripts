@@ -54,6 +54,7 @@ ll <- list(L8r1s, L8r2s)
   # make a template to force 1x1km pixels
   extent(mtmplras) <- extent(me)
   dir.create(paste0(main, "MODIS_model/"))
+  
   # resample all MODIS rasters
   mlres <- lapply(seq(ml), function(i){
     print(i)
@@ -91,37 +92,46 @@ plot(l)
 
 # resample MODIS to L8 resolution
 mres <- resample(m, l[[1]])
-
+writeRaster(mres, paste0(main, "MODIS_model/modis_resampled.tif"))
+mres <- stack(paste0(main, "MODIS_model/modis_resampled.tif"))
 satstack <- stack(l, mres)
+saveRDS(satstack,paste0(main, "satstack.rds") )
 
 ################## GET AUXILIARY DATA ###########################################
 
-# # prep auxiliary variables: 
-# # stack MODIS and L8, DEM, TWI, (aspect), hillshade, spatial blocks for CV
-# dempath <- "D:/new_downscaling/tiles_westcoast/"
-# dem <- raster(paste0(dempath, "DEM_8m_", areaname,"_clean_filled_15.tif"))
-# blockmask <- raster(paste0(dempath, "blockmask.tif"))
-# slope <- raster(paste0(dempath, "slopeMDV.tif"))
-# hillsh <- raster(paste0(dempath, "hillshading_8m.tif"))
-# hillshade <- crop(hillsh, dem)
-# twipath <- "D:/Antarctica/runoff_paths/"
-# twi <- raster(paste0(twipath, "TWI_Rslope.tif"))
-# twires <- resample(twi, dem)
-# s <- stack(dem, slope, twires, hillshade, blockmask)
-# saveRDS(s, paste0(main, "auxiliary_stack_org.rds"))
-# writeRaster(s, paste0(main, "auxiliary_stack_org.tif"))
+# prep auxiliary variables:
+# stack MODIS and L8, DEM, TWI, (aspect), hillshade, spatial blocks for CV
+dempath <- "D:/new_downscaling/tiles_westcoast/"
+dem <- raster(paste0(dempath, "DEM_8m_", areaname,"_clean_filled_15.tif"))
+blockmask <- raster(paste0(dempath, "blockmask.tif"))
+slope <- raster(paste0(dempath, "slopeMDV.tif"))
+hillsh <- raster(paste0(dempath, "hillshading_8m.tif"))
+hillshade <- crop(hillsh, dem)
+twipath <- "D:/Antarctica/runoff_paths/"
+twi <- raster(paste0(twipath, "TWI_Rslope.tif"))
+twires <- resample(twi, dem)
+s <- stack(dem, slope, twires, hillshade, blockmask)
+saveRDS(s, paste0(main, "auxiliary_stack_org.rds"))
 
-# # resample s to fit with satstack
-# sres <- resample(s, satstack[[1]])
-# saveRDS(sres, paste0(main, "auxiliary_stack_30m.rds"))
-# writeRaster(sres, paste0(main, "auxiliary_stack_30m.tif"))
+s <- stack(paste0(main, "auxiliary_stack_org.tif"))
+names(s) <- c("DEM", "slope", "TWI" , "hillsh", "blockmask" )
+
+writeRaster(s, paste0(main, "auxiliary_stack_org.tif"))
+# resample s to fit with satstack
+sres <- resample(s, satstack[[1]])
+writeRaster(sres, paste0(main, "auxiliary_stack_30m.tif"), overwrite=T)
+saveRDS(sres, paste0(main, "auxiliary_stack_30m.rds"))
 
 
 sres <- readRDS(paste0(main, "auxiliary_stack_30m.rds"))
 
+lc <- raster(paste0(main, "Rock_outcrop_ras_", areaname, ".tif"))
+lc[lc==0.94] <- 1 #(rock)
+lc[lc==0.97] <- 0 #(snow and ice) 
 
 s <- stack(satstack, sres)
 saveRDS(s, paste0(main, "comp_stack.rds"))
+
 ################# EXTRACT #####################################################
 ex <- extract(s, aoianta)
 saveRDS(ex, paste0("C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/", "ex_fake_model.rds"))
@@ -150,7 +160,35 @@ set2$datetimeM <- rep(201902112010, nrow(set2))
 exdf <- rbind(set1,set2)
 saveRDS(exdf, paste0(paste0("C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/", "ex_fake_model_final.rds")))
 
+exdf <- readRDS(paste0(paste0("C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/", "ex_fake_model_final.rds")))
+
+
+
+#################### PLOTTING LST DIFFERENCES ###################################
 
 par(mfrow=c(1,2))
 boxplot(exdf$L8, main="L8 LST", ylim=c(-80, 24))
 boxplot(exdf$MODIS, main="MODIS LST", ylim=c(-80, 24))
+
+library(ggplot2)
+library(tidyr)
+lstdf <- exdf[c("L8", "MODIS")]
+lstdf <- gather(lstdf)
+lstdf$key <- as.factor(lstdf$key)
+str(lstdf)
+
+# small dataset for testing
+lstdfs <- lstdf[c(1:600, (nrow(lstdf)-600):nrow(lstdf)),]
+png("C:/Users//mleza/OneDrive/Documents/PhD/ILÖK/plots_presentation/LST_MOD_L8_s.png",height = 500, width=500)
+ps <- ggplot(lstdfs, aes(x=key, y=value)) +  xlab("")+ylab("LST (°C)")+
+  geom_violin(bw="nrd", aes(fill=lstdfs$key))+scale_fill_brewer(palette="Blues") + theme_minimal()
+ps + geom_boxplot(width=0.1, outlier.size = 0.2) + ggtitle("Satellite measured LST McMurdo Dry Valleys", subtitle = "Jan 2019, Feb 2018")+
+  labs(fill = "satellite")
+dev.off()
+
+png("C:/Users//mleza/OneDrive/Documents/PhD/ILÖK/plots_presentation/LST_MOD_L8_s.png",height = 500, width=500)
+p <- ggplot(lstdf, aes(x=key, y=value)) + xlab("")+ylab("LST (°C)")+ylim(c(-50,25))+
+  geom_violin(bw="nrd", aes(fill=lstdf$key))+scale_fill_brewer(palette="Blues") + theme_minimal()
+p + geom_boxplot(width=0.1, outlier.size = 0.1) + ggtitle("LST McMurdo Dry Valleys", subtitle = "Jan 2019, Feb 2018")+
+  labs(fill = "satellite")
+dev.off()

@@ -1,5 +1,7 @@
 rm(list=ls())
 
+# 20844 km² research area
+
 #######    OVERALL CONTROLL SCRIPT    ############################################################################################ 
 ###########################################################################################################################
 
@@ -67,7 +69,8 @@ login_USGS("MaiteLezama")
       # getprocessMODIS(time_range)
       # 
 y=1
-m=2
+m=1
+time_range[[y]][[m]]
 
 
 # from 2019-11 on 
@@ -75,7 +78,7 @@ m=2
 for(y in seq(year)){
   for(m in seq(month)){
       getprocessLANDSAT(time_range)
-      getprocessMODIS(time_range)
+      getprocessMODIS_new(time_range)
   }
 }
 
