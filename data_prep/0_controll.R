@@ -20,15 +20,15 @@ library(rgeos)
 
 scriptpath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/downscale_controlscripts/data_prep/"
 # E = IRONWOLF
+maindir <- "D:/new_downscaling/"
 main <- "D:/new_downscaling/data_download_preprocessing/"
 dempath <- "D:/new_downscaling/tiles_westcoast/"
-aoipath <-  "D:/new_downscaling/aoi/MDV/"
+aoipath <-  "D:/new_downscaling/aoi/"
 L8datpath <- paste0(main, "L8/")
 modispath <- paste0(main, "MODIS/")
 tdpath <-paste0(main, "timediff/")
-
 ######## set path to AOI
-aoip <- list.files(aoipath, pattern="adp.shp", full.names = T)
+aoip <- list.files(aoipath, pattern=".shp", full.names = T)
 
 #### set path to high resolution land polygon
 clpath <- "D:/new_downscaling/coastline/Coastline_high_res_polygon/" 
@@ -47,10 +47,20 @@ batchindir <- paste0(batchrunpath, "indir/")
 batchoutdir <- paste0(batchrunpath, "outdir/")
 
 
+# L8: either "Bt" or "L1"
+L8downloadtype <- "Bt"
 
 ########    CALL SETUP    #####################################################################################################
 
 source(paste0(scriptpath, "0a_setup.R"))
+
+
+# for stacking images per month
+cddir <- paste0(maindir, "clean_data/")
+# this is one raster with a complete coverage of the research area to use as a template 
+template <- raster(paste0(cddir, "template_new.tif"))
+dir.create(cddir)
+timethres <- 0.6
 
 ########    CALL DOWNLOAD AND PREPROCESSING    #################################################################################
 
@@ -59,7 +69,7 @@ if(newarea==1){
 }
 
 ## Login to USGS ERS
-login_USGS("MaiteLezama")
+login_USGS("MaiteLezama", "Eos300dmmmmlv")
 
 
       # y=1
@@ -68,28 +78,34 @@ login_USGS("MaiteLezama")
       # getprocessLANDSAT(time_range)
       # getprocessMODIS(time_range)
       # 
-y=1
-m=1
-time_range[[y]][[m]]
 
 
 # from 2019-11 on 
 # should be like this when it all works:
+# for(y in seq(year)){
+#   for(m in seq(month)){
+#       getprocessLANDSAT(time_range)
+#       getprocessMODIS_new(time_range)
+#   }
+# }
+
+y=7
+time_range[[y]][[m]]
+
+
+#y=6, m=1: Empty reply from server - try later
+#y=7, m=6 error
+# check when L8 Launch
+
+# MODIS files deprecated for 2018_09
 for(y in seq(year)){
-  for(m in seq(month)){
-      getprocessLANDSAT(time_range)
-      getprocessMODIS_new(time_range)
+  for(m in c(6)){
+    login_USGS("MaiteLezama", "Eos300dmmmmlv")
+    getprocessLANDSAT(time_range)
+    getprocessMODIS_new(time_range)
+    #make_L8_MOD_stack(y,m,timethres)
   }
 }
-
-
-# 
-# # for(y in c(2)){
-# #   for(m in seq(month)){
-#       msel <- getprocessLANDSAT(time_range)
-#       getprocessMODIS(time_range)
-# #   }
-# # }
 
 
 

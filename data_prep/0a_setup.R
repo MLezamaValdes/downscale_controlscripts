@@ -10,8 +10,12 @@ library(satellite)
 library(RColorBrewer)
 library(viridis)
 library(lubridate)
-
-
+library(xfun)
+library(solrad)
+library(oce)
+library(suncalc)
+library(shadow)
+library(horizon)
 
 ## time range parameters (2013-2019, Jan, Feb and December, select the best day from 17 to 21)
 year <- c(2019:2013)
@@ -91,4 +95,39 @@ source("C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m
 source(paste0(scriptpath, "1_DEM.R"))
 source(paste0(scriptpath, "2_Landsat.R"))
 source(paste0(scriptpath, "3_MODIS_new.R"))
+
+#### to be updated in package
+
+l8datlist <- function(scenes){
+  
+  if(L8downloadtype != "Bt"){
+    tifs <- lapply(seq(scenes), function(i){
+      list.files(scenes[i], pattern=".tif$",  full.names = T)
+    })
+    
+    names <- lapply(seq(scenes), function(i){
+      list.files(scenes[i], pattern=".tif$",  full.names = F)
+    })
+    
+    meta <- lapply(seq(scenes), function(i){
+      list.files(scenes[i], pattern="MTL.txt$",  full.names = T)
+    })
+    
+  } else {
+    tifs <- lapply(seq(scenes), function(i){
+      list.files(scenes[i], pattern="band10", full.names=T)
+    })
+    names <- lapply(seq(scenes), function(i){
+      list.files(scenes[i], pattern="band10", full.names=T)
+    })
+    meta <- lapply(seq(scenes), function(i){
+      list.files(scenes[i], pattern=".xml", full.names=T)
+    })
+  }
+  
+  return(list(tifs = tifs, names = names, meta = meta))
+  
+}
+
+
 

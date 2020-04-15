@@ -41,24 +41,31 @@ getprocessMODIS_new <- function(time_range){
   
   # match MODIS downlaod time to available L8 data
   L8scenepath <- paste0(main, "L8/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")
-  
-  try(qualL8 <- read.csv(list.files(L8scenepath, pattern="quality", full.names=T)),
+  # 
+  # try(qualL8 <- read.csv(list.files(L8scenepath, pattern="quality", full.names=T)),
+  #     silent=T)
+  #if(!qualL8[1,] == "no data suitable" && !qualL8[1,]=="no available data for time range"){
+
+
+  L8scenepath <- paste0(main, "L8/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")
+  try(msel <- readRDS(paste0(L8scenepath, "MODquerymatched_msel.rds")),
       silent=T)
   
-  L8scenepath <- paste0(main, "L8/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")
-  msel <- readRDS(paste0(L8scenepath, "MODquerymatched_msel.rds"))
+  if(exists("msel")){
+
   msel$msel <- readRDS(paste0(L8scenepath, "MODquerymatched_msel.rds"))
   wgsproj <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+  username = "Mlezama"
+  password = "Eos300dm"
 
-  if(any(msel!="nothing")){
-    
+
+  if(any(msel!="nothing")){    
   
   if(length(msel$msel)!=0){
     
   # if there is something useful in L8 data
   #if(exists("qualL8")){
     
-  if(!qualL8[1,] == "no data suitable" && !qualL8[1,]=="no available data for time range"){
   downloadedday <- read.csv(list.files(L8scenepath, pattern="downloaded_days.csv", full.names=T))
 
   # cs <- strsplit(as.character(downloadedday$summary), ",", fixed = TRUE)
@@ -123,6 +130,26 @@ getprocessMODIS_new <- function(time_range){
     
     query <- msel$msel
     wgsproj <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+    
+    # get year and doy from query
+    lapply(seq(query), function(i){
+      ydoy  <- substring(query[[i]]$summary, 22,28)
+      yearn <- substring(ydoy, 1,4)
+      doyn <- substring(ydoy, 5,7)
+      filenamen <- substring(query[[i]]$summary, 12,55)
+      
+      url = paste0("https://ladsweb.modaps.eosdis.nasa.gov/archive/allData/6/MOD11_L2/",yearn, "/", doyn, "/", filenamen)
+      
+      for(i in seq(url)){
+        q <- httr::GET(url[i],
+                       httr::authenticate(username, password) , silent = F)
+        bin <- httr::content(q, "raw")
+        writeBin(bin, paste0(modisscenepath, filenamen[i]))
+        
+      }
+      print(paste0("downloaded", query[[i]]$summary))
+    })
+    
     # footprints <- lapply(seq(query), function(x){
     #       a <- query[[x]]$spatialFootprint
     #       a1 <- strsplit(substring(a, 11,(nchar(a)-2)), split = ",")
@@ -333,15 +360,11 @@ getprocessMODIS_new <- function(time_range){
     #     #   })
     #     # })
     #     #
-
-
-        files <- lapply(seq(query), function(i){
-              try(getMODIS_data(query[[i]]), silent=T)
-        })
+    
 
         # put all hdfs into one folder (hdfpath)
-        nl <- paste0(hdfpath, basename(unlist(files)))
-        file.copy(from=unlist(files), to=nl,
+        nl <- paste0(hdfpath, basename(list.files(modisscenepath, pattern=".hdf")))
+        file.copy(from=list.files(modisscenepath, pattern=".hdf", full.names = T), to=nl,
                   overwrite = TRUE)
 
         print("MODIS data downloaded and in place")
@@ -733,7 +756,7 @@ getprocessMODIS_new <- function(time_range){
           minutesofday <- (hours*60)+minutes
           L8datedf <- L8time
 
-          L8datedf$fnam <- fnamsL8
+          #L8datedf$fnam <- fnamsL8
           L8datedf$doy <- doy
           L8datedf$min <- minutes
           L8datedf$hrs <- hours
@@ -817,22 +840,23 @@ getprocessMODIS_new <- function(time_range){
           # write.csv2(datediff, paste0(modisscenepath, "date/datediff.csv"))
 
 
-
+}
 
     }
 
          } else {print("no temporally matching scenes")
 
-          file.rename(L8scenepath, paste0(substring(L8scenepath, 1, (nchar(L8scenepath)-nchar(basename(L8scenepath))-1)),
-                                          paste0("no_tmatch_",basename(L8scenepath))))
+          #file.rename(L8scenepath, paste0(substring(L8scenepath, 1, (nchar(L8scenepath)-nchar(basename(L8scenepath))-1)),
+          #                                paste0("no_tmatch_",basename(L8scenepath))))
           } # for if there are MODIS scenes within <2h of L8
     }
 
     gc()
-    } else {print("temporally matching MODIS scenes not useful")
-      file.rename(L8scenepath, paste0(substring(L8scenepath, 1, (nchar(L8scenepath)-nchar(basename(L8scenepath))-1)),
-                                      paste0("no_tmatch_",basename(L8scenepath))))
-      }
+    
+    #} else {print("temporally matching MODIS scenes not useful")
+      #file.rename(L8scenepath, paste0(substring(L8scenepath, 1, (nchar(L8scenepath)-nchar(basename(L8scenepath))-1)),
+      #                                paste0("no_tmatch_",basename(L8scenepath))))
+      #}
 #     } else {print("no intersection between MODIS and AOI")
 #     file.rename(L8scenepath, paste0(substring(L8scenepath, 1, (nchar(L8scenepath)-nchar(basename(L8scenepath))-1)), 
 #                                     paste0("no_tmatch_",basename(L8scenepath))))

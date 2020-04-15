@@ -22,14 +22,14 @@ prepDEM <- function(x){
   ############  get REMA DEM ###############################
   
   # get all dem tiles
-  patterns=c("17_34_8m", "17_35_8m","18_35_8m", "18_34_8m")
+  patterns=c("17_34_8m", "17_35_8m","18_35_8m", "18_34_8m", "19_34_8m", "16_35_8m", "17_36_8m", "19_35_8m")
   dt <-  unlist(lapply(seq(patterns), function(i){
     list.files(demtilepath, full.names=T)[grep(patterns[i],list.files(demtilepath, full.names=T))]
   }))
   
   dem_tiles <- lapply(seq(dt), function(i){
     r <- raster(dt[i])
-    r[r<(-300)] <- NA
+    r[r<(-100)] <- NA
     r
   })
   
@@ -53,20 +53,28 @@ prepDEM <- function(x){
   print("mosaic done")
   
   ########## CLEAN UP DEM ############################
+  # correct for negative NA values
+  mos[mos < (-50)] <- NA
   
   # filter mosaic 3x3 
   mos_c <- focal(mos, w=matrix(1/9,nrow=3,ncol=3))
 
-  # correct for negative NA values
-  mos_c[mos_c < (-300)] <- NA
   writeRaster(mos_c, paste0(dempath, "DEM_8m_", areaname,"_clean.tif"), format="GTiff", overwrite=T)
   
-  # resample to 15m
-  mos_3_30 <- aggregate(mos_c, fact=(15/8))
-  writeRaster(mos_3_30, paste0(dempath, "DEM_8m_", areaname,"_clean_15m.tif"), format="GTiff", overwrite=T)
+  ########## cut to aoi ############################
+  mos_cr <- crop(mos_c, aoianta)  
+  mos_caoi <- crop(mos_cr, aoianta)
   
+  writeRaster(mos_caoi, paste0(dempath, "DEM_8m_", areaname,"_clean_aoi.tif"))
+  
+  # # resample to 15m
+  # mos_3_30 <- aggregate(mos_c, fact=(15/8))
+  # writeRaster(mos_3_30, paste0(dempath, "DEM_8m_", areaname,"_clean_15m.tif"), format="GTiff", overwrite=T)
+  # 
   #mos_c <- raster(paste0(dempath, "DEM_8m_", areaname,"_clean_30m.tif"))
   print("DEM cleaned up")
+  
+
   
   ############  get 200m DEM to fill NA values ####################################################################
   
@@ -76,14 +84,9 @@ prepDEM <- function(x){
   # getDriverLongName(getDriver(x))
   # xx<-asSGDF_GROD(x)
   # dem200 <- raster(xx)
-  # writeRaster(dem200, "E:/Antarctica/DEM/DEM_WGS200.tif", format="GTiff")
+  # writeRaster(dem200, "D:/new_downscaling/tiles_westcoast/DEM_WGS200.tif", format="GTiff")
   
-  dem200 <- raster("E:/Antarctica/DEM/DEM_WGS200.tif")
-  
-  
-  ############  CUT TO AOI ####################################################################
-  
-  mos_caoi <- crop(mos_c, aoianta)
+  dem200 <- raster("D:/Antarctica/DEM/DEM_WGS200.tif")
   dem200aoi <- crop(dem200, aoianta)
   
   ############  fill NA values  ####################################################################
@@ -96,8 +99,10 @@ prepDEM <- function(x){
     y[is.na(y[])] <- x
     return(x)
   })
-  writeRaster(mos_filled, paste0(dempath, "DEM_8m_", areaname,"_clean_filled_15.tif"), format="GTiff")
+  writeRaster(mos_filled, paste0(dempath, "DEM_8m_", areaname,"_clean_aoi_filled.tif"), format="GTiff")
   
+  mos_filled_aoi <- mask(mos_filled, aoianta)
+  writeRaster(mos_filled_aoi, paste0(dempath, "DEM_8m_", areaname,"_clean_aoi_filled_mask.tif"), format="GTiff")
   
   print("fill NA values with 200m DEM")
   
@@ -112,19 +117,20 @@ prepDEM <- function(x){
   }
   print("slope and aspect done")
   
+
   
   ############################### tranlate filled DEM and slope to SAGA grid ##############################################################
   
-  fdemp <- paste0(dempath, "DEM_8m_", areaname,"_clean_filled_15.tif")
-  plot(raster(fdemp))
-  gdalUtils::gdalwarp(fdemp, paste0(saga_outpath, areaname,"_DEM_15m_filled.sdat"), 
-                      overwrite=TRUE,  of='SAGA')
-  
-  fslopep <- paste0(dempath, "slope", areaname,".tif")
-  gdalUtils::gdalwarp(fslopep, paste0(saga_outpath, areaname,"slope.sdat"), 
-                      overwrite=TRUE,  of='SAGA')
-  
-  print("tifs translated to SAGA")
+  # fdemp <- paste0(dempath, "DEM_8m_", areaname,"_clean_filled_15.tif")
+  # plot(raster(fdemp))
+  # gdalUtils::gdalwarp(fdemp, paste0(saga_outpath, areaname,"_DEM_15m_filled.sdat"), 
+  #                     overwrite=TRUE,  of='SAGA')
+  # 
+  # fslopep <- paste0(dempath, "slope", areaname,".tif")
+  # gdalUtils::gdalwarp(fslopep, paste0(saga_outpath, areaname,"slope.sdat"), 
+  #                     overwrite=TRUE,  of='SAGA')
+  # 
+  # print("tifs translated to SAGA")
   
   
   ################ MAKE A BLOCKMASK #######################################

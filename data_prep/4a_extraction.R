@@ -1,106 +1,76 @@
-L8scenepath <- paste0(main, "L8/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")
-modisscenepath <- paste0(modispath, substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")
-L8LSTpath <- paste0(L8scenepath, "LST/")
-MODLSTpath <- paste0(modisscenepath, "LST/")
-
-timediff_msel <- read.csv2(list.files(L8scenepath, pattern="msel.csv", full.names=T))
-timediff_comp <- read.csv2(list.files(L8scenepath, pattern="timediff_comp", full.names=T))
 
 
-l8r <- list.files(L8LSTpath, full.names=T)
-L8ras <- stack(l8r)
-
-mr <- list.files(MODLSTpath, pattern="small", full.names=T)
-mr <- mr[grep('tif$', mr)]
-mras <- stack(mr)
-
-############## PLOT #######################
-#spplot(mras)
-#spplot(L8ras)
-
-# which place do those images occupy in the stacks L8ras and mras?
-L8stacknams <- substring(names(L8ras), 1, 25)
-
-L8pos <- sapply(seq(nlayers(L8ras)), function(i){
-  which(L8stacknams[i] == as.character(timediff_comp$L8name))
-})
-
-timediff_comp$L8stackpos <- NA
-for(i in seq(L8pos)){
-  timediff_comp$L8stackpos[c(L8pos[[i]])] <- i
-}
-
-MODmatch <- timediff_comp$MODname[!is.na(timediff_comp$L8stackpos)]
-
-timediff_comp$mrstackpos <- NA
-for(i in seq(MODmatch)){
-  timediff_comp$mrstackpos[which(timediff_comp$MODname== MODmatch[i])] <- i
-}
-
-timediff_comp$dupl <- NULL
-timediff_comp$Mdupl <- NULL
-
-matchdf <- timediff_comp[complete.cases(timediff_comp),]
-write.csv2(matchdf, paste0(L8scenepath, "matchdf_final.csv"))
-
-# par(mfrow=c(1,2))
-# for(i in seq(nrow(matchdf))){
-#     plot(L8ras[[matchdf[i,"L8stackpos"]]], main=paste(matchdf[i,"L8name"], "/", i), 
-#        sub=matchdf[i,"L8time"], cex.main=0.7)
-#   plot(mras[[matchdf[i,"mrstackpos"]]], main=matchdf[i,"MODname"], cex.main=0.7)
-# }
-
-# make a comparsion image
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#
+# DOWNLOADED SCENES ARE GATHERED AND MATCHED ACCORDING TO THE TIMEDIFF FILE
+#
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
-# resample to 30m 
-modl8res <- lapply(seq(nrow(matchdf)), function(i){
-   x <- resample(mras[[matchdf[i,"mrstackpos"]]], L8ras[[matchdf[i,"L8stackpos"]]])
-   x[x<100] <- NA
-   x
-})
+#y=1
+#m=1
 
-modl8res_nam <- lapply(seq(modl8res), function(i){
-  x <- modl8res[[1]]
-  names(x) <- names(mras[[matchdf[i,"mrstackpos"]]])
-  x
-})
+#++++++++++++++ stack all satellite scenes +++++++++++++++++++++++++++++++++++++
+as <- list.files(cddir, pattern="L_MOD_", full.names = T)
+stacklist <- lapply(seq(as), function(i){
+  stack(as[[i]])
+})  
+allstacks <- stack(stacklist)
+writeRaster(allstacks, paste0(cddir, "L_MOD_all.tif"))
+  
+##+++++++++++++ add terrain data to stack ++++++++++++++++++++++++++++++++++++++
 
-# stack respective scenes
-L8MODstacks <- lapply(seq(nrow(matchdf)), function(i){
-  stack(L8ras[[matchdf[i,"L8stackpos"]]], modl8res_nam[[i]])
-})
+#stack MODIS and L8, DEM, TWI, (aspect), hillshade, spatial blocks for CV
 
-allstacks <- stack(L8MODstacks)
-
-# add terrain data to stack
-
-# stack MODIS and L8, DEM, TWI, (aspect), hillshade, spatial blocks for CV
 dempath <- "D:/new_downscaling/tiles_westcoast/"
-dem <- raster(paste0(dempath, "DEM_8m_", areaname,"_clean_filled_15.tif"))
-blockmask <- raster(paste0(dempath, "blockmask.tif"))
-slope <- raster(paste0(dempath, "slopeMDV.tif"))
+dem <- raster(paste0(dempath, "DEM_8m_", areaname,"_clean_aoi_filled_mask.tif"))
+
+############################### Sky view factor ##############################################################
+
+
+############################### incidence angle ##############################################################
+
+
+twipath <- "D:/Antarctica/runoff_paths/"
+
 hillsh <- raster(paste0(dempath, "hillshading_8m.tif"))
 hillshade <- crop(hillsh, dem)
-twipath <- "D:/Antarctica/runoff_paths/"
+
 lc <- raster(paste0(main, "Rock_outcrop_ras_", areaname, ".tif"))
-lc[lc==0.94] <- 1 #(rock)
-lc[lc==0.97] <- 0 #(snow and ice) 
-lc <- resample(lc, dem)
+lcc <- crop(lc, aoianta)
+lccm <- mask(lcc,aoianta)
+
+lccm[lccm==0.94] <- 1 #(rock)
+lccm[lccm==0.97] <- 0 #(snow and ice)
+#lccm <- resample(lccm, dem)
+
+writeRaster(hillshade, paste0(main, "hillshade.tif"))
+writeRaster(lc, paste0(main, "lc.tif"))
 twi <- raster(paste0(twipath, "TWI_Rslope.tif"))
 twires <- resample(twi, dem)
-
+writeRaster(twires, paste0(main, "TWI.tif"))
+blockmask <- raster(paste0(dempath, "blockmask.tif"))
+slope <- raster(paste0(dempath, "slopeMDV.tif"))
+hillshade <- raster(paste0(main, "hillshade.tif"))
+lc <- raster(paste0(main, "lc.tif"))
+twi <- raster(paste0(main, "TWI.tif"))
 s <- stack(dem, slope, twires, hillshade, lc, blockmask)
+writeRaster(s, paste0(cddir, "aux_stack_8m.tif"))
 
+
+s <- stack(paste0(cddir, "aux_stack_8m.tif"))
 
 # resample s to fit with satstack
-sres <- resample(s, L8MODstacks[[1]])
+sres <- resample(s, allstackedsatellitescenes[[1]])
 sresmask <- mask(sres, aoianta)
-# save terrain data stack
-writeRaster(s, paste0(main, paste0(main, "_auxiliary_data_8m.tif")))
-writeRaster(sresmask, paste0(main, paste0(main, "_auxiliary_data_30m.tif")))
 
-sres <- stack(paste0(main, paste0(main, "_auxiliary_data_30m.tif")))
+# save terrain data stack
+writeRaster(s, paste0(main, "auxiliary_data_8m.tif"))
+writeRaster(sresmask, paste0(main, "auxiliary_data_30m.tif"))
+
+sres <- stack(paste0(main, "_auxiliary_data_30m.tif"))
+
+
 
 
 stack.complete <- stack(allstacks,sres)

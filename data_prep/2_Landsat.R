@@ -321,13 +321,15 @@ getprocessLANDSAT <- function(time_range){
       })
       
 
-      # +/- 2h around L8datetime
+      # +/- 20 min around L8datetime
       
       l8days <- sapply(seq(L8time), function(i){
         lapply(seq(querynew[[i]]), function(j){
         if(length(L8time[[i]][[j]])!=0){
-          maxtimerange <- L8time[[i]][[j]]+hours(1)
-          mintimerange <- L8time[[i]][[j]]-hours(1)
+          #maxtimerange <- L8time[[i]][[j]]+hours(1)
+          #mintimerange <- L8time[[i]][[j]]-hours(1)
+          maxtimerange <- L8time[[i]][[j]]+minutes(20)
+          mintimerange <- L8time[[i]][[j]]-minutes(20)
           daynum <- unique(c(day(maxtimerange), day(mintimerange)))
         }
       })
@@ -393,12 +395,14 @@ getprocessLANDSAT <- function(time_range){
           lapply(seq(length(datetimeMODISquery)), function(yz){
             lapply(seq(length(datetimeMODISquery[[yz]])), function(yz1){
               lapply(seq(length(datetimeMODISquery[[yz]][[yz1]])), function(yz2){
-                
-                if(length(L8time[[z]][[zi]])!=0 & length(datetimeMODISquery[[yz]][[yz1]][[yz2]])!=0){
-                    posinfo <- c(z, zi, yz, yz1, yz2)
-                    x <- as.numeric(abs(difftime(L8time[[z]][[zi]], datetimeMODISquery[[yz]][[yz1]][[yz2]], units="hours")))
-                    c(x, posinfo)
+                if(length(datetimeMODISquery[[yz]][[yz1]]) > 1){
+                  if(length(L8time[[z]][[zi]])!=0 & length(datetimeMODISquery[[yz]][[yz1]][[yz2]])!=0){
+                      posinfo <- c(z, zi, yz, yz1, yz2)
+                      x <- as.numeric(abs(difftime(L8time[[z]][[zi]], datetimeMODISquery[[yz]][[yz1]][[yz2]], units="hours")))
+                      c(x, posinfo)
+                  }
                 }
+
           })
           })
         })
@@ -406,14 +410,16 @@ getprocessLANDSAT <- function(time_range){
       })
     
       # make df 
+      # < half an hour <0.5h
       timediff_df <- data.frame(matrix(unlist(timediff), ncol = 6, byrow=T))
       names(timediff_df) <- c("timediff", "L_days", "L_scene", "M_L_days", "MODMYD", "M_scene")
-      timediff_df <- timediff_df[timediff_df$timediff<2,]
+      timediff_df <- timediff_df[timediff_df$timediff<0.6,]
 
       # get names of scenes
       for(i in seq(nrow(timediff_df))){
           # MODIS
           modsum <- modquery[[timediff_df$M_L_days[i]]][[timediff_df$MODMYD[i]]][timediff_df$M_scene[i],]$summary
+          print(modsum)
           timediff_df$MODname[i] <- strsplit(strsplit(modsum, ",")[[1]][[1]], ":")[[1]][[2]]
           
           # L8
@@ -433,11 +439,13 @@ getprocessLANDSAT <- function(time_range){
       
       MODmatcheddf <- unique(timediff_df[,c("M_L_days", "MODMYD", "M_scene")])
       
-      MODquerymatched <- lapply(seq(unique(MODmatcheddf$M_L_days)), function(i){ # for all days that were selected
-        lapply(seq(unique(MODmatcheddf$MODMYD[MODmatcheddf$M_L_days==unique(MODmatcheddf$M_L_days)[i]])), function(j){ # for all MOD and MYD that are there per day i
+      uniquedays <- unique(MODmatcheddf$M_L_days)
+             
+      MODquerymatched <- lapply(seq(length(uniquedays)), function(i){ # for all days that were selected
+        lapply(seq(length(unique(MODmatcheddf$MODMYD[MODmatcheddf$M_L_days==uniquedays[i]]))), function(j){ # for all MOD and MYD that are there per day i
           #lapply(seq(unique(MODmatcheddf$M_scene[MODmatcheddf$M_L_days==i & MODmatcheddf$MODMYD==j])), function(k){ # for all scenes that are there per day i, MOD/MYD j
             #print(i,j,k)
-            snums <- MODmatcheddf$M_scene[MODmatcheddf$M_L_days==i & MODmatcheddf$MODMYD==j]
+            snums <- MODmatcheddf$M_scene[MODmatcheddf$M_L_days==uniquedays[i] & MODmatcheddf$MODMYD==j]
             modquery[[unique(MODmatcheddf$M_L_days)[i]]][[j]][snums,]
           #})
         })
@@ -450,15 +458,32 @@ getprocessLANDSAT <- function(time_range){
       
       # any combination <2h?
       if(length(msel)!=0){
+        
       ## SELECT ONLY THOSE L8 scenes that are being matched by MODIS
       l8matcheddf <- unique(timediff_df[,c("L_days","L_scene")])
       
-      L8querymatched <- lapply(seq(unique(l8matcheddf$L_days)), function(i){ # for all days that were selected
+      l8matchedcheck <- timediff_df$L8name[ rownames(timediff_df)  %in% rownames(l8matcheddf) ]
+      
+      l8matcheddf$l8nam <- l8matchedcheck
+      
+      uniqueL8days <- unique(l8matcheddf$L_days)
+      L8querymatched <- lapply(seq(uniqueL8days), function(i){ # for all days that were selected
         #lapply(seq(nrow(l8matcheddf[l8matcheddf$L_days==unique(l8matcheddf$L_days)[i],])), function(j){ # for all scenes that are there per day
-          snums <- l8matcheddf$L_scene[l8matcheddf$L_days==unique(l8matcheddf$L_days)[i]]
-          query[[unique(l8matcheddf$L_days)[i]]][snums,]
+          snums <- l8matcheddf$L_scene[l8matcheddf$L_days==uniqueL8days[i]] # for all scenes there are per day
+          if(length(snums) == 1){
+            x <- querynew[[uniqueL8days[i]]][[snums]]
+            print(x$summary)
+          } else {
+            x <- querynew[[uniqueL8days[i]]][snums]
+            for(i in seq(x)){
+              print(x[[i]]$summary)
+            }
+          }
+          x
         #})
       })
+      
+      #do.call(c, unlist(L8querymatched, recursive=T))
       saveRDS(L8querymatched, paste0(L8scenepath, "L8querymatched.rds"))
       
       L8querymatched <- readRDS(paste0(L8scenepath, "L8querymatched.rds"))
@@ -468,14 +493,22 @@ getprocessLANDSAT <- function(time_range){
       dir.create(paste0(L8scenepath,"previews/"))
       
       for(i in seq(L8querymatched)){
-        if(nrow(L8querymatched[[i]])>0){
-          for(j in seq(nrow(L8querymatched[[i]]))){
-            map <- getLandsat_preview(L8querymatched[[i]][j,])
-            mapshot(map, file=paste0(L8scenepath, "previews/query",i,"tile",rownames(L8querymatched[[i]])[j],".png"))
-            print(c(i,j))
+          if(length(L8querymatched[[i]]) > 15){
+            for(j in seq(nrow(L8querymatched[[i]]))){
+              map <- getLandsat_preview(L8querymatched[[i]][j,])
+              mapshot(map, file=paste0(L8scenepath, "previews/query",i,"tile",rownames(L8querymatched[[i]])[j],".png"))
+              print(c(i,j))
+            } 
+            } else {
+            for(x in seq(L8querymatched[[i]])){
+              for(k in seq(nrow(L8querymatched[[i]][[x]]))){
+              map <- getLandsat_preview(L8querymatched[[i]][[x]][k,])
+              mapshot(map, file=paste0(L8scenepath, "previews/query",i,"tile",rownames(L8querymatched[[i]][[x]])[k],".png"))
+              print(c(i,x,k))
+            }
           }
         }
-      }
+        }
       
       # reset archive directory and product names to get LANDSAT 
       ## set archive directory
@@ -486,81 +519,185 @@ getprocessLANDSAT <- function(time_range){
       #product <- "LANDSAT_8_C1"
         
       
-      # get L8 files from USGS
-      files <- lapply(seq(L8querymatched), function(i){
-        #lapply(seq(querynew[[i]]), function(j){
-          if(!is.null(L8querymatched[[i]])){
-            try(getLandsat_data(records=L8querymatched[[i]], level="l1", espa_order=NULL), silent=T)
+      # get L8 files from USGS (AWS)
+      filesbt <- lapply(seq(L8querymatched), function(i){
+        if(length(L8querymatched[[i]]) > 15){
+          if(grepl("bt", L8querymatched[[i]]$levels_available)){
+                        getLandsat_data(records=L8querymatched[[i]], level="bt", espa_order=NULL,source="auto")
           }
-        #})
+          print(i)
+        } else {
+          for(x in seq(L8querymatched[[i]])){
+            if(grepl("bt", L8querymatched[[i]][[x]]$levels_available)){
+              getLandsat_data(records=L8querymatched[[i]][[x]], level="bt", espa_order=NULL,source="auto")
+              print(i,x)
+            }
+          }
+        }
       })
       
-      # get file type of files to check if there is anything in it
-      fte <- sapply(seq(L8querymatched), function(x){
-        #lapply(seq(L8querymatched[[x]]), function(j){
-        class(files[[x]])
-      #})
-      })
+      sc <- list.files(paste0(L8scenepath, "get_data/LANDSAT/BT/"), full.names=T, 
+                       pattern="Bt$")
       
-      if(any(unlist(fte)!="try-error" & unlist(fte)!="NULL")){ # if there is any scene to process
+      # unzip BT
+      for(i in seq(sc)){
+        btfilename <- list.files(paste0(sc[i], "/"), full.names=T, pattern="tar.gz")
+        btfile <- list.files(paste0(sc[i], "/"), full.names=F, pattern="tar.gz")
+        btf <- paste0(sc[i], "/", tools::file_path_sans_ext(tools::file_path_sans_ext(btfile)))
+        #btcontent <- untar(btfilename,list=T)
+        #b10pos <- grepl("band10",btcontent)
+        dir.create(paste0(btf, "/"))
+        untar(btfilename,exdir=paste0(btf, "/"))
+        print(i)
+      }
+      
+      # get Metadata
+      f <- list.files(paste0(list.files(sc[1], pattern="Bt$", full.names = T), "/"), full.names=T)
+
+      # # get L8 files from USGS (AWS)
+      # files <- lapply(seq(L8querymatched), function(i){
+      #   #lapply(seq(querynew[[i]]), function(j){
+      #   if(!is.null(L8querymatched[[i]])){
+      #     try(getLandsat_data(records=L8querymatched[[i]], level="l1", espa_order=NULL,source="auto"), silent=T)
+      #   } 
+      #   #})
+      # })
+      # 
+      
+      # Tier 2 (T2) Tier 2 scenes adhere to the same radiometric standard as Tier 1 scenes, but do not meet the Tier 1 
+      # geometry specification due to less accurate orbital information (specific to older Landsat sensors), significant 
+      # cloud cover, insufficient ground control, or other factors.
+
+      
+      # # get file type of files to check if there is anything in it
+      # fte <- sapply(seq(L8querymatched), function(x){
+      #   #lapply(seq(L8querymatched[[x]]), function(j){
+      #   class(files[[x]])
+      # #})
+      # })
+      
+      # # if only T2 available, use espa order & make a mark in file
+      # if(any(unlist(fte)=="try-error")){
+      #   
+      #   results <- lapply(seq(L8querymatched), function(i){
+      #     #lapply(seq(querynew[[i]]), function(j){
+      #     if(!is.null(L8querymatched[[i]])){
+      #       try(getLandsat_data(records=L8querymatched[[i]],  level="bt",source="auto"), silent=T)
+      #     } 
+      #     #})
+      #   })
+      # }
+      
+      # TO DO: IF THERE IS ANY SCENE TO PROCESS 
+      #if(any(unlist(fte)!="try-error" & unlist(fte)!="NULL")){ # if there is any scene to process
       
       #### PREP DOWNLOADED L8 IMAGES  #######################################################
       
-      L8dirs <- paste0(L8datpath, substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/get_data/LANDSAT/L1/")
-      sdirs <- list.files(L8dirs, full.names = T)
+      # if Bt was downloaded or L1 images
+      if(L8downloadtype != "Bt"){
+          L8dirs <- paste0(L8datpath, substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/get_data/LANDSAT/L1/")
+          sdirs <- list.files(L8dirs, full.names = T)
+          datloc <- l8datlist(sdirs)
+          # summarize all available scenes
+          
+          metaData <- lapply(seq(datloc$meta), function(i){
+            readMeta(datloc$meta[[i]], raw=T)
+          })
+          
+          lsat8o <- lapply(seq(datloc$meta), function(i){
+            stackMeta(datloc$meta[[i]], category = "image", allResolutions = F)
+          })
+          
+          dir.create(paste0(L8scenepath, "bt/"))
+          
+          lapply(seq(datloc$tifs), function(i){
+            bqa <- raster(grep('BQA', datloc$tifs[[i]], value=TRUE))
+            bqa[bqa >= 3 & bqa <= 2720] <- 9999
+            bqa[bqa >= 3744 & bqa <= 3756] <- 9999
+            bqa[bqa!=9999] <- NA
+            # if(crs(bqa)== antaproj){
+            #   bqa <- projectRaster(bqa, crs=antaproj, method="bilinear")
+            # }
+            writeRaster(bqa, paste0(L8scenepath, "bt/", basename(grep('BQA', datloc$tifs[[i]], value=TRUE))),
+                        overwrite=T)
+          })
+          ###### CHECK WHICH SCENES GO TOGETHER #########################################################################
+          
+          #  Landsat data acquisition times are expressed in Greenwich Mean Time (GMT) standard.
+          pathrow <- lapply(seq(metaData), function(i){
+            path <- metaData[[i]]$PRODUCT_METADATA[rownames(metaData[[i]]$PRODUCT_METADATA) == "WRS_PATH",]
+            row <- metaData[[i]]$PRODUCT_METADATA[rownames(metaData[[i]]$PRODUCT_METADATA) == "WRS_ROW",]
+            date <- metaData[[i]]$PRODUCT_METADATA[rownames(metaData[[i]]$PRODUCT_METADATA) == "DATE_ACQUIRED",]
+            time <- metaData[[i]]$PRODUCT_METADATA[rownames(metaData[[i]]$PRODUCT_METADATA) == "SCENE_CENTER_TIME",]
+            fn <- metaData[[i]]$PRODUCT_METADATA[rownames(metaData[[i]]$PRODUCT_METADATA) == "FILE_NAME_BAND_1",]
+            fname <- substring(fn, 1, nchar(fn)-22)
+            sceneID <- metaData[[i]]$METADATA_FILE_INFO[rownames(metaData[[i]]$METADATA_FILE_INFO) == "LANDSAT_SCENE_ID",]
+            return(list(path=path, row=row, date=date, time=time, fname=fname, sceneID=sceneID))
+          })
+          
+          print("data location, metaData and stack done")
+          
+      } else { # if it's BT images
+        
+        sdirs <- list.files(sc, full.names = T, pattern="Bt$")
+        datloc <- l8datlist(sdirs)
+        
+        pathrow <- lapply(seq(L8querymatched), function(i){
+          if(length(L8querymatched[[i]]) > 15){ # if only one level of list
+            lapply(seq(nrow(L8querymatched[[i]])), function(j){
+              path <- L8querymatched[[i]][j,]$WRSPath
+              row <- L8querymatched[[i]][j,]$WRSRow
+              date <- L8querymatched[[i]][j,]$acquisitionDate
+              
+              t <- L8querymatched[[i]][j,]$StartTime
+              time <- substring(t, 10, 14)
+              lcc <- L8querymatched[[i]][j,]$LandCloudCover
+              
+              eid <- strsplit(L8querymatched[[i]][j,]$summary, ",")[[1]][1]
+              fname <- substring(eid, 12,nchar(eid))
+              
+              return(list(path=path, row=row, date=date, time=time, fname=fname, lcc=lcc))
+            })
+          } else {
+              lapply(seq(L8querymatched[[i]]), function(x){
+                lapply(seq(nrow(L8querymatched[[i]][[x]])), function(j){
+                  
+                path <- L8querymatched[[i]][[x]][j,]$WRSPath
+                row <- L8querymatched[[i]][[x]][j,]$WRSRow
+                date <- L8querymatched[[i]][[x]][j,]$acquisitionDate
+                
+                t <- L8querymatched[[i]][[x]][j,]$StartTime
+                time <- substring(t, 10, 14)
+                lcc <- L8querymatched[[i]][[x]][j,]$LandCloudCover
+                
+                eid <- strsplit(L8querymatched[[i]][[x]][j,]$summary, ",")[[1]][1]
+                fname <- substring(eid, 12,nchar(eid))
+                
+                return(list(path=path, row=row, date=date, time=time, fname=fname, lcc=lcc))
+              })
+            })
+          }
+        })
+      }
       
       ##### LOAD ALL DOWNLOADED L8 SCENES  #####################################################################
-      # summarize all available scenes
-      datloc <- l8datlist(sdirs)
-      
-      metaData <- lapply(seq(datloc$meta), function(i){
-        readMeta(datloc$meta[[i]], raw=T)
-      })
-      
-      lsat8o <- lapply(seq(datloc$meta), function(i){
-        stackMeta(datloc$meta[[i]], category = "image", allResolutions = F)
-      })
-      
-      dir.create(paste0(L8scenepath, "bt/"))
-      
-      lapply(seq(datloc$tifs), function(i){
-        bqa <- raster(grep('BQA', datloc$tifs[[i]], value=TRUE))
-        bqa[bqa >= 3 & bqa <= 2720] <- 9999
-        bqa[bqa >= 3744 & bqa <= 3756] <- 9999
-        bqa[bqa!=9999] <- NA
-        # if(crs(bqa)== antaproj){
-        #   bqa <- projectRaster(bqa, crs=antaproj, method="bilinear")
-        # }
-        writeRaster(bqa, paste0(L8scenepath, "bt/", basename(grep('BQA', datloc$tifs[[i]], value=TRUE))),
-                    overwrite=T)
-      })
-      
-      print("data location, metaData and stack done")
-      
-      ###### CHECK WHICH SCENES GO TOGETHER #########################################################################
-      
-      #  Landsat data acquisition times are expressed in Greenwich Mean Time (GMT) standard.
-      pathrow <- lapply(seq(metaData), function(i){
-        path <- metaData[[i]]$PRODUCT_METADATA[rownames(metaData[[i]]$PRODUCT_METADATA) == "WRS_PATH",]
-        row <- metaData[[i]]$PRODUCT_METADATA[rownames(metaData[[i]]$PRODUCT_METADATA) == "WRS_ROW",]
-        date <- metaData[[i]]$PRODUCT_METADATA[rownames(metaData[[i]]$PRODUCT_METADATA) == "DATE_ACQUIRED",]
-        time <- metaData[[i]]$PRODUCT_METADATA[rownames(metaData[[i]]$PRODUCT_METADATA) == "SCENE_CENTER_TIME",]
-        fn <- metaData[[i]]$PRODUCT_METADATA[rownames(metaData[[i]]$PRODUCT_METADATA) == "FILE_NAME_BAND_1",]
-        fname <- substring(fn, 1, nchar(fn)-22)
-        sceneID <- metaData[[i]]$METADATA_FILE_INFO[rownames(metaData[[i]]$METADATA_FILE_INFO) == "LANDSAT_SCENE_ID",]
-        return(list(path=path, row=row, date=date, time=time, fname=fname, sceneID=sceneID))
-      })
+
       
       # make df with Path, Row, Date and Time (GMT)
       df <- data.frame(matrix(unlist(pathrow), ncol = 6, byrow=T))
-      names(df) <- names(pathrow[[1]])
+      names(df) <- c("path", "row", "date", "time", "fname", "lcc")
       df$scenenumber <- as.numeric(rownames(df))
       nums <- seq(1:nrow(df))
       
-      # ordered by time: stacks
-      s <- lapply(seq(nums), function(i){
-        stackMeta(datloc$meta[[nums[i]]], quantity = 'all')
+      # # ordered by time: stacks
+      # s <- lapply(seq(nums), function(i){
+      #   stackMeta(datloc$meta[[nums[i]]], quantity = 'all')
+      # })
+      
+      s <- lapply(seq(datloc$tifs), function(i){
+        raster(datloc$tifs[[i]])
       })
+      
       
       ############# CHECK WHICH FILES ARE OVER LAND ######################################################
       # check, how much of the area of the downloaded scenes that might be selected actually lies on land
@@ -607,14 +744,14 @@ getprocessLANDSAT <- function(time_range){
       }
       
       write.csv2(timediff_df, paste0(L8scenepath, "timediff_df.csv"))
-      
+      timediff_df <- read.csv2(paste0(L8scenepath, "timediff_df.csv"))
       # actualize MODIS query
       timediff_comp <- timediff_df[complete.cases(timediff_df),]
       
       # if matches were found
       if(nrow(timediff_comp)!=0){
         # eliminate leading space
-        timediff_comp$MODname <- substring(timediff_comp$MODname,2,nchar(timediff_comp$MODname))
+        timediff_comp$MODname <- substring(timediff_comp$MODname,2,nchar(as.character(timediff_comp$MODname)))
         
         n_occur <- data.frame(table(timediff_comp$MODname))
         
@@ -652,14 +789,14 @@ getprocessLANDSAT <- function(time_range){
         msel <- mselnew
         saveRDS(msel, paste0(L8scenepath, "MODquerymatched_msel.rds"))
         
-        ############# ELIMINATE 0 VALUES ########################################################################## 
-        s <- sel # use subselected after cloud cover, aoi overlap and land overlap
-        for(i in seq(s)){
-          for(j in seq(nlayers(s[[i]]))){
-            s[[i]][[j]][s[[i]][[j]]==0] <- NA
-          }
-        }
-        print("0 values replaced by NA")
+        # ############# ELIMINATE 0 VALUES ########################################################################## 
+        # s <- sel # use subselected after cloud cover, aoi overlap and land overlap
+        # for(i in seq(s)){
+        #   for(j in seq(nlayers(s[[i]]))){
+        #     s[[i]][[j]][s[[i]][[j]]==0] <- NA
+        #   }
+        # }
+        # print("0 values replaced by NA")
         
         ################## CUT TO AOI ##################################################################################
         
@@ -671,60 +808,66 @@ getprocessLANDSAT <- function(time_range){
         print("cut to research area")
         
         
+        btc <- lapply(seq(s), function(i){
+          (s.aoi[[i]]*0.1)-273.15
+        })
+        
+        
         #############  Calculation of TOA (Top of Atmospheric) spectral radiance and #################### 
         #################  brightness temperature ##################################################
         
-        dir.create(paste0(L8scenepath, "bt/"))
-        
-        BTC <- lapply(seq(selnum), function(i){
-          
-          # TOA (L) = ML * Qcal + AL
-          # ML = Band-specific multiplicative rescaling factor from the metadata (RADIANCE_MULT_BAND_x, where x is the band number).
-          # Qcal = corresponds to band 10.
-          # AL = Band-specific additive rescaling factor from the metadata (RADIANCE_ADD_BAND_x, where x is the band number).
-          
-          mD <- readMeta(datloc$meta[[selnum[i]]], raw=T)
-          nam <- mD$METADATA_FILE_INFO["LANDSAT_PRODUCT_ID",]
-          
-          ML <- mD$RADIOMETRIC_RESCALING["RADIANCE_MULT_BAND_10",]
-          AL <- mD$RADIOMETRIC_RESCALING["RADIANCE_ADD_BAND_10",]
-          TOA = (ML * lsat8o[[selnum[i]]]$B10_dn) + AL # this is band 10
-          
-          
-          # TOA to Brightness Temperature conversion
-          # BT = (K2 / (ln (K1 / L) + 1)) ??? 273.15
-          
-          # K1 = Band-specific thermal conversion constant from the metadata (K1_CONSTANT_BAND_x, where x is the thermal band number).
-          # K2 = Band-specific thermal conversion constant from the metadata (K2_CONSTANT_BAND_x, where x is the thermal band number).
-          # L = TOA
-          # Therefore, to obtain the results in Celsius, the radiant temperature is adjusted 
-          # by adding the absolute zero (approx. -273.15?C).
-          
-          K1 <- mD$TIRS_THERMAL_CONSTANTS["K1_CONSTANT_BAND_10",]
-          K2 <- mD$TIRS_THERMAL_CONSTANTS["K2_CONSTANT_BAND_10",]
-          BTK <- (K2 /(log((K1 / TOA) +1)))
-          BTC <- (BTK-273.15)
-          
-          BTC[BTC<=(-90)] <- NA
-          
-          writeRaster(BTC, paste0(L8scenepath, "bt/", nam, "_BTC", ".tif"), 
-                      format="GTiff", overwrite=T)
-          BTC
-        })
+        # dir.create(paste0(L8scenepath, "bt/"))
+        # 
+        # BTC <- lapply(seq(selnum), function(i){
+        #   
+        #   # TOA (L) = ML * Qcal + AL
+        #   # ML = Band-specific multiplicative rescaling factor from the metadata (RADIANCE_MULT_BAND_x, where x is the band number).
+        #   # Qcal = corresponds to band 10.
+        #   # AL = Band-specific additive rescaling factor from the metadata (RADIANCE_ADD_BAND_x, where x is the band number).
+        #   
+        #   mD <- readMeta(datloc$meta[[selnum[i]]], raw=T)
+        #   nam <- mD$METADATA_FILE_INFO["LANDSAT_PRODUCT_ID",]
+        #   
+        #   ML <- mD$RADIOMETRIC_RESCALING["RADIANCE_MULT_BAND_10",]
+        #   AL <- mD$RADIOMETRIC_RESCALING["RADIANCE_ADD_BAND_10",]
+        #   TOA = (ML * lsat8o[[selnum[i]]]$B10_dn) + AL # this is band 10
+        #   
+        #   
+        #   # TOA to Brightness Temperature conversion
+        #   # BT = (K2 / (ln (K1 / L) + 1)) ??? 273.15
+        #   
+        #   # K1 = Band-specific thermal conversion constant from the metadata (K1_CONSTANT_BAND_x, where x is the thermal band number).
+        #   # K2 = Band-specific thermal conversion constant from the metadata (K2_CONSTANT_BAND_x, where x is the thermal band number).
+        #   # L = TOA
+        #   # Therefore, to obtain the results in Celsius, the radiant temperature is adjusted 
+        #   # by adding the absolute zero (approx. -273.15?C).
+        #   
+        #   K1 <- mD$TIRS_THERMAL_CONSTANTS["K1_CONSTANT_BAND_10",]
+        #   K2 <- mD$TIRS_THERMAL_CONSTANTS["K2_CONSTANT_BAND_10",]
+        #   BTK <- (K2 /(log((K1 / TOA) +1)))
+        #   BTC <- (BTK-273.15)
+        #   
+        #   BTC[BTC<=(-90)] <- NA
+        #   
+        #   writeRaster(BTC, paste0(L8scenepath, "bt/", nam, "_BTC", ".tif"), 
+        #               format="GTiff", overwrite=T)
+        #   BTC
+        # })
         
         print("BTC calculated")
         
         ################## CALCULATE LST ####################################################################
         # # # get BTC files
-        mr <- list.files(paste0(L8scenepath, "bt/"), pattern="BTC", full.names=T)
-        f <- mr[grep('tif$', mr)]
-        BTC <- lapply(seq(f), function(i){
-          raster(f[i])
-        })
+        #mr <- list.files(paste0(L8scenepath, "bt/"), pattern="BTC", full.names=T)
+        #f <- mr[grep('tif$', mr)]
+        #BTC <- lapply(seq(f), function(i){
+        #  raster(f[i])
+        #})
         
         # get rock outcrop raster with Emissivity values
         eta <- raster(paste0(main, "Rock_outcrop_ras_", areaname, ".tif"))
         
+        BTC <- btc
         # Calculate the Land Surface Temperature
         LST <- lapply(seq(BTC), function(i){
           x <- (BTC[[i]]/(1+(0.0010895*BTC[[i]]/0.01438)*log(eta))) 
@@ -797,15 +940,15 @@ getprocessLANDSAT <- function(time_range){
       write.csv(txt, paste0(L8scenepath, "qualitycheck.csv"), row.names = F)
       return("nothing")} 
       
-    } else {
-      txtf <- "no data suitable"
-      print(txtf)
-      write.csv(txtf, paste0(L8scenepath, "qualitycheck.csv"), row.names = F)
-      return("nothing")
-    }
+    #} else {
+    #   txtf <- "no data suitable"
+    #   print(txtf)
+    #   write.csv(txtf, paste0(L8scenepath, "qualitycheck.csv"), row.names = F)
+    #   return("nothing")
+    # }
   } else {print("no time match in MODIS found")
-    file.rename(L8scenepath, paste0(substring(L8scenepath, 1, (nchar(L8scenepath)-nchar(basename(L8scenepath))-1)), 
-                                    paste0("no_tmatch_",basename(L8scenepath))))
+    #file.rename(L8scenepath, paste0(substring(L8scenepath, 1, (nchar(L8scenepath)-nchar(basename(L8scenepath))-1)), 
+    #                                paste0("no_tmatch_",basename(L8scenepath))))
     file.remove(paste0(L8scenepath, "qualitycheck.csv"))
     return("nothing")
     }# for if there are MODIS scenes within <2h of L8
