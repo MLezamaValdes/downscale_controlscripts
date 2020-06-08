@@ -58,7 +58,17 @@ make_L8_MOD_stack <- function(y, m, timethres){
         ########## get stacks of all downloaded LST data in ############
         
         L8ras <- stack(l8r)
-        mras <- stack(mr)
+        
+        mrY <- mr[grep('MYD11', mr)]
+        mrO <- mr[grep('MOD11', mr)]
+        
+        
+        mrY <- stack(mrY)
+        mrO <- stack(mrO)
+        
+        mrOres <- resample(mrO, mrY[[1]])
+        
+        mras <- stack(mrY, mrOres)
         
         names(mras) <- substring(basename(mr), 12, 51)
         names(L8ras) <- substring(basename(l8r), 1,40)
@@ -300,8 +310,8 @@ match_sat_ia_hs <- function(y,m){
   time_range[[y]][[m]]
   
   
-  for(y in c(2:7)){
-    for(m in c(5:8)){
+  for(y in seq(year)){
+    for(m in seq(month)){
             make_L8_MOD_stack(y,m,timethres)
       gc()
     }

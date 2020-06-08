@@ -73,13 +73,7 @@ getprocessMODIS_new <- function(time_range){
   # daynum <- as.numeric(lapply(strsplit(as.character(lapply(strsplit(as.character(ad), ":"),`[[`, 2)), "-"), `[[`, 1))
 
   L8datetime <- as.POSIXlt(downloadedday$datetime, format="%Y:%j:%H:%M:%S")
-    # 
-    # # +/- 2h around L8datetime
-    # maxtimerange <- L8datetime+hours(1)
-    # mintimerange <- L8datetime-hours(1)
-    # # take all days that are in the range of 2h around L8date
-    # daynum <- unique(c(day(maxtimerange), day(mintimerange)))
-    # 
+    
     
     print("STARTING MODIS DOWNLOAD AND PREP")
     
@@ -148,7 +142,7 @@ getprocessMODIS_new <- function(time_range){
           tplpath <- list.files(batchoutdir, pattern="unix.prm", full.names = T)
 
           # list all files in hdf dir
-          filescomp <- list.files(hdfpath, full.names=T)
+          filescomp <- list.files(hdfpath, full.names=T, pattern="MOD")
 
           # clean out batchoutdir if something there from previous run
           a <- character(0)
@@ -157,7 +151,7 @@ getprocessMODIS_new <- function(time_range){
           }
 
           # run HEG tool
-          runheg(files=filescomp, indir=batchindir, outdir=batchoutdir, tplpath=tplpath, layer = "LST|")
+          try(runheg(files=filescomp, indir=batchindir, outdir=batchoutdir, tplpath=tplpath, layer = "LST|"))
 
           # transport results to other filespath
           dir.create(file.path(MODtifHDFoutpath)) # create MODtifHDFoutpath
@@ -228,19 +222,19 @@ getprocessMODIS_new <- function(time_range){
           lst_cp <- lapply(seq(projfiles), function(i){
             raster(projfiles[i])
           })
-          tmplras <- lst_cp[[1]]
+          tmplras <- template
 
           if(length(lst_cp)>1){
             # get extent of files
             MODext <- lapply(seq(lst_cp), function(i){
-              p <- as(extent(lst_cp[[i]]), 'SpatialPolygons')
+              p <- as(extent(aoianta), 'SpatialPolygons')
               crs(p) <- antaproj
               p
             })
             me <- do.call(bind, MODext)
 
             # make a template to force 1x1km pixels
-            extent(tmplras) <- extent(me)
+            extent(tmplras) <- extent(aoianta)
           }
 
           res(tmplras) <- c(1000, 1000)
@@ -257,27 +251,6 @@ getprocessMODIS_new <- function(time_range){
           })
 
           print("rasters resampled to 1x1km resolution")
-
-
-          # for(i in seq(lst_res)){
-          #   print(i)
-          #   writeRaster(lst_res[[i]], paste0(MODLSTpath, names(lst_res[[i]]), ".tif"), format="GTiff",
-          #               overwrite=T)
-          # }
-          #
-          # # read converted to ?C, projected and resampled tifs back in
-          # lst_cp <- lapply(seq(grep(list.files(path=paste0(modisscenepath, "LST_2018_01_19/"), full.names=T), pattern='res', inv=T, value=T)), function(i){
-          #   f <- grep(list.files(path=paste0(modisscenepath, "LST_2018_01_19/"), full.names=T), pattern='res', inv=T, value=T)
-          #   raster(f[i])
-          # })
-          #
-
-          # # read converted to degree ?C, projected and resampled tifs back in
-          # fls <- list.files(MODLSTpath, full.names=T)
-          # lst_resm <- lapply(seq(fls), function(i){
-          #   raster(fls[i])
-          # })
-          # lst_res <- lst_resm
 
           print("values, resolution and projection adapted")
 
@@ -310,10 +283,9 @@ getprocessMODIS_new <- function(time_range){
 
           ############ MAKE A RASTER WHICH GIVES INFO ON INPUT RASTER ##########################################################
 
-          #mosaic <- raster(paste0(modisscenepath, "MDV_MODIS_LST_Mosaic.tif"))
 
           # find max bounding box
-          newextent <- compbb(lst_res)
+          newextent <- extent(tmplras)
 
           # bring them all to new extent
           lst_ex <- lapply(seq(lst_res), function(i){
@@ -330,37 +302,6 @@ getprocessMODIS_new <- function(time_range){
             names(lst_ex[[testnam[i]]]) <- names(lst[[testnam[i]]])
           }
 
-          # # put in original names if files have been read in or lost original filename
-          # only to be used when rasters are being read in after writing, which in final
-          # routine shouldn't be the case
-
-          # while(any(!grepl("11_L2", names(lst_ex)))){
-          #
-          #   nums <- as.numeric(gsub("[^0-9]", "", names(lst_ex))) # take just the numeric parts of the name
-          #   orgnam <- lapply(seq(lst), function(i){
-          #     x<-names(lst[[nums[i]]])
-          #     print(i)
-          #     x
-          #   })
-          #
-          #   # check if everything went well
-          #   i <- 19
-          #   orgnam[[i]]
-          #   names(lst[[nums[i]]])
-          #
-          #   # put in original names
-          #   for(i in seq(nlayers(lst_ex))){
-          #     names(lst_ex[[i]]) <- orgnam[[i]]
-          #   }
-          #
-          #   # test
-          #   res <- names(lst_ex)
-          #   c <- sapply(seq(lst), function(i){
-          #     names(lst[[nums[i]]])
-          #   })
-          #
-          #   res == c
-          # }
 
           # crop everything to aoi - perhaps here?
           lst_s <- crop(lst_ex, aoianta)
@@ -408,64 +349,10 @@ getprocessMODIS_new <- function(time_range){
           }
 
           namdate <- data.frame(fnams=fnams, utc = v)
-          #
-          # rm(lst_c)
-          # rm(lst)
-          # rm(lst_ex)
-          # rm(lst_cp)
-          # rm(lst_res)
+ 
 
           # MODdate contains dayofyear, minutesofday as data and as rasters as well
           MODdate <- datestodoymod(utcdates, fnams, lst_s)
-
-          # make a raster with min of time range and max of time range
-          # and one with amount of rasters going into the pixel
-
-          # emptlay <- lapply(seq(nlayers(MODdate$minutesofdayras)), function(i) {
-          #   any(!is.na(MODdate$minutesofdayras[[i]])[]==1)
-          # })
-          #
-          # sell <- unlist(emptlay)
-          # b <- seq(1:length(sell))
-          # sel <- b[sell]
-          #
-          # subtimeras <- subset(MODdate$minutesofdayras, sel)
-          #
-          # # to get amount of available values
-          # nonna <- raster(apply(as.array(subtimeras), 1:2, function(x) length(na.omit(x))))
-          # nv <- nonna[]
-          # nonnares <- subtimeras[[1]]
-          # nonnares[] <- nv
-          #
-          # # min and max to get time range
-          # mi <- min(subtimeras, na.rm = T)
-          # ma <- max(subtimeras, na.rm=T)
-          # diff <- ma-mi
-          #
-          # dir.create(paste0(modisscenepath, "date/"))
-          #
-          # writeRaster(nonna, paste0(modisscenepath, "date/amount_available_data.tif"), format="GTiff", overwrite=T)
-          # writeRaster(mi, paste0(modisscenepath, "date/min_time.tif"), format="GTiff", overwrite=T)
-          # writeRaster(ma, paste0(modisscenepath, "date/max_time.tif"), format="GTiff", overwrite=T)
-          # writeRaster(diff, paste0(modisscenepath, "date/time_range.tif"), format="GTiff", overwrite=T)
-          #
-
-          # find max bounding box
-          # tl <- list(nonnares, mi, ma, diff)
-
-          # newextent <- compbb(tl)
-
-          # # bring them all to new extent
-          # tl_ex <- lapply(seq(tl), function(i){
-          #   crop(tl[[i]], newextent)
-          # })
-          #
-          # time_rastersMDV2019-01-17.tif:
-          # which pixels are not na, minimum minute of day, maximum minute of day, difference between minimum and maximum
-          # tstack <- stack(nonnares, mi, ma, diff)
-          # names(tstack) <- c("sum_av", "min_t", "max_t", "t_range")
-          # writeRaster(tstack, paste0(modisscenepath, "date/time_rasters", areaname, time_range[[y]][[m]][[1]][1], ".tif"),
-          #             format="GTiff", overwrite=T)
 
           print("MODIS time done")
 
@@ -497,27 +384,6 @@ getprocessMODIS_new <- function(time_range){
           })
 
 
-          # L8LST <- lapply(seq(list.files(paste0(L8scenepath, "bt/"), pattern="BTC")), function(i){
-          #   raster(list.files(paste0(L8scenepath, "bt/"), pattern="BTC", full.names = T)[i])
-          # })
-
-          # # dateras / drs [[1]] = day of year = dayras, [[2]]=minute of day=timeras
-          # dateras <- lapply(seq(L8LST), function(i){
-          #   d <- L8LST[[i]]
-          #   d[!is.na(d[])] <- as.numeric(doy[[i]])
-          #   mod <- L8LST[[i]]
-          #   mod[!is.na(mod)] <- (hours[[i]]*60)+minutes[[i]]
-          #   y <- stack(d, mod)
-          #   print(i)
-          #   return(y)
-          # })
-          #
-          # drs <- stack(dateras)
-          # dayras <- subset(drs, c(seq(1,nlayers(drs), by=2)))
-          # timeras <- subset(drs, c(seq(2,nlayers(drs), by=2)))
-          #
-
-
           # make L8 date df
           minutesofday <- (hours*60)+minutes
           L8datedf <- L8time
@@ -541,69 +407,9 @@ getprocessMODIS_new <- function(time_range){
           write.csv2(L8datedf, paste0(main, "timediff/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/", "dates_L8.csv"))
           write.csv2(modL8datedf, paste0(main, "timediff/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/", "dates_MODIS.csv"))
 
-          # timeex$L8time <- rep(mean(minutesofday), nrow(timeex))
-          # minutesofday/60
-          # timeex$fit <- 99
-          # for(i in seq(nrow(timeex))){
-          #   if(any(is.na(timeex[i,]))==F){ # are there NA values interfering
-          #     if(timeex$L8time[i] < timeex$max_t[i] & timeex$L8time[i] > timeex$min_t[i]){
-          #       timeex$fit[i] <- 1 # one where L8 time lies within MODIS timeframe
-          #     } else {
-          #       timeex$fit[i] <- 0
-          #     }
-          #   }
-          # }
-          # timeex$fit[timeex$fit==99] <- NA
-          #
-          #
-          # d <- table(timeex$fit)
-          # d[2]/d[1]
-          # d[2]/nrow(timeex) #Anteil Pixel mit ?berlappender Zeitspanne
-          #
-          # # write this one out
-          #
-          # timeex$dev <- 99
-          # for(i in seq(nrow(timeex))){
-          #   if(any(is.na(timeex[i,]))==F){ # are there NA values interfering
-          #     if(timeex$L8time[i] > timeex$max_t[i]){
-          #       timeex$dev[i] <- timeex$L8time[i] - timeex$max_t[i] # one where L8 time lies within MODIS timeframe
-          #     } else if (timeex$L8time[i] < timeex$min_t[i]) {
-          #       timeex$dev[i] <- timeex$max_t[i] - timeex$L8time[i]
-          #     } else if (timeex$fit[i]==1){
-          #       timeex$dev[i] <- 0
-          #     }
-          #   }
-          # }
-          # timeex$dev[timeex$dev==99] <- NA
-          #
-          # table(timeex$dev)
-          #
-          # # write out as well
-          #
-          #
-          # timediff <- tstack[[1]]
-          #
-          # timediff[] <- timeex$dev
-          #
-          # writeRaster(timediff,
-          #             paste0(modisscenepath, "date/time_rasters", areaname, "_", time_range[[y]][[m]][[1]][1], ".tif"),
-          #             format="GTiff", overwrite=T)
+ 
 
           print("timedifference to L8 written")
-
-          # daydiff <- abs(as.numeric(MODdate$dayofyear)-as.numeric(doy))
-          # minutesdiff <- abs(MODdate$minutesofday-minutesofday)
-          #
-          # (datediff <- paste("MODIS day of year:", MODdate$dayofyear,
-          #             "; Landsat 8 day of year", doy ,
-          #             "; MODIS minutes of day:", MODdate$minutesofday,
-          #             "; Landsat 8 minutesofday", minutesofday,
-          #             "MINUTESDIFF:", minutesdiff,
-          #             "DAYDIFF:", daydiff, "Landsat scenes",
-          #             downloadedday$summary, downloadedday$lcc,
-          #             "MODIS scenes", fnams, namdate))
-          #
-          # write.csv2(datediff, paste0(modisscenepath, "date/datediff.csv"))
 
 
 }
@@ -619,25 +425,6 @@ getprocessMODIS_new <- function(time_range){
 
     gc()
     
-    #} else {print("temporally matching MODIS scenes not useful")
-      #file.rename(L8scenepath, paste0(substring(L8scenepath, 1, (nchar(L8scenepath)-nchar(basename(L8scenepath))-1)),
-      #                                paste0("no_tmatch_",basename(L8scenepath))))
-      #}
-#     } else {print("no intersection between MODIS and AOI")
-#     file.rename(L8scenepath, paste0(substring(L8scenepath, 1, (nchar(L8scenepath)-nchar(basename(L8scenepath))-1)), 
-#                                     paste0("no_tmatch_",basename(L8scenepath))))
-#     }# for if there are MODIS scenes within <2h of L8
-  # } else {print("no L8 data available here")
-  #               file.rename(L8scenepath, paste0(substring(L8scenepath, 1, (nchar(L8scenepath)-nchar(basename(L8scenepath))-1)), 
-  #                                               paste0("no_tmatch_",basename(L8scenepath))))
-  #     } 
-  # 
-  # # if there are any files in L8 
-  # } else {print("no L8 data")
-  #   file.rename(L8scenepath, paste0(substring(L8scenepath, 1, (nchar(L8scenepath)-nchar(basename(L8scenepath))-1)), 
-  #                                   paste0("no_L8_data_",basename(L8scenepath))))
-  #   }
-  # }
 } # function
 
 
