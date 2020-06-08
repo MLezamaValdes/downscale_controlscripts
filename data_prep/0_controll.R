@@ -99,10 +99,10 @@ time_range[[y]][[m]]
 # check when L8 Launch
 
 # MODIS files deprecated for 2018_09
-for(y in seq(year)){
-  for(m in c(6)){
+for(y in c(7)){
+  for(m in c(1:8)){
     login_USGS("MaiteLezama", "Eos300dmmmmlv")
-    getprocessLANDSAT(time_range)
+    #getprocessLANDSAT(time_range)
     getprocessMODIS_new(time_range)
     #make_L8_MOD_stack(y,m,timethres)
   }

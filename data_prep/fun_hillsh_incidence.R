@@ -68,7 +68,7 @@ make_L8_MOD_stack <- function(y, m, timethres){
         
         ########## get timediff csvs ############
         tdpath <- paste0(main, "timediff/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")
-        tdf <- list.files(tdpath, full.names = T)
+        #tdf <- list.files(tdpath, full.names = T)
         #l8dates <- read.csv2(tdf[1])
         #mdates <- read.csv2(tdf[2])
         timediff <- timediff_comp
@@ -88,6 +88,9 @@ make_L8_MOD_stack <- function(y, m, timethres){
         
         tdthres$Mcomp <- MODavailable
         tdthres$Lcomp <- L8available
+        
+        
+        tdthres[tdthres$Mcomp==FALSE,]
         
         tdthres <- tdthres[tdthres$Lcomp == T & tdthres$Mcomp ==T,]
         
