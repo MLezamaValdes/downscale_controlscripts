@@ -1,0 +1,67 @@
+
+R version 3.6.0 (2019-04-26) -- "Planting of a Tree"
+Copyright (C) 2019 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> rm(list=ls())
+> ncores <- 10
+> library(caret)
+Loading required package: lattice
+Loading required package: ggplot2
+> library(parallel)
+> library(doParallel)
+Loading required package: foreach
+Loading required package: iterators
+> 
+> data(iris)
+> TrainData <- iris[,1:4]
+> TrainClasses <- iris[,5]
+> 
+> cl <- makeCluster(ncores)
+> registerDoParallel(cl)
+> 
+> model <- train(TrainData, TrainClasses,
++                method = "rf",
++                tuneLength = 3,
++                trControl = trainControl(method = "repeatedcv",number=10,repeats=100))
+> 
+> stopCluster(cl)
+> print(model)
+Random Forest 
+
+150 samples
+  4 predictor
+  3 classes: 'setosa', 'versicolor', 'virginica' 
+
+No pre-processing
+Resampling: Cross-Validated (10 fold, repeated 100 times) 
+Summary of sample sizes: 135, 135, 135, 135, 135, 135, ... 
+Resampling results across tuning parameters:
+
+  mtry  Accuracy   Kappa 
+  2     0.9555333  0.9333
+  3     0.9574000  0.9361
+  4     0.9561333  0.9342
+
+Accuracy was used to select the optimal model using the largest value.
+The final value used for the model was mtry = 3.
+> 
+> save(model,file="/scratch/tmp/llezamav/result.RData")
+> 
+> proc.time()
+   user  system elapsed 
+  6.991   1.688  27.907 

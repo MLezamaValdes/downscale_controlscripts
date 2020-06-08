@@ -89,7 +89,8 @@ login_USGS("MaiteLezama", "Eos300dmmmmlv")
 #   }
 # }
 
-y=7
+y=1
+m=1
 time_range[[y]][[m]]
 
 
