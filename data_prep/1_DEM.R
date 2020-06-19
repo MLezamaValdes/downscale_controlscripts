@@ -106,17 +106,26 @@ prepDEM <- function(x){
   
   print("fill NA values with 200m DEM")
   
+  ############################## filter DEM ########################################
   
+  # GO ON HERE !!!!
+  mos_filled <- raster(paste0(dempath, "DEM_8m_", areaname,"_clean_aoi_filled_mask.tif"))
+  dem_30m <- resample(mos_filled, template)
+  d3_f <- focal(dem_30m, w=matrix(1/25,nrow=5,ncol=5))
   
   ############################### calculate slope and aspect ##############################################################
   
-  slas <- terrain(mos_filled, opt=c("slope", "aspect"))
+  slas <- terrain(d3_f, opt=c("slope", "aspect"), unit="degrees", neighbors=8)
   
   for(i in seq(2)){
-    writeRaster(slas[[i]], paste0(dempath, names(slas[[i]]), areaname,".tif"), format="GTiff", overwrite=T)
+    writeRaster(slas[[i]], paste0(dempath, "30m_", names(slas[[i]]), areaname,".tif"), format="GTiff", overwrite=T)
+  }
+  
+  slasrad <- terrain(d3_f, opt=c("slope", "aspect"), unit="radians", neighbors=8)
+  for(i in seq(2)){
+    writeRaster(slasrad[[i]], paste0(dempath, "30m_radians_", names(slas[[i]]), areaname,".tif"), format="GTiff", overwrite=T)
   }
   print("slope and aspect done")
-  
 
   
   ############################### tranlate filled DEM and slope to SAGA grid ##############################################################

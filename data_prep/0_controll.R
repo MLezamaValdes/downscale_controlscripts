@@ -27,6 +27,7 @@ aoipath <-  "D:/new_downscaling/aoi/"
 L8datpath <- paste0(main, "L8/")
 modispath <- paste0(main, "MODIS/")
 tdpath <-paste0(main, "timediff/")
+
 ######## set path to AOI
 aoip <- list.files(aoipath, pattern=".shp", full.names = T)
 
@@ -100,13 +101,26 @@ time_range[[y]][[m]]
 
 # MODIS files deprecated for 2018_09
 for(y in c(7)){
-  for(m in c(1:8)){
+  for(m in c(8)){
     login_USGS("MaiteLezama", "Eos300dmmmmlv")
-    #getprocessLANDSAT(time_range)
+    getprocessLANDSAT(time_range)
     getprocessMODIS_new(time_range)
+    getprocessMODIS_new_MYD(time_range)
     #make_L8_MOD_stack(y,m,timethres)
   }
 }
 
-
+# # y=7, m=8 didn't work yet
+# for(y in seq(year)){
+#   for(m in seq(month)){
+#     
+#     modisscenepath <- paste0(modispath, substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")
+#     MODLSTpath <- paste0(modisscenepath, "mydLST/")
+#     ftc <- list.files(MODLSTpath, full.names=T, pattern="small_proj")
+#     file.copy(ftc, paste0("D:/new_downscaling/data_download_preprocessing/MODIS/",
+#                           substring(time_range[[y]][[m]][[1]][[1]], 1, 7),"/LST/", basename(ftc)))
+#     
+#     
+#   }
+# }
 

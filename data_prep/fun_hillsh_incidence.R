@@ -18,8 +18,13 @@ names(aux) <- c("dem", "slope", "twires", "hillshade", "lc", "blockmask")
 # writeRaster(slope, paste0(dempath, "slope", areaname,".tif"), overwrite=T)
 # writeRaster(aspect, paste0(dempath, "aspect", areaname,".tif"), overwrite=T)
 
-sl <- raster(paste0(dempath, "slope", areaname,".tif"))
-as <- raster(paste0(dempath, "aspect", areaname,".tif"))
+
+sl <- raster(paste0(dempath, "30m_slope", areaname,".tif"))
+as <- raster(paste0(dempath, "30m_aspect", areaname,".tif"))
+
+slrad <-  raster(paste0(dempath, "30m_radians_slope", areaname,".tif"))
+asrad <-  raster(paste0(dempath, "30m_radians_aspect", areaname,".tif"))
+
 
 aoilonlat <- spTransform(aoianta, CRS="+proj=longlat +ellps=WGS84")
 lon <- mean(extent(aoilonlat)[c(1,2)])
@@ -28,7 +33,7 @@ lat <- mean(extent(aoilonlat)[c(3,4)])
 
 iapath <- paste0(cddir, "ia/")
 hspath <- paste0(cddir, "hs/")
-
+iahsrespath <- paste0(cddir, "ia_hs_res/")
 
 
 ########################### FUNCTIONS #####################################
@@ -67,7 +72,6 @@ make_L8_MOD_stack <- function(y, m, timethres){
         mrO <- stack(mrO)
         
         mrOres <- resample(mrO, mrY[[1]])
-        
         mras <- stack(mrY, mrOres)
         
         names(mras) <- substring(basename(mr), 12, 51)
@@ -100,7 +104,7 @@ make_L8_MOD_stack <- function(y, m, timethres){
         tdthres$Lcomp <- L8available
         
         
-        tdthres[tdthres$Mcomp==FALSE,]
+        #tdthres[tdthres$Mcomp==FALSE,]
         
         tdthres <- tdthres[tdthres$Lcomp == T & tdthres$Mcomp ==T,]
         
@@ -154,11 +158,11 @@ make_L8_MOD_stack <- function(y, m, timethres){
         
         print("matched scenes")
         
-        write.csv2(names(satstack), paste0(cddir, "satnames_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), ".csv"),
+        write.csv2(names(satstack), paste0(cddir, "satstacks/satnames_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), ".csv"),
                    row.names = F)
         
         print("starting to write sat stack")
-        writeRaster(satstack, paste0(cddir, "L_MOD_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), ".tif"), overwrite=T)
+        writeRaster(satstack, paste0(cddir, "satstacks/L_MOD_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), ".tif"), overwrite=T)
       } else {
         print("No MODIS scenes available")
       }
@@ -175,6 +179,7 @@ make_L8_MOD_stack <- function(y, m, timethres){
 }
 
 ########## make hillshading and incidence angle raster ############
+# this ran on palma ####
 make_hs_ia <- function(y,m){
   
   L8scenepath <- paste0(main, "L8/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")
@@ -202,7 +207,7 @@ make_hs_ia <- function(y,m){
     #time should be in UTC
     sa <- sunAngle(MODDate, lon=lon, lat=lat)
     
-    hs <- hillShade(slope = sl, aspect = as, angle = sa$altitude, direction = sa$azimuth)
+    hs <- hillShade(slope = slrad, aspect = asrad, angle = sa$altitude, direction = sa$azimuth)
     dateaschar <- paste0(substring(as.character(MODDate),1,10), "-", substring(as.character(MODDate),12,13),substring(as.character(MODDate),15,16))
     
     writeRaster(hs, paste0(hspath, "hs_", dateaschar, ".tif"), overwrite=T)
@@ -219,9 +224,24 @@ make_hs_ia <- function(y,m){
     ia <- Incidence(DOY = doymin, Lat=lat, Lon=lon, SLon=180, DS=dstnz, Slope = sl, Aspect = as)
     writeRaster(ia, paste0(iapath, "ia_", dateaschar, ".tif"), overwrite=T)
     
+    iahs <- stack(ia, hs)
+    writeRaster(iahs, paste0(iahsrespath, "ia_hs_", dateaschar, ".tif"), overwrite=T)
+    
     gc()
   })
 } # ACHTUNG D NOCH NICHT RICHTIG ITERIERT
+
+write_first_satstack_for_server <- function(y, m){
+  L8scenepath <- paste0(main, "L8/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")
+  timediff_comp <- read.csv2(paste0(L8scenepath, "timediff_comp_comp.csv"))
+  
+  # get satellite stack for y and m and rename correctly
+  satstack <- stack(paste0(cddir, "L_MOD_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), ".tif"))
+  namdat <- read.csv2(paste0(cddir, "satnames_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), ".csv"))
+  names(satstack) <- namdat$x
+  
+  writeRaster(satstack[[1]], paste0())
+}
 
 ########## put allstacks + hs + ia together ############
 match_sat_ia_hs <- function(y,m){
@@ -244,27 +264,13 @@ match_sat_ia_hs <- function(y,m){
     paste0(substring(as.character(MODDate),1,10), "-", substring(as.character(MODDate),12,13),substring(as.character(MODDate),15,16))
   })
   
-  # read ia
-  ia <- lapply(seq(uniqueMODscenes), function(i){
-    try(raster(paste0(iapath, "ia_", dateaschar[[i]], ".tif")))
-  })
-
+  # read resampled and stacked ia and hs
   
-  ras_available <- sapply(seq(ia), function(i){
-    class(ia[[i]])!="try-error"
-  })
+  iahsresp <- list.files(iahsrespath, full.names=T)
+  iahs <- stack(iahsresp[[1]])
+  plot(iahs)
   
-  ia <- stack(ia)
-  
-  # read hs
-  hs <- lapply(seq(uniqueMODscenes), function(i){
-    raster(paste0(hspath, "hs_", dateaschar[[i]], ".tif"))
-  })
-  hs <- stack(hs)
-  
-  # resample stacks
-  iares <- resample(ia, satstack[[1]])
-  hsres <- resample(hs, satstack[[1]])
+  # place 1 = ia, 2=hs
   
   # test MODIS names coinciding
   namsat <- names(satstack)[c(2,4,6,8,10,12,14,16,18,20,22)]

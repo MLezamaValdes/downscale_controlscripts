@@ -20,6 +20,7 @@ m <- month(dat)
 boxplot(h)
 boxplot(m)
 
+hist(m, breaks=30)
 
 hist(h, breaks=30)
 

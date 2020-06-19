@@ -444,7 +444,7 @@ getprocessMODIS_new_MYD <- function(time_range){
           
           ############## copy files from mydlst to lst path ######################
           ftc <- list.files(MODLSTpath, full.names=T, pattern="small_proj")
-          file.copy(ftc, paste0("D:/new_downscaling/data_download_preprocessing/MODIS/2019-01/LST/", basename(ftc)))
+          file.copy(ftc, paste0("D:/new_downscaling/data_download_preprocessing/MODIS/",substring(time_range[[y]][[m]][[1]][[1]], 1, 7),"/LST/", basename(ftc)))
           
 
         }
@@ -461,5 +461,9 @@ getprocessMODIS_new_MYD <- function(time_range){
 } # function
 
 
+# y=1
+# m=2
+# getprocessMODIS_new_MYD(time_range)
+# 
 
 

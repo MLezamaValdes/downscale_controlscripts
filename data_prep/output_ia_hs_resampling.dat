@@ -14,3 +14,4 @@ Also make sure that all modulefiles written in TCL start with the string
 Due to MODULEPATH changes, the following have been reloaded:
   1) FFTW/3.3.8     2) GSL/2.5     3) HDF5/1.10.5     4) R/3.6.0
 
+slurmstepd: error: Detected 1288 oom-kill event(s) in step 6064229.batch cgroup. Some of your processes may have been killed by the cgroup out-of-memory handler.

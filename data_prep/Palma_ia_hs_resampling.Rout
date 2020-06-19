@@ -1,0 +1,99 @@
+
+R version 3.6.0 (2019-04-26) -- "Planting of a Tree"
+Copyright (C) 2019 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> 
+> rm(list=ls())
+> 
+> library(raster)
+Loading required package: sp
+> library(rgdal)
+rgdal: version: 1.4-4, (SVN revision 833)
+ Geospatial Data Abstraction Library extensions to R successfully loaded
+ Loaded GDAL runtime: GDAL 3.0.0, released 2019/05/05
+ Path to GDAL shared files: 
+ GDAL binary built with GEOS: TRUE 
+ Loaded PROJ.4 runtime: Rel. 6.0.0, March 1st, 2019, [PJ_VERSION: 600]
+ Path to PROJ.4 shared files: (autodetected)
+ Linking to sp version: 1.3-1 
+> library(parallel)
+> 
+> template <- raster("/scratch/tmp/llezamav/template_new.tif")
+> rasterOptions(tmpdir="/scratch/tmp/llezamav/tmp/")
+> 
+> iapath <- "/scratch/tmp/llezamav/ia/"
+> hspath <- "/scratch/tmp/llezamav/hs/"
+> 
+> iarespath <- "/scratch/tmp/llezamav/ia/ia_res/"
+> hsrespath <- "/scratch/tmp/llezamav/hs/hs_res/"
+> iahsrespath <- "/scratch/tmp/llezamav/ia_hs_res/"
+> 
+> rasterOptions(tmpdir="/scratch/tmp/llezamav/tmp/")
+> 
+> # # FOR MY LAPTOP
+> # template <- raster("D:/new_downscaling/clean_data/template_new.tif")
+> # 
+> # iapath <- "D:/new_downscaling/clean_data/ia/"
+> # hspath <- "D:/new_downscaling/clean_data/hs/"
+> # 
+> # iarespath <- "D:/new_downscaling/clean_data/ia/ia_res/"
+> # hsrespath <- "D:/new_downscaling/clean_data/hs/hs_res/"
+> # iahsrespath <- "D:/new_downscaling/clean_data/ia_hs_res/"
+> 
+> # 
+> # no_cores <- detectCores() - 3
+> 
+> iaf <- list.files(iapath, full.names = T)
+> hsf <- list.files(hspath, full.names = T)
+> 
+> no_cores <- 6
+> cl <- makeCluster(no_cores)
+> 
+> jnk = clusterEvalQ(cl, {library(raster); library(rgdal)})
+> 
+> clusterExport(cl, list("iaf", "hsf", "template", "iarespath", "hsrespath", "iahsrespath"))
+> 
+> parLapply(cl, seq(iaf), function(i){
++   
++   # get raster combo
++   ia <- raster(iaf[i])
++   hs <- raster(hsf[i])
++   
++   # resample
++   iares <- resample(ia, template)
++   hsres <- resample(hs, template)
++ 
++   #write
++   writeRaster(iares, paste0(iarespath, "res_", basename(iaf[i])))
++   writeRaster(hsres, paste0(hsrespath, "res_", basename(hsf[i])))
++ 
++   # stack
++   st <- stack(iares, hsres)
++   writeRaster(st, paste0(iahsrespath, "hs_", basename(iaf[i])))
++   
++   rm(st)
++   rm(hsres)
++   rm(iares)
++   rm(ia)
++   rm(hs)
++   gc()
++ })
+Error in checkForRemoteErrors(val) : 
+  6 nodes produced errors; first error: filename exists; use overwrite=TRUE
+Calls: parLapply ... clusterApply -> staticClusterApply -> checkForRemoteErrors
+Execution halted
