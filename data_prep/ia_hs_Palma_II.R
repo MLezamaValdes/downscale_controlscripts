@@ -64,6 +64,8 @@ timediff_comp <- lapply(seq(year), function(y){
   })
 })
 
+saveRDS(timediff_comp, paste0(ccpath, "timediff_comp_from_script.rds"))
+
 ########################### FUNCTION #####################################
 
 ########## make hillshading and incidence angle raster ############
@@ -140,11 +142,12 @@ jnk = clusterEvalQ(cl, {library(raster);library(parallel); library(rgdal); libra
   library(oce,lib.loc="/home/l/llezamav/R/");library(suncalc,lib.loc="/home/l/llezamav/R/"); 
   library(lubridate,lib.loc="/home/l/llezamav/R/")})
 clusterExport(cl, list("ccpath", "slrad", "timediff_comp", "asrad", "iahsrespath", "lat", "lon", "sl", "as",
-                       "make_hs_ia"))
+                       "make_hs_ia", "month", "year"))
 
 parLapply(cl, seq(year), function(y){
+  print(paste0("starting yearindex ", y))
   lapply(seq(month), function(m){
-    print(c(y,m))
+    print(paste0("year=",y,"month=",m))
     make_hs_ia(y,m)
   })
 })

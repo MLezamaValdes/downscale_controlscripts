@@ -1,18 +1,17 @@
 # gather comp_comp files
 
-dir.create()
 
 ccpath <- paste0(main, "cc/")
 
 ################ COPY ###################################
-# ccfiles <- lapply(seq(year), function(y){
-#   lapply(seq(month), function(m){
-#     L8scenepath <- paste0(main, "L8/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")
-#     cc <- paste0(L8scenepath, "timediff_comp_comp.csv")
-#     file.copy(cc, paste0(ccpath, "tdcc_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), ".csv"))
-#     #try(read.csv2(cc))
-#   })
-# })
+ccfiles <- lapply(seq(year), function(y){
+  lapply(seq(month), function(m){
+    L8scenepath <- paste0(main, "L8/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")
+    cc <- paste0(L8scenepath, "timediff_comp_comp.csv")
+    file.copy(cc, paste0(ccpath, "tdcc_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), ".csv"))
+    #try(read.csv2(cc))
+  })
+})
 
 
 ############## take a look at contents ###################

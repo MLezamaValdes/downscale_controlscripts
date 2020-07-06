@@ -3,6 +3,10 @@
 swirpath <- paste0(main, "L8/SWIR/")
 print(swirpath)
 
+y=1
+m=1
+
+
 ####### GET DATA ONLINE ##############################################################################################
 
 print("STARTING LANDSAT SWIR DOWNLOAD AND PREP")
@@ -22,6 +26,9 @@ product <- "LANDSAT_8_C1"
 ## query records for AOI, time range and product
 nodat <- list(0)
 
+login_USGS("MaiteLezama", "Eos300dmmmmlv")
+
+
 day <- seq(length(time_range[[y]][[m]]))  
 query <- lapply(seq(day), function(d){
   try(getLandsat_query(time_range = time_range[[y]][[m]][[d]], name = product,
@@ -36,6 +43,12 @@ L8scenepath <- paste0(main, "L8/", substring(time_range[[y]][[m]][[1]][[1]], 1, 
 dd <- read.csv(paste0(L8scenepath, "downloaded_days.csv"))
 
 dd[dd$lcc < 2,]
+lcc <- 2
+
+if(nrow(dd)<1){
+  dd[dd$lcc <10,]
+  lcc <- 10
+}
 
 promising_query <- lapply(seq(query), function(i){
   lapply(seq(nrow(dd)), function(j){
@@ -48,15 +61,15 @@ promising_query <- lapply(seq(query), function(i){
 product_identifyer <- lapply(seq(query), function(i){
   lapply(seq(nrow(dd)), function(j){
     if(any(grepl(dd$fnam[j], query[[i]]$summary))){
-      
+
       x <- unlist(strsplit(promising_query[[i]][[j]]$summary  , ","))[1]
       unlist(strsplit(x, ": "))[2]
-      
+
       }
   })
 })
 
-unlist(product_identifyer)
+pi <- unlist(product_identifyer)
 
 lapply(seq(query), function(i){
   lapply(seq(nrow(dd)), function(j){

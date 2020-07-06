@@ -140,6 +140,8 @@ Error in file(file, "rt") : invalid 'description' argument
 Error in file(file, "rt") : invalid 'description' argument
 Error in file(file, "rt") : invalid 'description' argument
 > 
+> saveRDS(timediff_comp, paste0(ccpath, "timediff_comp_from_script.rds"))
+> 
 > ########################### FUNCTION #####################################
 > 
 > ########## make hillshading and incidence angle raster ############
@@ -216,104 +218,16 @@ Error in file(file, "rt") : invalid 'description' argument
 +   library(oce,lib.loc="/home/l/llezamav/R/");library(suncalc,lib.loc="/home/l/llezamav/R/"); 
 +   library(lubridate,lib.loc="/home/l/llezamav/R/")})
 > clusterExport(cl, list("ccpath", "slrad", "timediff_comp", "asrad", "iahsrespath", "lat", "lon", "sl", "as",
-+                        "make_hs_ia"))
++                        "make_hs_ia", "month", "year"))
 > 
-> parLapply(cl, seq(year), function(y){
+> parLapply(cl, 1:7, function(y){
++   print(paste0("starting yearindex ", i))
 +   lapply(seq(month), function(m){
 +     print(c(y,m))
 +     make_hs_ia(y,m)
 +   })
 + })
-[[1]]
-[[1]][[1]]
-[[1]][[1]][[1]]
-[1] 1
-
-[[1]][[1]][[2]]
-[1] 2
-
-[[1]][[1]][[3]]
-[1] 3
-
-[[1]][[1]][[4]]
-[1] 4
-
-[[1]][[1]][[5]]
-[1] 5
-
-[[1]][[1]][[6]]
-[1] 6
-
-[[1]][[1]][[7]]
-[1] 7
-
-[[1]][[1]][[8]]
-[1] 8
-
-[[1]][[1]][[9]]
-[1] 9
-
-
-
-[[2]]
-[[2]][[1]]
-[[2]][[1]][[1]]
-[1] 1
-
-[[2]][[1]][[2]]
-[1] 2
-
-[[2]][[1]][[3]]
-[1] 3
-
-[[2]][[1]][[4]]
-[1] 4
-
-[[2]][[1]][[5]]
-[1] 5
-
-[[2]][[1]][[6]]
-[1] 6
-
-[[2]][[1]][[7]]
-[1] 7
-
-[[2]][[1]][[8]]
-[1] 8
-
-[[2]][[1]][[9]]
-[1] 9
-
-
-
-[[3]]
-[[3]][[1]]
-[1] "no scenes from this month"
-
-
-[[4]]
-[[4]][[1]]
-[1] "no scenes from this month"
-
-
-[[5]]
-[[5]][[1]]
-[1] "no scenes from this month"
-
-
-[[6]]
-[[6]][[1]]
-[1] "no scenes from this month"
-
-
-[[7]]
-[[7]][[1]]
-[1] "no scenes from this month"
-
-
-> 
-> stopCluster(cl)
-> 
-> proc.time()
-   user  system elapsed 
-  2.180   0.556 579.663 
+Error in checkForRemoteErrors(val) : 
+  6 nodes produced errors; first error: object 'i' not found
+Calls: parLapply ... clusterApply -> staticClusterApply -> checkForRemoteErrors
+Execution halted

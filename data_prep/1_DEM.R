@@ -1,7 +1,5 @@
 # 1 DEM
 
-
-
 prepDEM <- function(x){
   
   demtilepath <- paste0(dempath, "all/")
@@ -66,6 +64,15 @@ prepDEM <- function(x){
   mos_caoi <- crop(mos_cr, aoianta)
   
   writeRaster(mos_caoi, paste0(dempath, "DEM_8m_", areaname,"_clean_aoi.tif"))
+  mos_caoi <- raster(paste0(dempath, "DEM_8m_", areaname,"_clean_aoi.tif"))
+  
+  # NA in 8m DEM
+  m <- mos_caoi
+  m[is.na(m)] <- -100
+  m[m > -100] <- NA
+  
+  writeRaster(m, paste0(dempath, "DEM_8m_", areaname,"_NA.tif"), format="GTiff")
+  
   
   # # resample to 15m
   # mos_3_30 <- aggregate(mos_c, fact=(15/8))
@@ -92,36 +99,73 @@ prepDEM <- function(x){
   ############  fill NA values  ####################################################################
   
   # get them to the same resolution
-  dem200hr <- resample(dem200aoi, mos_caoi)
+  #dem200hr <- resample(dem200aoi, mos_caoi)
   
-  # introduce dem200 in mos_c for all locations that are na in mos_c
-  mos_filled <- overlay(dem200hr, mos_caoi, fun = function(x, y) {
-    y[is.na(y[])] <- x
-    return(x)
-  })
-  writeRaster(mos_filled, paste0(dempath, "DEM_8m_", areaname,"_clean_aoi_filled.tif"), format="GTiff")
   
-  mos_filled_aoi <- mask(mos_filled, aoianta)
-  writeRaster(mos_filled_aoi, paste0(dempath, "DEM_8m_", areaname,"_clean_aoi_filled_mask.tif"), format="GTiff")
+  nashape <- readOGR(paste0(dempath, "dem_8m_NA.shp"))
+  
+  # resample first to 8m and cover and mask, then resample to 30m to evade sharp cuts
+  # mask out error areas
+  mos_caoi_na <- mask(mos_caoi, nashape, inverse=TRUE)
+  dem200_8 <- resample(dem200aoi, mos_caoi)
+  
+  mos_filled_8 <- cover(mos_caoi_na, dem200_8)
+  mos_filled_30 <- resample(mos_filled_8, template)
+  
+  mos_filled_30_aoi <- mask(mos_filled_30, aoianta)
+  
+  
+
+  # dem200_30 <- resample(dem200aoi, template)
+  # mos30 <- resample(mos_caoi_na, template)
+  # 
+  # #d5_f <- focal(dem200hr, w=matrix(1/25,nrow=5,ncol=5))
+  # 
+  # #writeRaster(dem200hr, paste0(dempath, "dem200_resampled_8m.tif"))
+  # #writeRaster(d5_f, paste0(dempath, "dem200_resampled_8m_filtered5.tif"))
+  # 
+  # 
+  # #mos_filled <- cover(mos_caoi,dem200hr)
+  # #mos_filled_filtered <- cover(mos_caoi,d5_f)
+  # mos_filled_30 <- cover(mos30, dem200_30)
+  # 
+  # mos_filled_30_aoi <- mask(mos_filled_30, aoianta)
+  
+  #mos_filled_30_aoi_filter5 <- focal(mos_filled_30_aoi, w=matrix(1/25,nrow=5,ncol=5))
+
+  # # introduce dem200 in mos_c for all locations that are na in mos_c
+  # mos_filled <- overlay(dem200hr, mos_caoi, fun = function(x, y) {
+  #   y[is.na(y[])] <- x
+  #   return(y)
+  # })
+  #writeRaster(mos_filled_30_aoi, paste0(dempath, "DEM_8m_", areaname,"_clean_aoi_filled_new.tif"), format="GTiff")
+  
+  #writeRaster(mos_filled_filtered, paste0(dempath, "DEM_8m_", areaname,"_clean_aoi_filled_filtered_new.tif"), format="GTiff")
+  
+  writeRaster(mos_filled_30_aoi, paste0(dempath, "DEM_30m_", areaname,"_clean_aoi_filled_mask_new_II.tif"), format="GTiff",
+              overwrite=T)
+  #writeRaster(mos_filled_30_aoi_filter5, paste0(dempath, "DEM_8m_", areaname,"_clean_aoi_filled_mask_filter5_new.tif"), format="GTiff",
+  #            overwrite=T)
   
   print("fill NA values with 200m DEM")
   
+  mos_filled_30_aoi <- raster(paste0(dempath, "DEM_30m_", areaname,"_clean_aoi_filled_mask_new.tif"))
+  
   ############################## filter DEM ########################################
   
-  # GO ON HERE !!!!
-  mos_filled <- raster(paste0(dempath, "DEM_8m_", areaname,"_clean_aoi_filled_mask.tif"))
-  dem_30m <- resample(mos_filled, template)
-  d3_f <- focal(dem_30m, w=matrix(1/25,nrow=5,ncol=5))
+  # # GO ON HERE !!!!
+  # mos_filled <- raster(paste0(dempath, "DEM_8m_", areaname,"_clean_aoi_filled_mask.tif"))
+  # dem_30m <- resample(mos_filled, template)
   
   ############################### calculate slope and aspect ##############################################################
   
-  slas <- terrain(d3_f, opt=c("slope", "aspect"), unit="degrees", neighbors=8)
+  slas <- terrain(mos_filled_30_aoi, opt=c("slope", "aspect"), unit="degrees", neighbors=8)
   
   for(i in seq(2)){
     writeRaster(slas[[i]], paste0(dempath, "30m_", names(slas[[i]]), areaname,".tif"), format="GTiff", overwrite=T)
   }
   
-  slasrad <- terrain(d3_f, opt=c("slope", "aspect"), unit="radians", neighbors=8)
+  slasrad <- terrain(mos_filled_30_aoi, opt=c("slope", "aspect"), unit="radians", neighbors=8)
   for(i in seq(2)){
     writeRaster(slasrad[[i]], paste0(dempath, "30m_radians_", names(slas[[i]]), areaname,".tif"), format="GTiff", overwrite=T)
   }
@@ -130,20 +174,38 @@ prepDEM <- function(x){
   
   ############################### tranlate filled DEM and slope to SAGA grid ##############################################################
   
-  # fdemp <- paste0(dempath, "DEM_8m_", areaname,"_clean_filled_15.tif")
-  # plot(raster(fdemp))
-  # gdalUtils::gdalwarp(fdemp, paste0(saga_outpath, areaname,"_DEM_15m_filled.sdat"), 
-  #                     overwrite=TRUE,  of='SAGA')
+  fdemp <- paste0(dempath, "DEM_30m_", areaname,"_clean_aoi_filled_mask_new.tif")
+  
+  
+  twi <- raster(list.files(dempath, pattern="TWI_saga", full.names=T))
+  writeRaster(twi, paste0(dempath, "twi_saga_rexport.tif"))
+  
+  plot(twi)
+  # #install.packages("dynatopmodel")
   # 
-  # fslopep <- paste0(dempath, "slope", areaname,".tif")
-  # gdalUtils::gdalwarp(fslopep, paste0(saga_outpath, areaname,"slope.sdat"), 
-  #                     overwrite=TRUE,  of='SAGA')
+  library(dynatopmodel)
   # 
-  # print("tifs translated to SAGA")
+  
+  dem <- mos_filled_30_aoi
+  twi <- build_layers(dem, fill.sinks = TRUE, deg = 0.001)
+  sp::plot(twi, main=c("Elevation AMSL (m)", "Upslope area (log(m^2/m))", "TWI ((log(m^2/m))"))
+
+
+  writeRaster(twi[[2]], paste0(dempath, "upslope_area_30m_R.tif"))
+  writeRaster(twi[[3]], paste0(dempath, "TWI_30m_R.tif"))
+  
+  gdalUtils::gdalwarp(fdemp, paste0(saga_outpath, "DEM_30m_", areaname,"_clean_aoi_filled_mask_new.sdat"),
+                      overwrite=TRUE,  of='SAGA')
+
+  fslopep <- paste0(dempath, "slope", areaname,".tif")
+  gdalUtils::gdalwarp(fslopep, paste0(saga_outpath, areaname,"slope.sdat"),
+                      overwrite=TRUE,  of='SAGA')
+
+  print("tifs translated to SAGA")
   
   
   ################ MAKE A BLOCKMASK #######################################
-  r <- raster(paste0(dempath, "DEM_8m_", areaname,"_clean_filled_15.tif"))
+  r <- raster(paste0(dempath, "DEM_8m_", areaname,"_clean_aoi_filled_mask_new.tif"))
   rt <- r
   res(rt) <- c(20000, 20000)
   rt[] <- seq(1:ncell(rt))
