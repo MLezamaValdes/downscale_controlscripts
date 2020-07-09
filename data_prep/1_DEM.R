@@ -174,34 +174,35 @@ prepDEM <- function(x){
   
   ############################### tranlate filled DEM and slope to SAGA grid ##############################################################
   
-  fdemp <- paste0(dempath, "DEM_30m_", areaname,"_clean_aoi_filled_mask_new.tif")
-  
-  
-  twi <- raster(list.files(dempath, pattern="TWI_saga", full.names=T))
-  writeRaster(twi, paste0(dempath, "twi_saga_rexport.tif"))
-  
-  plot(twi)
-  # #install.packages("dynatopmodel")
+  ## did it completely in saga in the end
+  # fdemp <- paste0(dempath, "DEM_30m_", areaname,"_clean_aoi_filled_mask_new.tif")
   # 
-  library(dynatopmodel)
   # 
-  
-  dem <- mos_filled_30_aoi
-  twi <- build_layers(dem, fill.sinks = TRUE, deg = 0.001)
-  sp::plot(twi, main=c("Elevation AMSL (m)", "Upslope area (log(m^2/m))", "TWI ((log(m^2/m))"))
-
-
-  writeRaster(twi[[2]], paste0(dempath, "upslope_area_30m_R.tif"))
-  writeRaster(twi[[3]], paste0(dempath, "TWI_30m_R.tif"))
-  
-  gdalUtils::gdalwarp(fdemp, paste0(saga_outpath, "DEM_30m_", areaname,"_clean_aoi_filled_mask_new.sdat"),
-                      overwrite=TRUE,  of='SAGA')
-
-  fslopep <- paste0(dempath, "slope", areaname,".tif")
-  gdalUtils::gdalwarp(fslopep, paste0(saga_outpath, areaname,"slope.sdat"),
-                      overwrite=TRUE,  of='SAGA')
-
-  print("tifs translated to SAGA")
+  # twi <- raster(list.files(dempath, pattern="TWI_saga", full.names=T))
+  # writeRaster(twi, paste0(dempath, "twi_saga_rexport.tif"))
+  # 
+  # plot(twi)
+  # # #install.packages("dynatopmodel")
+  # # 
+  # library(dynatopmodel)
+  # # 
+  # 
+  # dem <- mos_filled_30_aoi
+  # twi <- build_layers(dem, fill.sinks = TRUE, deg = 0.001)
+  # sp::plot(twi, main=c("Elevation AMSL (m)", "Upslope area (log(m^2/m))", "TWI ((log(m^2/m))"))
+  # 
+  # 
+  # writeRaster(twi[[2]], paste0(dempath, "upslope_area_30m_R.tif"))
+  # writeRaster(twi[[3]], paste0(dempath, "TWI_30m_R.tif"))
+  # 
+  # gdalUtils::gdalwarp(fdemp, paste0(saga_outpath, "DEM_30m_", areaname,"_clean_aoi_filled_mask_new.sdat"),
+  #                     overwrite=TRUE,  of='SAGA')
+  # 
+  # fslopep <- paste0(dempath, "slope", areaname,".tif")
+  # gdalUtils::gdalwarp(fslopep, paste0(saga_outpath, areaname,"slope.sdat"),
+  #                     overwrite=TRUE,  of='SAGA')
+  # 
+  # print("tifs translated to SAGA")
   
   
   ################ MAKE A BLOCKMASK #######################################

@@ -31,7 +31,7 @@ login_USGS("MaiteLezama", "Eos300dmmmmlv")
 
 day <- seq(length(time_range[[y]][[m]]))  
 query <- lapply(seq(day), function(d){
-  try(getLandsat_query(time_range = time_range[[y]][[m]][[d]], name = product,
+  try(getLandsat_records(time_range = time_range[[y]][[m]][[d]], name = product,
                        aoi=get_aoi()), silent=T)
 })
 
@@ -42,7 +42,7 @@ te <- sapply(seq(query), function(x){
 L8scenepath <- paste0(main, "L8/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")
 dd <- read.csv(paste0(L8scenepath, "downloaded_days.csv"))
 
-dd[dd$lcc < 2,]
+dd <- dd[dd$lcc < 2,]
 lcc <- 2
 
 if(nrow(dd)<1){
@@ -62,7 +62,7 @@ product_identifyer <- lapply(seq(query), function(i){
   lapply(seq(nrow(dd)), function(j){
     if(any(grepl(dd$fnam[j], query[[i]]$summary))){
 
-      x <- unlist(strsplit(promising_query[[i]][[j]]$summary  , ","))[1]
+      x <- unlist(strsplit(promising_query[[i]][[j]][1,]$summary  , ","))[1]
       unlist(strsplit(x, ": "))[2]
 
       }
@@ -70,13 +70,23 @@ product_identifyer <- lapply(seq(query), function(i){
 })
 
 pi <- unlist(product_identifyer)
+write.table(pi, paste0(main, "pi.txt"))
 
-lapply(seq(query), function(i){
+id <- lapply(seq(query), function(i){
   lapply(seq(nrow(dd)), function(j){
     if(!is.null(promising_query[[i]][[j]])){
-      id <- getLandsat_data(records=promising_query[[i]][[j]], 
-                      level=c("sr","pixel_qa"), espa_order=NULL,
-                      source="auto")
+      try(getLandsat_data(records=promising_query[[i]][[j]], 
+                      level=c("l1"), espa_order=NULL,
+                      source="auto"))
     }
   })
 })
+
+install.packages("https://github.com/16EAGLE/espa_R")
+library(espa_R)
+devtools::install_github("https://github.com/16EAGLE/espa_R")
+
+source("C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/espa_client.R")
+api.user = "MaiteLezama"
+api.passw = "Eos300dmmmmlv"
+

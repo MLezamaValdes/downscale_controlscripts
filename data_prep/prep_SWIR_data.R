@@ -35,21 +35,26 @@ lc_cloud <- c(322, 324, 328, 336, 352, 368, 834, 836, 840, 848, 864, 880)
 cloud <- c(cloud_shadow,cld,mc_cloud,hc_cloud,hc_cirrus)
 
 b7files <- lapply(seq(stpaths), function(i){
-  # get pixel quality assessment and make a cloud mask
-  bqa <- list.files(stpaths[i], pattern="pixel_qa", full.names = T)
-  c <- raster(bqa)
-  cs <- is.element(values(c),cloud)
-  c[] <- cs
-  
-  # get raster tile
-  x <- list.files(stpaths[i], pattern="band7", full.names = T)
-  s <- stack(x, c)
-  # clean out clouds
-  s[[1]][s[[2]]==1] <- NA
-  s
+  print(i)
+  if(any(grepl(substring(list.files(stpaths[i], pattern="pixel_qa", full.names = F), 1,40),dd$fnam))){
 
+    # get pixel quality assessment and make a cloud mask
+    bqa <- list.files(stpaths[i], pattern="pixel_qa", full.names = T)
+    c <- raster(bqa)
+    cs <- is.element(values(c),cloud)
+    c[] <- cs
+    
+    # get raster tile
+    x <- list.files(stpaths[i], pattern="band7", full.names = T)
+    s <- stack(x, c)
+    # clean out clouds
+    s[[1]][s[[2]]==1] <- NA
+    s
+  }
+  
 })
 
+b7files <- b7files[c(4,5)]
 
 #generate command for merging all the tiles
 cm <- lapply(seq(b7files), function(i){
@@ -105,10 +110,13 @@ h <- hour(mean(sundf$timepos))
 m <- minute(mean(sundf$timepos))
 hm <- paste0(h, m)
 d <- max(day(sundf$datetime)) # get day that is most often in composit
-hs_files <- list.files(paste0(cddir, "ia_hs_res/"))
+
+hs_files <- list.files(paste0(cddir, "ia_hs_res/"), pattern=ym)
 day <- hs_files[which(substring(hs_files, 15,16)==d)]
 td <- as.numeric(hm) - as.numeric(substring(hs_files, 18,21))
 whichhsfile <- which(td==min(td))
+
+
 
 # get hillshading file
 hs <- stack(list.files(paste0(cddir, "ia_hs_res/"), full.names = T)[whichhsfile])
