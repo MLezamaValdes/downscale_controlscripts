@@ -105,6 +105,10 @@ l8datlist <- function(scenes){
       list.files(scenes[i], pattern=".tif$",  full.names = T)
     })
     
+    bqa <- lapply(seq(scenes), function(i){
+      list.files(scenes[i], pattern="pixel_qa.tif$",  full.names = T)
+    })
+    
     names <- lapply(seq(scenes), function(i){
       list.files(scenes[i], pattern=".tif$",  full.names = F)
     })
@@ -120,12 +124,17 @@ l8datlist <- function(scenes){
     names <- lapply(seq(scenes), function(i){
       list.files(scenes[i], pattern="band10", full.names=T)
     })
+    
+    bqa <- lapply(seq(scenes), function(i){
+      list.files(scenes[i], pattern="pixel_qa.tif$",  full.names = T)
+    })
+    
     meta <- lapply(seq(scenes), function(i){
       list.files(scenes[i], pattern=".xml", full.names=T)
     })
   }
   
-  return(list(tifs = tifs, names = names, meta = meta))
+  return(list(tifs = tifs, names = names, meta = meta, bqa=bqa))
   
 }
 

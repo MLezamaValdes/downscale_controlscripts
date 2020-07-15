@@ -2,7 +2,7 @@
 y=1
 m=1
 
-tempdyn <- stack(paste0(cddir, "L_MOD_hs_ia", substring(time_range[[y]][[m]][[1]][[1]], 1, 7)))
+tempdyn <- stack(paste0(cddir, "L_MOD_hs_ia", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), ".tif"))
 
 # hier noch automatisch suchen
 tdnam <- read.csv("D:/new_downscaling/clean_data/names_sat_ia_hs_2019-01.csv")

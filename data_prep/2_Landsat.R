@@ -54,6 +54,8 @@
 
 getprocessLANDSAT <- function(time_range){
   
+  login_earthdata(username="Mlezama", )
+  
   L8scenepath <- paste0(main, "L8/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")
   print(L8scenepath)
   
@@ -80,7 +82,8 @@ getprocessLANDSAT <- function(time_range){
  
   
   query <- lapply(seq(day), function(d){
-    try(getLandsat_query(time_range = time_range[[y]][[m]][[d]], name = product,
+    print(d)
+    try(getLandsat_records(time_range = time_range[[y]][[m]][[d]], name = product,
                          aoi=get_aoi()), silent=T)
   })
   
@@ -96,61 +99,75 @@ getprocessLANDSAT <- function(time_range){
     #find out which overlaps mostly with aoi, so that this tile can be checked thoroughly
     wgsproj <- CRS("+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0")
     footprints <- lapply(seq(query), function(x){
-      tiles <- lapply(seq(nrow(query[[x]])), function(i){
-        a <- query[[x]]$spatialFootprint[[i]] # get footprint from query
-        a1 <- strsplit(substring(a, 11,(nchar(a)-2)), split = ",")
-        ap <- strsplit(a1[[1]], split=" +")
-        
-        abc <- unlist(lapply(seq(ap), function(i){
-          ap[[i]][ap[[i]] != ""] 
-        }))
-        df <- data.frame(matrix(as.numeric(abc), ncol=2, byrow=T))
-        xy <- df[,c(1:2)]
-        fp <- SpatialPointsDataFrame(coords = xy, data = df, #make spatial points data frame from footprint
-            proj4string = wgsproj)
-        fpp <- Polygon(fp)
-        Ps1 = SpatialPolygons(list(Polygons(list(fpp), ID = "a")), 
-                              proj4string=wgsproj)
+        # a <- query[[x]]$footprint[[i]] # get footprint from query
+        # a1 <- strsplit(substring(a, 11,(nchar(a)-2)), split = ",")
+        # ap <- strsplit(a1[[1]], split=" +")
+        # 
+        # abc <- unlist(lapply(seq(ap), function(i){
+        #   ap[[i]][ap[[i]] != ""] 
+        # }))
+        # df <- data.frame(matrix(as.numeric(abc), ncol=2, byrow=T))
+        # xy <- df[,c(1:2)]
+        # fp <- SpatialPointsDataFrame(coords = xy, data = df, #make spatial points data frame from footprint
+        #     proj4string = wgsproj)
+        # fpp <- Polygon(fp)
+        # Ps1 = SpatialPolygons(list(Polygons(list(fpp), ID = "a")), 
+        #                       proj4string=wgsproj)
+        query[[x]]$footprint[which(query[[x]]$level=="bt")]
       })
-      return(tiles)
-    })
     
+    
+
     # are those also in aoi?
     # find out intersection between aoi and footprints
     aoiwgs <- spTransform(aoi, wgsproj)
+    aoiwgssf <- st_as_sf(aoiwgs)
+    
     aoiint <- lapply(seq(footprints), function(i){
-      lapply(seq(footprints[[i]]), function(j){
-              intersect(aoiwgs, footprints[[i]][[j]])
-      })
+      #lapply(seq(footprints[[i]]), function(j){
+        lapply(seq(footprints[[i]]), function(k){
+              #intersect(aoiwgs, footprints[[i]][[j]])
+              st_intersection(footprints[[i]][k], aoiwgssf)
+        })
+      #})
     })
     
     # area of overlap
     aoiarea <- lapply(seq(footprints), function(i){
-      lapply(seq(footprints[[i]]), function(j){
-        if(!is.null(aoiint[[i]][[j]])){
-          sum(area(aoiint[[i]][[j]]))
+      #lapply(seq(footprints[[i]]), function(j){
+        lapply(seq(footprints[[i]]), function(k){
+          
+        if(!is.null(aoiint[[i]][k])){
+          #sum(area(aoiint[[i]][[j]]))
+          st_area(aoiint[[i]][k][[1]])
         } else {
           0
         }
-      })
+        })
+      #})
     })
     
-    areaaoi <- area(aoiwgs)
+    areaaoi <- st_area(aoiwgssf)
 
     # which proportion of aoi is covered by tile? 
     aoiprop <- lapply(seq(footprints), function(i){
-      lapply(seq(footprints[[i]]), function(j){
-        if(aoiarea[[i]][[j]]!=0){
-          aoiarea[[i]][[j]]/areaaoi
+      #lapply(seq(footprints[[i]]), function(j){
+        lapply(seq(footprints[[i]]), function(k){
+        
+          print(c(i,k))
+          
+        if(length(as.numeric(aoiarea[[i]][[k]]))!=0){
+          as.numeric(aoiarea[[i]][[k]]/areaaoi)
         } else {
           0
         }
+      #})
       })
     })
     
     # get only tiles that have at least 30% of their area over aoi
     sel_aoi <- lapply(seq(query), function(x){
-      z <- unlist(aoiprop[[x]])
+      z <- as.numeric(unlist(aoiprop[[x]]))
       z <- which(z>0.3)
     }) 
     
@@ -168,7 +185,7 @@ getprocessLANDSAT <- function(time_range){
         txt <- "nodat"
         write.csv(txt, paste0(L8scenepath, "nodat_day_", day[[x]], ".csv"))
       } 
-      if(any(grepl("T1",query[[x]]$browseUrl)==F)){ # if any of the files is not best quality
+      if(any(grepl("T1",query[[x]]$preview_url)==F)){ # if any of the files is not best quality
         #https://www.usgs.gov/centers/eros/science/usgs-eros-archive-landsat-archives-landsat-8-oli-operational-land-imager-and?qt-science_center_objects=0#qt-science_center_objects
         lowqual <- 1
         print("no good quality products available")
@@ -176,7 +193,7 @@ getprocessLANDSAT <- function(time_range){
         write.csv(txt, paste0(L8scenepath, "lowqual_day_", day[[x]], ".csv"))
       } 
       if(!length(sel_aoi[[x]])==0){
-        landclouds_aoi <- mean(query[[x]]$LandCloudCover[sel_aoi[[x]]])
+        landclouds_aoi <- mean(query[[x]]$cloudcov_land[sel_aoi[[x]]])
         mrg <- character()
         for(i in seq(length(sel_aoi[[x]]))){
           mrg[i] <- paste0("sel_aoi[[x]][", i, "]")
@@ -203,6 +220,7 @@ getprocessLANDSAT <- function(time_range){
     
     #query[5,]$levels_available
     
+    # taking only days, where there is any data and the mean cloud cover is below 20% 
 
     qualitycheckdf$select <- unlist(lapply(seq(nrow(qualitycheckdf)), function(i){
       if(all(qualitycheckdf[i,1:3]==c(0,1,0))==TRUE & qualitycheckdf$selaoi[i] !=0){
@@ -255,7 +273,8 @@ getprocessLANDSAT <- function(time_range){
           if(length(bigarea[[i]])!=0){
             s <- lapply(seq(length(bigarea[[i]])), function(j){ # for all tiles of the day
                 print(c(i,j))
-                q <- query[[ i ]] [(bigarea[[i]][[j]]),] # nimm die Kacheln mit ausreichend Überlappung mit AOI
+                bigarea_and_bt <- which(seq(which(query[[i]]$level=="bt")) == (bigarea[[i]][[j]]))
+                q <- query[[i]][query[[i]]$level=="bt",][bigarea_and_bt,] # nimm die Kacheln mit ausreichend Überlappung mit AOI
                 d <- q$summary
                 ij <- c(i,j)
                 return(list(q,d,ij))
@@ -270,7 +289,7 @@ getprocessLANDSAT <- function(time_range){
         lapply(seq(length(selquery[[i]])), function(j){ # für alle Kacheln
               if(!selquery[[i]][[j]][1]=="no good scene here"){
                 print(c(i,j))
-                paste(selquery[[i]][[j]][[2]], ",", selquery[[i]][[j]][[1]]$StartTime)
+                paste(selquery[[i]][[j]][[2]], ",", selquery[[i]][[j]][[1]]$start_time)
               }
             })
           })
@@ -278,19 +297,25 @@ getprocessLANDSAT <- function(time_range){
       
       # get amount of land cloud cover for the selected tiles
       cc <- lapply(seq(selquery), function(i){ # für alle Tage
+        if(!selquery[[i]][[j]][1]=="no good scene here"){
         lapply(seq(length(selquery[[i]])), function(j){
           if(!selquery[[i]][[j]][1]=="no good scene here"){
-          selquery[[i]][[j]][[1]]$LandCloudCover}
+          selquery[[i]][[j]][[1]]$cloudcov_land}
         })
+        }
       })
       
       # construct the new query out of tiles, which have only 20% cc
       querynew <- lapply(seq(selquery), function(i){ # für alle Tage
+        print(i)
+        if(length(cc[[i]])>0){
         lapply(seq(length(selquery[[i]])), function(j){
           if(!selquery[[i]][[j]][1]=="no good scene here" && cc[[i]][[j]]<20){
             selquery[[i]][[j]][[1]]
-          }
-        })
+            }
+          })
+        }
+
       })
     
       
@@ -312,8 +337,8 @@ getprocessLANDSAT <- function(time_range){
       # get L8 times from selected in querynew
       L8time <- lapply(seq(querynew), function(i){
         lapply(seq(querynew[[i]]), function(j){
-          if(length(querynew[[i]][[j]]$StartTime)!=0){
-            x <- querynew[[i]][[j]]$StartTime
+          if(length(querynew[[i]][[j]]$start_time)!=0){
+            x <- querynew[[i]][[j]]$start_time
             x <- as.POSIXlt(x, format="%Y:%j:%H:%M:%S", tz="UTC")
           } else {x=NULL}
           x
@@ -366,10 +391,10 @@ getprocessLANDSAT <- function(time_range){
       }
     
       modquery <- lapply(seq(length(L8dayc)), function(z){ # for all days
-        query1 <- getMODIS_query(time_range = time_range[[y]][[m]][[L8dayc[z]]], name = product1,
+        query1 <- getMODIS_records(time_range = time_range[[y]][[m]][[L8dayc[z]]], name = product1,
                                  username="MaiteLezama", password = "Eos300dmmmmlv",
                                  aoi=get_aoi())
-        query2 <- getMODIS_query(time_range = time_range[[y]][[m]][[L8dayc[z]]], name = product2,
+        query2 <- getMODIS_records(time_range = time_range[[y]][[m]][[L8dayc[z]]], name = product2,
                                  username="MaiteLezama", password = "Eos300dmmmmlv",
                                  aoi=get_aoi())
         return(list(query1, query2))
@@ -378,47 +403,60 @@ getprocessLANDSAT <- function(time_range){
       # extract times from MODIS query
       # get exact time of scene capturing
           
-      datetimeMODISquery <-lapply(seq(length(L8dayc)), function(i){
+      datetimeMODISquery <-lapply(seq(modquery), function(i){
         lapply(seq(modquery[[i]]), function(j){
-          lapply(seq(modquery[[i]][[j]]$displayId), function(x){
-          y <- strsplit(modquery[[i]][[j]]$displayId[[x]], "A")[[1]][2]
+          lapply(seq(modquery[[i]][[j]]$record_id), function(x){
+            
+          y <- strsplit(modquery[[i]][[j]]$record_id[x], "A")[[1]][2]
           y1 <- paste0(substring(y, 1, 4), ":", substring(y, 5, 7), ":", 
                        substring(y, 9, 10), ":", substring(y, 11, 12))
           y2 <- as.POSIXlt(y1, format="%Y:%j:%H:%M", tz="UTC")
+          
         })
       })
       })
 
       # compare time of MODIS scene with L8 capturing time
       timediff <- lapply(seq(length(L8time)), function(z){
+        if(length(L8time[[z]])>0){
         lapply(seq(length(L8time[[z]])), function(zi){
           lapply(seq(length(datetimeMODISquery)), function(yz){
             lapply(seq(length(datetimeMODISquery[[yz]])), function(yz1){
               lapply(seq(length(datetimeMODISquery[[yz]][[yz1]])), function(yz2){
+                
                 if(length(datetimeMODISquery[[yz]][[yz1]]) > 1){
+                  
                   if(length(L8time[[z]][[zi]])!=0 & length(datetimeMODISquery[[yz]][[yz1]][[yz2]])!=0){
+                      print(c(z,zi,yz,yz1,yz2))
                       posinfo <- c(z, zi, yz, yz1, yz2)
                       x <- as.numeric(abs(difftime(L8time[[z]][[zi]], datetimeMODISquery[[yz]][[yz1]][[yz2]], units="hours")))
-                      c(x, posinfo)
+                      
+                      m <- minute(L8time[[z]][[zi]])
+                      if(nchar(m)==1){
+                        m <- paste0(0, m)
+                      } 
+                      
+                      l8t <- as.numeric(paste0(hour(L8time[[z]][[zi]]), m))
+                      c(x, posinfo, l8t)
                   }
                 }
-
           })
           })
         })
         })
+        }
       })
     
       # make df 
       # < half an hour <0.5h
-      timediff_df <- data.frame(matrix(unlist(timediff), ncol = 6, byrow=T))
-      names(timediff_df) <- c("timediff", "L_days", "L_scene", "M_L_days", "MODMYD", "M_scene")
+      timediff_df <- data.frame(matrix(unlist(timediff), ncol = 7, byrow=T))
+      names(timediff_df) <- c("timediff", "L_days", "L_scene", "M_L_days", "MODMYD", "M_scene", "L8hour")
       timediff_df <- timediff_df[timediff_df$timediff<0.6,]
 
       # get names of scenes
       for(i in seq(nrow(timediff_df))){
           # MODIS
-          modsum <- modquery[[timediff_df$M_L_days[i]]][[timediff_df$MODMYD[i]]][timediff_df$M_scene[i],]$summary
+          modsum <- modquery[[timediff_df$M_L_days[i]]] [[timediff_df$MODMYD[i] ]][timediff_df$M_scene[i],]$summary
           print(modsum)
           timediff_df$MODname[i] <- strsplit(strsplit(modsum, ",")[[1]][[1]], ":")[[1]][[2]]
           
@@ -492,23 +530,23 @@ getprocessLANDSAT <- function(time_range){
       
       dir.create(paste0(L8scenepath,"previews/"))
       
-      for(i in seq(L8querymatched)){
-          if(length(L8querymatched[[i]]) > 15){
-            for(j in seq(nrow(L8querymatched[[i]]))){
-              map <- getLandsat_preview(L8querymatched[[i]][j,])
-              mapshot(map, file=paste0(L8scenepath, "previews/query",i,"tile",rownames(L8querymatched[[i]])[j],".png"))
-              print(c(i,j))
-            } 
-            } else {
-            for(x in seq(L8querymatched[[i]])){
-              for(k in seq(nrow(L8querymatched[[i]][[x]]))){
-              map <- getLandsat_preview(L8querymatched[[i]][[x]][k,])
-              mapshot(map, file=paste0(L8scenepath, "previews/query",i,"tile",rownames(L8querymatched[[i]][[x]])[k],".png"))
-              print(c(i,x,k))
-            }
-          }
-        }
-        }
+      # for(i in seq(L8querymatched)){
+      #     if(length(L8querymatched[[i]]) > 15){
+      #       for(j in seq(nrow(L8querymatched[[i]]))){
+      #         map <- getLandsat_preview(L8querymatched[[i]][j,])
+      #         mapshot(map, file=paste0(L8scenepath, "previews/query",i,"tile",rownames(L8querymatched[[i]])[j],".png"))
+      #         print(c(i,j))
+      #       } 
+      #       } else {
+      #       for(x in seq(L8querymatched[[i]])){
+      #         for(k in seq(nrow(L8querymatched[[i]][[x]]))){
+      #         map <- getLandsat_preview(L8querymatched[[i]][[x]][k,])
+      #         mapshot(map, file=paste0(L8scenepath, "previews/query",i,"tile",rownames(L8querymatched[[i]][[x]])[k],".png"))
+      #         print(c(i,x,k))
+      #       }
+      #     }
+      #   }
+      #   }
       
       # reset archive directory and product names to get LANDSAT 
       ## set archive directory
@@ -521,19 +559,17 @@ getprocessLANDSAT <- function(time_range){
       
       # get L8 files from USGS (AWS)
       filesbt <- lapply(seq(L8querymatched), function(i){
-        if(length(L8querymatched[[i]]) > 15){
-          if(grepl("bt", L8querymatched[[i]]$levels_available)){
-                        getLandsat_data(records=L8querymatched[[i]], level="bt", espa_order=NULL,source="auto")
-          }
+         if(length(L8querymatched[[i]]) > 15){
+            getLandsat_data(records=L8querymatched[[i]])
           print(i)
         } else {
           for(x in seq(L8querymatched[[i]])){
-            if(grepl("bt", L8querymatched[[i]][[x]]$levels_available)){
-              getLandsat_data(records=L8querymatched[[i]][[x]], level="bt", espa_order=NULL,source="auto")
+        #     if(grepl("bt", L8querymatched[[i]][[x]]$levels_available)){
+              get_data(records=L8querymatched[[i]][[x]], level="bt", espa_order=NULL,source="auto")
               print(i,x)
-            }
-          }
-        }
+            # }
+           }
+         }
       })
       
       sc <- list.files(paste0(L8scenepath, "get_data/LANDSAT/BT/"), full.names=T, 
@@ -694,9 +730,42 @@ getprocessLANDSAT <- function(time_range){
       #   stackMeta(datloc$meta[[nums[i]]], quantity = 'all')
       # })
       
+
+      
+      cloud_shadow <- c(328, 392, 840, 904, 1350)
+      cld <- c(352, 368, 416, 432, 480, 864, 880, 928, 944, 992)
+      mc_cloud <- c(386, 388, 392, 400, 416, 432, 898, 900, 904, 928, 944)
+      hc_cloud <- c(480, 992)
+      hc_cirrus <- c(834, 836, 840, 848, 864, 880, 898, 900, 904, 912, 928, 944, 992)
+      lc_cirrus <- c(322, 324, 328, 336, 352, 368, 386, 388, 392, 400, 416, 432, 480)
+      lc_cloud <- c(322, 324, 328, 336, 352, 368, 834, 836, 840, 848, 864, 880)
+      
+      cloud <- c(cloud_shadow,cld,mc_cloud,hc_cloud,hc_cirrus)
+      
+      
+      
       s <- lapply(seq(datloc$tifs), function(i){
-        raster(datloc$tifs[[i]])
+        
+        
+        # cloud mask
+        x <- raster(datloc$bqa[[i]])
+        c <- x
+        cs <- is.element(values(c),cloud)
+        c[] <- cs
+        
+        
+        # clean out clouds
+        sat <- raster(datloc$tifs[[i]])
+        
+        s <- stack(sat, c)
+        # clean out clouds
+        s[[1]][s[[2]]==1] <- NA
+        s
+        
       })
+      
+
+      
       
       
       ############# CHECK WHICH FILES ARE OVER LAND ######################################################
