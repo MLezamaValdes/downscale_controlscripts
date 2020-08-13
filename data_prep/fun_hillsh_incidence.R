@@ -53,7 +53,9 @@ make_L8_MOD_stack <- function(y, m, timethres){
     if(exists("timediff_comp")){
       
       # make file lists of all downloaded LST scenes for L and M
-      l8r <- list.files(L8LSTpath, full.names=T)
+      
+      l8r <- grep(list.files(L8LSTpath, full.names=T), pattern='bt_band10', inv=T, value=T)
+
       mr <- list.files(MODLSTpath, pattern="small", full.names=T)
       
       if(length(mr)!=0){
@@ -148,7 +150,7 @@ make_L8_MOD_stack <- function(y, m, timethres){
         
         mstackres <- resample(mstack, template)
         
-        print("starting resampling of MODIS")
+        print("starting resampling of landsat")
         
         lstackres <- resample(lstack, template)
         
@@ -260,7 +262,7 @@ write_first_satstack_for_server <- function(y, m){
 
   
   # go on with 2:1
-  for(y in c(7)){
+  for(y in seq(year)){
     for(m in seq(month)){
       print(c(y,m))
       make_L8_MOD_stack(y,m,timethres)

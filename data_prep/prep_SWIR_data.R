@@ -4,19 +4,10 @@
 # * unzipping routine
 # * routine for using the right hillshading raster
 
-swirmonthpath <- "D:/new_downscaling/SWIR/new/"
-swiroutpath <- paste0(cddir, "SWIR/")
-
-#hs <- stack(paste0(cddir, "ia_hs_res/ia_hs_2019-01-26-1940.tif"))
-
 library(XML)
-y=1
-m=1
-
-stp <- list.files(swirmonthpath, full.names = T, pattern=".tar$")
-stpaths <- grep(list.files(stp, full.names = T), pattern='.tar$', invert=TRUE, value=TRUE)
-
-aoianta
+library(landsat)
+library(lubridate)
+library(satellite)
 
 # cloud_cirrus <- c(322, 324, 328, 336, 352, 368, 834, 836, 840, 848, 864, 880, 
 #                   386, 388, 392, 400, 416, 432, 898, 900, 904, 928, 944, 480, 
@@ -34,62 +25,111 @@ lc_cloud <- c(322, 324, 328, 336, 352, 368, 834, 836, 840, 848, 864, 880)
 
 cloud <- c(cloud_shadow,cld,mc_cloud,hc_cloud,hc_cirrus)
 
-b7files <- lapply(seq(stpaths), function(i){
-  print(i)
-  if(any(grepl(substring(list.files(stpaths[i], pattern="pixel_qa", full.names = F), 1,40),dd$fnam))){
 
-    # get pixel quality assessment and make a cloud mask
-    bqa <- list.files(stpaths[i], pattern="pixel_qa", full.names = T)
-    c <- raster(bqa)
-    cs <- is.element(values(c),cloud)
-    c[] <- cs
-    
-    # get raster tile
-    x <- list.files(stpaths[i], pattern="band7", full.names = T)
-    s <- stack(x, c)
-    # clean out clouds
-    s[[1]][s[[2]]==1] <- NA
-    s
-  }
+
+swir_downloadpath <- "D:/new_downscaling/SWIR/downloaded_scenes/"
+
+y=1
+m=1
+
+ym <- substring(time_range[[y]][[m]][[1]][[1]], 1, 7)
+swiroutpath <- paste0(swir_downloadpath, ym, "/")
+dir.create(swiroutpath)
+
+# extract zip files
+sc <- list.files(swir_downloadpath, pattern="tar.gz$", full.names = T)
+orgpath <- paste0(swiroutpath, "org/")
+dir.create(orgpath)
+
+
+for(i in seq(sc)){
+  untar(sc[i],  compressed = 'gzip', 
+        exdir=paste0(orgpath, tools::file_path_sans_ext(tools::file_path_sans_ext(basename(sc[i])))))
+}
+
+
+tiles <- list.files(orgpath, full.names = T)
+
+library(stringr)
+monthpat <- str_remove(ym, "-")
+
+monthtiles <- tiles[grepl(monthpat, tiles)]
+
+b6 <- list.files(monthtiles, pattern="band6", full.names = T)
+b7 <- list.files(monthtiles, pattern="band7", full.names = T)
+bqa <- list.files(monthtiles, pattern="pixel_qa.tif", full.names = T)
+
+############################ CLEAN OUT CLOUDS ##################################################################
+
+swirbands <- lapply(seq(b6), function(i){
+  b <- stack(b6[i], b7[i])
+  q <- raster(bqa[i])
   
+  c <- q
+  cs <- is.element(values(c),cloud)
+  c[] <- cs
+  
+  s <- stack(b,c)
+  b[c==1] <- NA 
+  
+  #writeRaster(b, paste0(swiroutpath, substring(basename(b6[i]), 1,nchar(basename(b6[i]))-10), ".tif"))
+  b
 })
 
-b7files <- b7files[c(4,5)]
+# # here a check for actual cloudfree status? 
+# swirbands <- swirbands[1:3]
+
+############################ MERGE ALL TILES ##################################################################
 
 #generate command for merging all the tiles
-cm <- lapply(seq(b7files), function(i){
-  if(i < seq(b7files)[length(seq(b7files))]){
-    print(paste0("b7files[[", i, "]][[1]], "))
+cm <- lapply(seq(swirbands), function(i){
+  if(i < seq(swirbands)[length(seq(swirbands))]){
+    print(paste0("swirbands[[", i, "]][[1]], "))
   } else {
-    print(paste0("b7files[[", i, "]][[1]]"))
+    print(paste0("swirbands[[", i, "]][[1]]"))
   }
 })
 
 mrg <- paste(cm[2:length(cm)], sep="", collapse="")
-commd <- paste("merge(b7files[[1]][[1]],", mrg,")")
+commd <- paste("merge(swirbands[[1]][[1]],", mrg,")")
+mos6 <- eval(parse(text=commd))
 
-mos <- eval(parse(text=commd))
 
-mc <- crop(mos, aoianta)
-mm <- mask(mc, aoianta)
+cm <- lapply(seq(swirbands), function(i){
+  if(i < seq(swirbands)[length(seq(swirbands))]){
+    print(paste0("swirbands[[", i, "]][[2]], "))
+  } else {
+    print(paste0("swirbands[[", i, "]][[2]]"))
+  }
+})
 
-plot(mm)
-plot(aoianta,add=T)
+mrg <- paste(cm[2:length(cm)], sep="", collapse="")
+commd <- paste("merge(swirbands[[1]][[2]],", mrg,")")
+mos7 <- eval(parse(text=commd))
+
+############################ MASK AOI ##################################################################
+mc6 <- crop(mos6, aoianta)
+mc7 <- crop(mos7, aoianta)
+
+mm6 <- mask(mc6, aoianta)
+mm7 <- mask(mc7, aoianta)
+
+# plot(mm)
+# plot(aoianta,add=T)
 
 # write mosaic original
 ym <- substring(time_range[[y]][[m]][[1]][1],1,7)
-writeRaster(mm, paste0(swiroutpath, "swir_", ym, ".tif"), overwrite=T)
+writeRaster(mm6, paste0(swiroutpath, "swir_6_", ym, ".tif"), overwrite=T)
+writeRaster(mm7, paste0(swiroutpath, "swir_7_", ym, ".tif"), overwrite=T)
 
-mm <- raster(paste0(swiroutpath, "swir_", ym, ".tif"))
+#mm <- raster(paste0(swiroutpath, "swir_", ym, ".tif"))
 
-# Topo correction
-library(landsat)
-library(lubridate)
-library(satellite)
+
+############################ TOPOGRAPHIC CORRECTION ##################################################################
 
 # extract info from swir metadata 
-sun <- lapply(seq(stpaths), function(i){
-  met <- list.files(stpaths[i], pattern="xml", full.names = T)
+sun <- lapply(seq(monthtiles), function(i){
+  met <- list.files(monthtiles[i], pattern="xml", full.names = T)
   meta <- readMeta(met, raw=T)
   s <- meta$global_metadata$solar_angles
   d <- meta$global_metadata$acquisition_date
@@ -122,9 +162,11 @@ whichhsfile <- which(td==min(td))
 hs <- stack(list.files(paste0(cddir, "ia_hs_res/"), full.names = T)[whichhsfile])
 
 # resample mosaic to fit to hs
+mm <- stack(mm6, mm7)
 mmres <- resample(mm, hs[[2]])
+
 # topographic correction
-swir_tc <- calcTopoCorr(mmres, hillsh = hs[[2]])
+swir_tc67 <- calcTopoCorr(mmres, hillsh = hs[[2]])
 
 # write tc mosaic
-writeRaster(swir_tc, paste0(swiroutpath, "swir_tc_", ym, ".tif"), overwrite=T)
+writeRaster(swir_tc67, paste0(swiroutpath, "swir_tc_67", ym, ".tif"), overwrite=T)

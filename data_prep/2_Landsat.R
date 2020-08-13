@@ -54,7 +54,6 @@
 
 getprocessLANDSAT <- function(time_range){
   
-  login_earthdata(username="Mlezama", )
   
   L8scenepath <- paste0(main, "L8/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")
   print(L8scenepath)
@@ -72,7 +71,7 @@ getprocessLANDSAT <- function(time_range){
   set_archive(L8scenepath)
   
   ## get available products and select one
-  #product_names <- getLandsat_names(username="MaiteLezama", password = "Eos300dmmmmlv")
+  #product_names <- getLandsat_products(username="MaiteLezama", password = "Eos300dmmmmlv")
   product <- "LANDSAT_8_C1"
   
   ## query records for AOI, time range and product
@@ -83,8 +82,7 @@ getprocessLANDSAT <- function(time_range){
   
   query <- lapply(seq(day), function(d){
     print(d)
-    try(getLandsat_records(time_range = time_range[[y]][[m]][[d]], name = product,
-                         aoi=get_aoi()), silent=T)
+    try(getLandsat_records(time_range = time_range[[y]][[m]][[d]], name = product,aoi=get_aoi()), silent=T)
   })
   
   te <- sapply(seq(query), function(x){
@@ -560,12 +558,12 @@ getprocessLANDSAT <- function(time_range){
       # get L8 files from USGS (AWS)
       filesbt <- lapply(seq(L8querymatched), function(i){
          if(length(L8querymatched[[i]]) > 15){
-            getLandsat_data(records=L8querymatched[[i]])
+            try(getLandsat_data(records=L8querymatched[[i]]))
           print(i)
         } else {
           for(x in seq(L8querymatched[[i]])){
         #     if(grepl("bt", L8querymatched[[i]][[x]]$levels_available)){
-              get_data(records=L8querymatched[[i]][[x]], level="bt", espa_order=NULL,source="auto")
+              try(get_data(records=L8querymatched[[i]][[x]], level="bt", espa_order=NULL,source="auto"))
               print(i,x)
             # }
            }

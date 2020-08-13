@@ -103,6 +103,8 @@ time_range[[y]][[m]]
 for(y in c(7)){
   for(m in c(8)){
     login_USGS("MaiteLezama", "Eos300dmmmmlv")
+    login_earthdata(username="Mlezama", password="Eos300dm")
+    
     getprocessLANDSAT(time_range)
     getprocessMODIS_new(time_range)
     getprocessMODIS_new_MYD(time_range)

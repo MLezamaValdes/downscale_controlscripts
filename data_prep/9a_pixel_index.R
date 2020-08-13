@@ -1,29 +1,24 @@
-template
-plot(template)
-e <- drawExtent()
 
-template <- crop(template, e)
+library(cdlTools)
+library(rgdal)
+library(raster)
+library(rgeos)
+library(stars)
 
-# make pixel index
-plot(template)
+############ make pixel index + coordinates shapefile and table #################################
 
-length(template[])
+# make pixel index shapefile 
+r.to.poly_template <- sf::as_Spatial(sf::st_as_sf(stars::st_as_stars(template), 
+                                         as_points = FALSE, merge = TRUE))
+writeOGR(r.to.poly_template, "D:/new_downscaling/extraction/template_pixel_polygons_stars.shp")
 
-tdf <- extract(template, aoianta)
-length(tdf[[1]])
+# template_polygons <- rasterToPolygons(template)
+template_polygons@data$id <- rownames(template_polygons@data)
+template_polygons@data <- cbind(template_polygons@data, coordinates(template_polygons))
+names(template_polygons@data) <- c("template_new","id", "x", "y")
 
-mod <- raster("C:/Users/mleza/OneDrive/Desktop/testsite/modis.tif")
-moddf <- extract(mod,aoianta)
-length(moddf[[1]])
+# mapview(template_polygons, zcol="1")
 
-template_polygons <- rasterToPolygons(template)
-
-r <- raster(ncol=36, nrow=18, vals=1:(18*36))
-plot(r)
-###############################
-# extract values by cell number
-###############################
-extract(r, c(1:2, 10, 100))
-s <- stack(r, sqrt(r), r/r)
-extract(s, c(1, 10, 100), layer=2, n=2)
-extract(s, c(1,10,100))
+# save shapefile and dataframe
+writeOGR(template_polygons, "D:/new_downscaling/extraction/template_pixel_polygons.shp")
+write.csv2(template_polygons@data, "template_pixel_polygons_dataframe.csv")
