@@ -14,14 +14,10 @@ aoiutm <- spTransform(aoi, l8proj)
 
 ####### GET IDs for ordering DATA ONLINE ##############################################################################################
 
-
 getSWIRpi <- function(y,m, swirpath){
 
   set_aoi(aoiutm)
   set_archive(swirpath)
-  
-  ## get available products and select one
-  #product_names <- getLandsat_names(username="MaiteLezama", password = "Eos300dmmmmlv")
   product <- "LANDSAT_8_C1"
   
   ## query records for AOI, time range and product
@@ -47,41 +43,6 @@ getSWIRpi <- function(y,m, swirpath){
     }
   })
 
-  
-  # L8scenepath <- paste0(main, "L8/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")
-  # dd <- read.csv(paste0(L8scenepath, "downloaded_days.csv"))
-  # 
-  # dd <- dd[dd$lcc < 2,]
-  # lcc <- 2
-  # 
-  # if(nrow(dd)<1){
-  #   dd[dd$lcc <10,]
-  #   lcc <- 10
-  # }
-  # 
-  # promising_query <- lapply(seq(nrow(dd)), function(i){
-  #   lapply(seq(query), function(j){
-  #     if(any(grepl(substring(dd$fnam[i], 12,nchar(dd$fnam[i])), query[[j]]$summary))){
-  #       q <- query[[j]][which(grepl(substring(dd$fnam[i], 12,nchar(dd$fnam[i])), query[[j]]$summary)),]
-  #       q[q$level=="sr",]
-  #     }
-  #   })
-  # })
-  
-  
-  
-  # not_working_due_to_package <- lapply(seq(promising_query), function(i){
-  #   lapply(seq(promising_query[[i]]), function(j){
-  #     if(!is.null(promising_query[[i]][[j]])){
-  #       order_data(promising_query[[i]][[j]], wait_to_complete = F)
-  # 
-  #       try(getLandsat_data(records=promising_query[[i]][[j]],
-  #                          espa_order=NULL,
-  #                          source="auto"))
-  #     }
-  #   })
-  # })
-
   id <- lapply(seq(promising_query), function(i){
     if(!is.null(promising_query[[i]])){
       lapply(nrow(promising_query[[i]]), function(j){
@@ -100,16 +61,6 @@ getSWIRpi <- function(y,m, swirpath){
   })
   
   
-  # meta_url <- lapply(seq(promising_query), function(i){
-  #   lapply(seq(promising_query[[i]]), function(j){
-  #     if(!is.null(promising_query[[i]][[j]])){
-  #       
-  #       promising_query[[i]][[j]]$meta_url_fgdc 
-  #       
-  #     }
-  #   })
-  # })
-  
   ri <- unlist(id)
   sum_pq <- unlist(sum_pq)
   write.table(ri, paste0(swirpath, "swir_ri_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), ".txt"), 
@@ -123,8 +74,7 @@ getSWIRpi <- function(y,m, swirpath){
 }
 
 
-# y=c(2:xxx)
-for(y in c(2:length(year))){
+for(y in seq(year)){
   for(m in seq(month)){
     getSWIRpi(y,m,swirpath)
   }
@@ -147,6 +97,7 @@ all_ids <- unique(all_ids)
 write.table(all_ids, paste0(swirpath, "all_swir_ids.txt"), 
             quote=F,row.names = F, col.names = F)
 
+################# order everything via https://espa.cr.usgs.gov/ordering/new/ manually with all_swir_ids.txt ####################################################################
 
 ################# download from espa ####################################################################
 
@@ -154,8 +105,8 @@ write.table(all_ids, paste0(swirpath, "all_swir_ids.txt"),
 library(espa.tools)
 swirdownloadpath <- "D:/new_downscaling/SWIR/downloaded_scenes/"
 
-earthexplorer_download(usgs_eros_username="MaiteLezama", 
-                       usgs_eros_password="Eos300dmmmmlv", 
+earthexplorer_download(usgs_eros_username="MaiteLezama",
+                       usgs_eros_password="Eos300dmmmmlv",
                        output_folder = swirdownloadpath, verbose=T,
                        ordernum = "espa-mlezamavaldes@gmail.com-08102020-074516-892")
 

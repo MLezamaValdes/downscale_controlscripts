@@ -4,7 +4,7 @@
 #SBATCH --nodes=1
 
 # set the number of CPU cores per node
-#SBATCH --ntasks-per-node 30
+#SBATCH --ntasks-per-node 70
 
 # How much memory is needed (per node)
 #SBATCH --mem=92GB
@@ -13,7 +13,7 @@
 #SBATCH --partition normal
 
 # set max wallclock time
-#SBATCH --time=120:00:00
+#SBATCH --time=48:00:00
 
 # set name of job
 #SBATCH --job-name=train_DI

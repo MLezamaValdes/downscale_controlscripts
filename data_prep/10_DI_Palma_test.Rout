@@ -23,21 +23,8 @@ Type 'q()' to quit R.
 > m=1
 > 
 > 
-> install.packages("/home/l/llezamav/R/CAST_0.4.3.tar.gz", repos = NULL,
-+                 lib="/home/l/llezamav/R/")
-* installing *source* package ‘CAST’ ...
-** using staged installation
-** R
-** inst
-** byte-compile and prepare package for lazy loading
-** help
-*** installing help indices
-** building package indices
-** installing vignettes
-** testing if installed package can be loaded from temporary location
-** testing if installed package can be loaded from final location
-** testing if installed package keeps a record of temporary installation path
-* DONE (CAST)
+> # install.packages("/home/l/llezamav/R/CAST_0.4.3.tar.gz", repos = NULL,
+> #                 lib="/home/l/llezamav/R/")
 > library(doParallel)
 Loading required package: foreach
 Loading required package: iterators
@@ -82,7 +69,10 @@ Registered S3 methods overwritten by 'ggplot2':
 > 
 > set.seed(100)
 > # to maintain data distribution
-> rnds <- sample(rownames(potDI), 150000)
+> #rnds <- sample(rownames(potDI), 150000)
+> 
+> rnds <- sample(rownames(potDI), 100)
+> 
 > randsamples <- potDI[rnds,]
 > 
 > ###################### put rest of samples in potDI ###########################################
@@ -110,68 +100,22 @@ Registered S3 methods overwritten by 'ggplot2':
 > 
 > registerDoParallel(cl)
 > 
-> samples <- randsamples
-> 
-> repeat {
-+   di <- aoa(newdata=potDI_ds, train=samples, cl=cl)
-+   t <- table(di$AOA)
-+   print(t)
-+   
-+   most_diss <- tail(sort(di$DI),10)
-+   
-+   # add most dissimlar to samples
-+   most_diss_ds <- subset(potDI_ds, rownames(potDI_ds) %in% names(most_diss))
-+   samples <- rbind(samples, most_diss_ds)
-+   
-+   # take most dissimlar away from potDI_ds 
-+   potDI_ds <- subset(potDI_ds, rownames(potDI_ds) %notin% names(most_diss))
-+   
-+   if(any(di$AOA==0)==FALSE){
-+     break
-+   }
-+ }
+> # repeat {
+>   di <- aoa(newdata=potDI_ds, train=randsamples, cl=cl)
 note: variables were not weighted either because no weights or model were given,
     or no variable importance could be retrieved from the given model.
     Check caret::varImp(model)
 note: Either no model was given or no CV was used for model training. The DI threshold is therefore based on all training data
+>   t <- table(di$AOA)
+>   print(t)
 
       0       1 
- 138485 2711515 
-note: variables were not weighted either because no weights or model were given,
-    or no variable importance could be retrieved from the given model.
-    Check caret::varImp(model)
-note: Either no model was given or no CV was used for model training. The DI threshold is therefore based on all training data
-
-      0       1 
- 138342 2711648 
-note: variables were not weighted either because no weights or model were given,
-    or no variable importance could be retrieved from the given model.
-    Check caret::varImp(model)
-note: Either no model was given or no CV was used for model training. The DI threshold is therefore based on all training data
-
-      0       1 
- 138149 2711831 
-note: variables were not weighted either because no weights or model were given,
-    or no variable importance could be retrieved from the given model.
-    Check caret::varImp(model)
-note: Either no model was given or no CV was used for model training. The DI threshold is therefore based on all training data
-
-      0       1 
- 138059 2711911 
-note: variables were not weighted either because no weights or model were given,
-    or no variable importance could be retrieved from the given model.
-    Check caret::varImp(model)
-note: Either no model was given or no CV was used for model training. The DI threshold is therefore based on all training data
-
-      0       1 
- 137852 2712108 
-note: variables were not weighted either because no weights or model were given,
-    or no variable importance could be retrieved from the given model.
-    Check caret::varImp(model)
-note: Either no model was given or no CV was used for model training. The DI threshold is therefore based on all training data
-
-      0       1 
- 137692 2712258 
-note: variables were not weighted either because no weights or model were given,
-    or no variable importance could be retrieved from the given model.
-    Check caret::varImp(model)
+ 169723 2830177 
+>   
+>   most_diss <- tail(sort(di$DI),10)
+>   
+>   # add most dissimlar to DItrain
+>   most_diss_ds <- subset(DInewdata, rownames(DInewdata) %in% names(most_diss))
+Error in subset(DInewdata, rownames(DInewdata) %in% names(most_diss)) : 
+  object 'DInewdata' not found
+Execution halted

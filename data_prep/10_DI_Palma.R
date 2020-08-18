@@ -4,8 +4,8 @@ y=1
 m=1
 
 
-# install.packages("/home/l/llezamav/R/CAST_0.4.3.tar.gz", repos = NULL,
-#                 lib="/home/l/llezamav/R/")
+install.packages("/home/l/llezamav/R/CAST_0.4.3.tar.gz", repos = NULL,
+                lib="/home/l/llezamav/R/")
 library(doParallel)
 library(parallel)
 library(CAST, lib.loc="/home/l/llezamav/R/")
@@ -67,27 +67,29 @@ potDI_ds <- subset(potDI, rownames(potDI) %notin% rnds)
 
 registerDoParallel(cl)
 
+samples <- randsamples
+
 repeat {
-  di <- aoa(newdata=potDI_ds, train=randsamples)
+  di <- aoa(newdata=potDI_ds, train=samples, cl=cl)
   t <- table(di$AOA)
   print(t)
   
-  most_diss <- tail(sort(di$DI),10)
+  most_diss <- tail(sort(di$DI),100)
   
-  # add most dissimlar to DItrain
-  most_diss_ds <- subset(DInewdata, rownames(DInewdata) %in% names(most_diss))
-  DItrain <- rbind(DItrain, most_diss_ds)
+  # add most dissimlar to samples
+  most_diss_ds <- subset(potDI_ds, rownames(potDI_ds) %in% names(most_diss))
+  samples <- rbind(samples, most_diss_ds)
   
-  # take most dissimlar away from DInewdata 
-  DInewdata <- subset(DInewdata, rownames(DInewdata) %notin% names(most_diss))
+  # take most dissimlar away from potDI_ds 
+  potDI_ds <- subset(potDI_ds, rownames(potDI_ds) %notin% names(most_diss))
   
   if(any(di$AOA==0)==FALSE){
     break
   }
 }
 
-saveRDS(DItrain, paste0(datpath, "train_DI_", ym, ".rds"))
-write.csv2(DItrain, paste0(datpath, "train_DI_", ym, ".csv"))
+saveRDS(samples, paste0(datpath, "train_DI_", ym, ".rds"))
+write.csv2(samples, paste0(datpath, "train_DI_", ym, ".csv"))
 
 
 

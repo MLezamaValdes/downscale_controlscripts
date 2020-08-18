@@ -49,10 +49,10 @@ write.csv2(tmpdyndf, paste0(datpath, "tempdyn_new_", ym,"_df.csv"), row.names=F)
 
 # tmpdyndf <- read.csv2(paste0(datpath, "tempdyn_new_", ym,"_df.csv"), header = T)
 test <- tmpdyndf[1:100,1]==seq(1:100)
-if(all(test==TRUE, na.rm = T) | is.na(all(test))==TRUE){ # if fits, kick out column, if all is NA or doesn't fit, don't 
+if(all(test==TRUE, na.rm = T) | is.na(all(test))==TRUE){ # if fits, kick out column, if all is NA or doesn't fit, don't
   tmpdyndf <- tmpdyndf[,2:ncol(tmpdyndf)] # eliminate rowname column if there's one
 }
- 
+
 # ############ make checkfiles for aux and tempdyn extraction ##############
 write.csv2(tmpdyndf[1:500,], paste0(datpath, "tempdyndf_check.csv"), row.names=F)
 write.csv2(auxdf[1:500,], paste0(datpath, "auxdf_check.csv"), row.names=F)
@@ -88,13 +88,36 @@ tddf$Modis[tddf$Modis <= -100] <- NA
 tddf$Landsat[tddf$Landsat <= -100] <- NA
 tddf$Landsat[tddf$Landsat > 30] <- NA
 
-tddfcc <- tddf[complete.cases(tddf),] 
+tddfcc <- tddf[complete.cases(tddf),]
+
 
 write.csv2(tddfcc[1:500,], paste0(datpath, "extr_complete_", ym, "_check.csv"), row.names=F)
 write.csv2(tddfcc, paste0(datpath, "extr_complete_cases_",ym, ".csv"), row.names=F)
 
+tddfcc <- read.csv2(paste0(datpath, "extr_complete_cases_", ym, ".csv"))
+
+################## take out test for this month ##########################
+
+# testsite_raster <- raster(paste0(datpath, "testsite_raster.tif"))
+testsites <- c(26, 63, 43, 12, 35, 40, 31, 79,  5,  2, 60, 11)
+
+test <- subset(tddfcc, tddfcc$spatialblocks %in% testsites)
+
+saveRDS(test, paste0(datpath, "test_ds_", ym, ".rds"))
+write.csv2(test, paste0(datpath, "test_ds_", ym, ".csv"))
+
+test <- read.csv2(paste0(datpath, "test_ds_", ym, ".csv"))
+
+tesrn <- sample(rownames(test), 15000)
+testsample <- test[tesrn,]
+write.csv2(testsample, paste0(datpath, "test_ds_subset_", ym, ".csv"))
+
+
+`%notin%` <- Negate(`%in%`)
+pottrain <-  subset(tddfcc, tddfcc$spatialblocks %notin% testsites)
+
 # get 3 Mio random samples per month to choose from in random and DI picking
-splpot <- sample(rownames(tddfcc), 3000000)
+splpot <- sample(rownames(pottrain), 3000000)
 pott3 <- tddfcc[splpot,]
 write.csv2(pott3, paste0(datpath, "pott3_new_",ym, ".csv"), row.names=F)
 

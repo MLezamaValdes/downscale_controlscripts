@@ -39,7 +39,10 @@ potDI <- pott3[divars]
 
 set.seed(100)
 # to maintain data distribution
-rnds <- sample(rownames(potDI), 150000)
+#rnds <- sample(rownames(potDI), 150000)
+
+rnds <- sample(rownames(potDI), 100)
+
 randsamples <- potDI[rnds,]
 
 ###################### put rest of samples in potDI ###########################################
@@ -74,20 +77,20 @@ registerDoParallel(cl)
   
   most_diss <- tail(sort(di$DI),10)
   
-  # add most dissimlar to DItrain
-  most_diss_ds <- subset(DInewdata, rownames(DInewdata) %in% names(most_diss))
-  DItrain <- rbind(DItrain, most_diss_ds)
+  # add most dissimlar to randsamples
+  most_diss_ds <- subset(potDI_ds, rownames(potDI_ds) %in% names(most_diss))
+  randsamples <- rbind(randsamples, most_diss_ds)
   
-  # take most dissimlar away from DInewdata 
-  DInewdata <- subset(DInewdata, rownames(DInewdata) %notin% names(most_diss))
+  # take most dissimlar away from potDI_ds 
+  potDI_ds <- subset(potDI_ds, rownames(potDI_ds) %notin% names(most_diss))
   
 #   if(any(di$AOA==0)==FALSE){
 #     break
 #   }
 # }
 
-saveRDS(DItrain, paste0(datpath, "train_DI_", ym, ".rds"))
-write.csv2(DItrain, paste0(datpath, "train_DI_", ym, ".csv"))
+saveRDS(randsamples, paste0(datpath, "train_DI_", ym, ".rds"))
+write.csv2(randsamples, paste0(datpath, "train_DI_", ym, ".csv"))
 
 
 
