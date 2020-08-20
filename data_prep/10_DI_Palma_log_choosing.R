@@ -71,14 +71,21 @@ registerDoParallel(cl)
 samples <- randsamples
 
 i=0
+t0prev <- 0
+x <- 3.5
 repeat {
   di <- aoa(newdata=potDI_ds, train=samples, cl=cl)
   t <- table(di$AOA)
   
-  print(paste0("iteration = ", i))
-  print(paste0("AOA: "), t)
+  diff_out_aoa <- t[1]-t0prev
+  t0prev <- t[1]
+  print(paste0("diff out of AOA to previous step: ", diff_out_aoa))
   
-  choose <- log(t[1])^2.5
+  print(paste0("iteration = ", i))
+  print("AOA out / in: ")
+  print(t)
+  
+  choose <- log(t[1])**x
   print(paste0("choose ", choose, "most dissimilar samples"))
   
   most_diss <- tail(sort(di$DI), choose)
@@ -97,8 +104,8 @@ repeat {
   i=i+1
 }
 
-saveRDS(samples, paste0(datpath, "train_DI_", ym, ".rds"))
-write.csv2(samples, paste0(datpath, "train_DI_", ym, ".csv"))
+saveRDS(samples, paste0(datpath, "train_DI_", x, "_" , ym, ".rds"))
+write.csv2(samples, paste0(datpath, "train_DI_", x, "_" ,  ym, ".csv"))
 
 
 

@@ -1,3 +1,8 @@
+
+y=2
+m=5
+
+
 make_L8_MOD_stack <- function(y, m, timethres){
   
   L8scenepath <- paste0(main, "L8/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")
@@ -15,7 +20,7 @@ make_L8_MOD_stack <- function(y, m, timethres){
       
       # make file lists of all downloaded LST scenes for L and M
       
-      l8r <- grep(list.files(L8LSTpath, full.names=T), pattern='bt_band10', inv=T, value=T)
+      l8r <- grep(list.files(L8LSTpath, full.names=T), pattern='bt_band10', inv=T, value=T) # get those that are cloud_rm.tif
       
       mr <- list.files(MODLSTpath, pattern="small", full.names=T)
       
@@ -114,11 +119,7 @@ make_L8_MOD_stack <- function(y, m, timethres){
         print("starting resampling of landsat")
         
         lstackres <- resample(lstack, template)
-        
-        #LSTstack <- stack(mstackres, lstack)
-        
-        #mstackres <- mstackres[[c(1,2,3,4,5,6,7,8,11)]]
-        #lstackres <- lstackres[[c(5,4,3,2,9,8,6,7,1)]]
+      
         
         ########## put L8 and corresponding MODIS together ############
         
@@ -142,7 +143,6 @@ make_L8_MOD_stack <- function(y, m, timethres){
         print("No MODIS scenes available")
       }
       
-      
     } else {
       print("No scenes for this time step")
     }
@@ -156,10 +156,12 @@ make_L8_MOD_stack <- function(y, m, timethres){
 
 ########################### RUN #####################################
 
+# running now: y: 2, all months
 
-# go on with 2:1
-for(y in seq(year)){
-  for(m in seq(month)){
+# do 1 as well once 2a is finished
+
+for(y in c(2:length(year))){
+  for(m in c(2:length(month))){
     print(c(y,m))
     make_L8_MOD_stack(y,m,timethres)
     gc()
