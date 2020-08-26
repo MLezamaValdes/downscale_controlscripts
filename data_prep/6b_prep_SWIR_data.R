@@ -8,6 +8,7 @@ library(XML)
 library(landsat)
 library(lubridate)
 library(satellite)
+library(stringr)
 
 # cloud_cirrus <- c(322, 324, 328, 336, 352, 368, 834, 836, 840, 848, 864, 880, 
 #                   386, 388, 392, 400, 416, 432, 898, 900, 904, 928, 944, 480, 
@@ -30,7 +31,7 @@ cloud <- c(cloud_shadow,cld,mc_cloud,hc_cloud,hc_cirrus)
 swir_downloadpath <- "D:/new_downscaling/SWIR/downloaded_scenes/"
 
 y=1
-m=1
+m=2
 
 ym <- substring(time_range[[y]][[m]][[1]][[1]], 1, 7)
 swiroutpath <- paste0(swir_downloadpath, ym, "/")
@@ -41,23 +42,28 @@ sc <- list.files(swir_downloadpath, pattern="tar.gz$", full.names = T)
 orgpath <- paste0(swiroutpath, "org/")
 dir.create(orgpath)
 
+already_extracted <- list.files(orgpath)
 
-for(i in seq(sc)){
-  untar(sc[i],  compressed = 'gzip', 
-        exdir=paste0(orgpath, tools::file_path_sans_ext(tools::file_path_sans_ext(basename(sc[i])))))
-}
+sc_nam <- list.files(swir_downloadpath, pattern="tar.gz$", full.names = F)
+sc_nam <- substring(sc_nam, 1,39)
 
-
-tiles <- list.files(orgpath, full.names = T)
-
-library(stringr)
+# for(i in seq(sc)){
+#   if(!any(grepl(sc_nam[i], already_extracted))){
+#       untar(sc[i],  compressed = 'gzip', 
+#         exdir=paste0(orgpath, tools::file_path_sans_ext(tools::file_path_sans_ext(basename(sc[i])))))
+#   }
+# }
 monthpat <- str_remove(ym, "-")
 
-monthtiles <- tiles[grepl(monthpat, tiles)]
+tiles <- list.files(orgpath, full.names = T)
+allscenes <- list.files(tiles, pattern="pixel")
 
-b6 <- list.files(monthtiles, pattern="band6", full.names = T)
-b7 <- list.files(monthtiles, pattern="band7", full.names = T)
-bqa <- list.files(monthtiles, pattern="pixel_qa.tif", full.names = T)
+swirdf <- data.frame(tiles, allscenes)
+monthdf <- swirdf[grepl(monthpat, swirdf$allscenes),]
+
+b6 <- list.files(monthdf$tiles, pattern="band6", full.names = T)
+b7 <- list.files(monthdf$tiles, pattern="band7", full.names = T)
+bqa <- list.files(monthdf$tiles, pattern="pixel_qa.tif", full.names = T)
 
 ############################ CLEAN OUT CLOUDS ##################################################################
 
@@ -114,7 +120,8 @@ mc7 <- crop(mos7, aoianta)
 mm6 <- mask(mc6, aoianta)
 mm7 <- mask(mc7, aoianta)
 
-# plot(mm)
+# plot(mm6)
+# plot(mm7)
 # plot(aoianta,add=T)
 
 # write mosaic original
@@ -128,8 +135,8 @@ writeRaster(mm7, paste0(swiroutpath, "swir_7_", ym, ".tif"), overwrite=T)
 ############################ TOPOGRAPHIC CORRECTION ##################################################################
 
 # extract info from swir metadata 
-sun <- lapply(seq(monthtiles), function(i){
-  met <- list.files(monthtiles[i], pattern="xml", full.names = T)
+sun <- lapply(seq(monthdf$tiles), function(i){
+  met <- list.files(monthdf$tiles[i], pattern="xml", full.names = T)
   meta <- readMeta(met, raw=T)
   s <- meta$global_metadata$solar_angles
   d <- meta$global_metadata$acquisition_date
@@ -155,8 +162,6 @@ hs_files <- list.files(paste0(cddir, "ia_hs_res/"), pattern=ym)
 day <- hs_files[which(substring(hs_files, 15,16)==d)]
 td <- as.numeric(hm) - as.numeric(substring(hs_files, 18,21))
 whichhsfile <- which(td==min(td))
-
-
 
 # get hillshading file
 hs <- stack(list.files(paste0(cddir, "ia_hs_res/"), full.names = T)[whichhsfile])

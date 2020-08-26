@@ -106,6 +106,12 @@ test <- subset(tddfcc, tddfcc$spatialblocks %in% testsites)
 saveRDS(test, paste0(datpath, "test_ds_", ym, ".rds"))
 write.csv2(test, paste0(datpath, "test_ds_", ym, ".csv"))
 
+ts <- sample(nrow(test), 150000)
+testsubset <- test[ts,]
+
+saveRDS(testsubset, paste0(datpath, "testsubset_ds_", ym, ".rds"))
+write.csv2(testsubset, paste0(datpath, "testsubset_ds_", ym, ".csv"))
+
 test <- read.csv2(paste0(datpath, "test_ds_", ym, ".csv"))
 
 tesrn <- sample(rownames(test), 15000)

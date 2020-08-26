@@ -1,7 +1,8 @@
 
-y=2
+y=1
 m=5
 
+              
 
 make_L8_MOD_stack <- function(y, m, timethres){
   
@@ -72,10 +73,26 @@ make_L8_MOD_stack <- function(y, m, timethres){
         
         ########## which in the raster stacks are the closely matching scenes? ############
         
+        
+        
         # which of timediff_comp$MODname is actually in names(mras)? only those scenes available, mark in timediff_df
         MODavailable <- sapply(seq(nrow(tdthres)), function(i){
-          any(grepl(substring(as.character(tdthres$MODname[i]), 1, 40), names(mras)))
+          print(i)
+          pos <- which(grepl(substring(as.character(tdthres$MODname[i]), 1, 40), names(mras)))
+          r1 <- any(grepl(substring(as.character(tdthres$MODname[i]), 1, 40), names(mras))) 
+          if(r1){
+            r2 <- any(!is.na(minValue(mras[[pos]])| maxValue(mras[[pos]]))) # values not NA NA - empty raster in this area 
+            res <- r1&r2
+          }
+          r1
         })
+        
+        
+        # system.time({range(mras[[pos]][])})
+        # system.time({min(mras[[pos]][])})
+        # system.time({minValue(mras[[pos]])})
+        
+        
         L8available <- sapply(seq(nrow(tdthres)), function(i){
           any(grepl(substring(tdthres$L8name[i], 1, 40), names(L8ras)))
         })
@@ -93,52 +110,62 @@ make_L8_MOD_stack <- function(y, m, timethres){
         
         write.csv2(tdthres, paste0(L8scenepath, "timediff_comp_comp.csv"))
         
-        # mlayer and llayer stem from tdthres
-        mlayer <- sapply(seq(modnames), function(i){
-          which(grepl(modnames[i], names(mras)))
-        })
-        mlayer <- unlist(mlayer)
         
-        llayer <- sapply(seq(l8names), function(i){
-          which(grepl(l8names[i], names(L8ras)))
-        })
-        llayer <- unlist(llayer)
+        if(length(tdthres$MODname) > 0){
+          # mlayer and llayer stem from tdthres
+          mlayer <- sapply(seq(modnames), function(i){
+            which(grepl(modnames[i], names(mras)))[1]
+          })
+          mlayer <- unlist(mlayer)
+          
+          llayer <- sapply(seq(l8names), function(i){
+            which(grepl(l8names[i], names(L8ras)))[1]
+          })
+          llayer <- unlist(llayer)
+          
+          # stack
+          
+          mstack <- mras[[mlayer]]
+          lstack <- L8ras[[llayer]]
+          
+          print("selected matching scenes")
+          
+          ########## resample MODIS to L8 resolution ############
+          print("starting resampling of MODIS")
+          
+          mstackres <- resample(mstack, template)
+          
+          print("starting resampling of landsat")
+          
+          lstackres <- resample(lstack, template)
+          
+          
+          ########## put L8 and corresponding MODIS together ############
+          
+          
+          # TO DO: PUT THEM TOGETHER RIGHT AWAY
+          
+          print("stacking lstack and mstack")
+          s <- lapply(seq(nlayers(lstackres)), function(i){
+            print(i)
+            stack(lstackres[[i]], mstackres[[i]])
+          })
+          
+          print("making satstack")
+          satstack <- stack(s)
+          
+          print("matched scenes")
+          
+          write.csv2(names(satstack), paste0(cddir, "satstacks/satnames_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), ".csv"),
+                     row.names = F)
+          
+          print("starting to write sat stack")
+          writeRaster(satstack, paste0(cddir, "satstacks/L_MOD", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), ".tif"), overwrite=T)
+        } else {
+          print("MODIS scenes empty")
+        }
         
-        # stack
         
-        mstack <- mras[[mlayer]]
-        lstack <- L8ras[[llayer]]
-        
-        print("selected matching scenes")
-        
-        ########## resample MODIS to L8 resolution ############
-        print("starting resampling of MODIS")
-        
-        mstackres <- resample(mstack, template)
-        
-        print("starting resampling of landsat")
-        
-        lstackres <- resample(lstack, template)
-      
-        
-        ########## put L8 and corresponding MODIS together ############
-        
-        
-        # TO DO: PUT THEM TOGETHER RIGHT AWAY
-        
-        s <- lapply(seq(nlayers(lstackres)), function(i){
-          stack(lstackres[[i]], mstackres[[i]])
-        })
-        
-        satstack <- stack(s)
-        
-        print("matched scenes")
-        
-        write.csv2(names(satstack), paste0(cddir, "satstacks/satnames_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), ".csv"),
-                   row.names = F)
-        
-        print("starting to write sat stack")
-        writeRaster(satstack, paste0(cddir, "satstacks/L_MOD_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), ".tif"), overwrite=T)
       } else {
         print("No MODIS scenes available")
       }
@@ -156,15 +183,13 @@ make_L8_MOD_stack <- function(y, m, timethres){
 
 ########################### RUN #####################################
 
-# running now: y: 2, all months
-
-# do 1 as well once 2a is finished
-
-for(y in c(2:length(year))){
-  for(m in c(2:length(month))){
+for(y in seq(year)){
+  for(m in seq(month)){
     print(c(y,m))
+    rasterOptions(tmpdir="D:/new_downscaling/run/")
     make_L8_MOD_stack(y,m,timethres)
     gc()
+    file.remove(list.files("D:/new_downscaling/run/", full.names = T))
   }
 }
 

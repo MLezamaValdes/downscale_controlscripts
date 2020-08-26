@@ -75,7 +75,7 @@ make_hs_ia <- function(y,m){
   # print(timediff_comp)
   # print("got timediff")
   
-  if(class(timediff_comp[[y]][[m]])!="try-error"){
+  if(class(timediff_comp[[y]][[m]])!="try-error" & length(timediff_comp[[y]][[m]]$MODname) >0 ){
     
     #L8scenepath <- paste0(main, "L8/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")
     #timediff_comp <- read.csv2(paste0(L8scenepath, "timediff_comp_comp.csv"))

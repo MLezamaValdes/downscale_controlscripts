@@ -85,7 +85,7 @@ repeat {
   print("AOA out / in: ")
   print(t)
   
-  choose <- log(t[1])**x
+  choose <- round(log(t[1])**x)
   print(paste0("choose ", choose, "most dissimilar samples"))
   
   most_diss <- tail(sort(di$DI), choose)
@@ -104,8 +104,13 @@ repeat {
   i=i+1
 }
 
-saveRDS(samples, paste0(datpath, "train_DI_", x, "_" , ym, ".rds"))
-write.csv2(samples, paste0(datpath, "train_DI_", x, "_" ,  ym, ".csv"))
+
+# take dataset at the chosen rownames to get full dataset
+trainDS <- pott3[rownames(samples),]
+rownames(trainDS)==rownames(samples)
+
+saveRDS(trainDS, paste0(datpath, "train_DI_", "_" , ym, ".rds"))
+write.csv2(trainDS, paste0(datpath, "train_DI_", "_" ,  ym, ".csv"))
 
 
 

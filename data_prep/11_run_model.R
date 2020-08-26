@@ -20,7 +20,9 @@ datpath <- "D:/new_downscaling/extraction/"
 #test <- read.csv2(paste0(datpath, "test_ds_", ym, ".csv"))
 #train <- read.csv2(paste0(datpath, "train_DI_", ym, ".csv"))
 
-ds <- read.csv2(paste0(datpath, "pott3_new_", ym, ".csv"))
+train <- readRDS(paste0(datpath, "train_DI_3.5_", ym, ".rds"))
+
+#ds <- read.csv2(paste0(datpath, "pott3_new_", ym, ".csv"))
 
 test <- subset(ds, ds$spatialblocks %in% testsites)
 train <- subset(ds, ds$spatialblocks %notin% testsites)

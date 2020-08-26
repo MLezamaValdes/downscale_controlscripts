@@ -1,0 +1,17 @@
+Lmod has detected the following error: The following module(s) are unknown:
+"OpenMPI/3.1.1"
+
+Please check the spelling or version number. Also try "module spider ..."
+It is also possible your cache file is out-of-date; it may help to try:
+  $ module --ignore-cache load "OpenMPI/3.1.1"
+
+Also make sure that all modulefiles written in TCL start with the string
+#%Module
+
+
+
+
+Due to MODULEPATH changes, the following have been reloaded:
+  1) FFTW/3.3.8     2) GSL/2.5     3) HDF5/1.10.5     4) R/3.6.0
+
+slurmstepd: error: get_exit_code task 0 died by signal

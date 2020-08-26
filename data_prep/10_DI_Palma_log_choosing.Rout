@@ -101,15 +101,21 @@ Registered S3 methods overwritten by 'ggplot2':
 > samples <- randsamples
 > 
 > i=0
+> t0prev <- 0
+> x <- 3.5
 > repeat {
 +   di <- aoa(newdata=potDI_ds, train=samples, cl=cl)
 +   t <- table(di$AOA)
 +   
++   diff_out_aoa <- t[1]-t0prev
++   t0prev <- t[1]
++   print(paste0("diff out of AOA to previous step: ", diff_out_aoa))
++   
 +   print(paste0("iteration = ", i))
-+   print("AOA: ")
++   print("AOA out / in: ")
 +   print(t)
 +   
-+   choose <- log(t[1])^2.5
++   choose <- round(log(t[1])**x)
 +   print(paste0("choose ", choose, "most dissimilar samples"))
 +   
 +   most_diss <- tail(sort(di$DI), choose)
@@ -131,52 +137,14 @@ note: variables were not weighted either because no weights or model were given,
     or no variable importance could be retrieved from the given model.
     Check caret::varImp(model)
 note: Either no model was given or no CV was used for model training. The DI threshold is therefore based on all training data
+[1] "diff out of AOA to previous step: 138485"
 [1] "iteration = 0"
-[1] "AOA: "
+[1] "AOA out / in: "
 
       0       1 
  138485 2711515 
-[1] "choose 482.217850041439most dissimilar samples"
+[1] "choose 5709most dissimilar samples"
 note: variables were not weighted either because no weights or model were given,
     or no variable importance could be retrieved from the given model.
     Check caret::varImp(model)
 note: Either no model was given or no CV was used for model training. The DI threshold is therefore based on all training data
-[1] "iteration = 1"
-[1] "AOA: "
-
-      0       1 
- 132515 2717002 
-[1] "choose 477.743005823031most dissimilar samples"
-note: variables were not weighted either because no weights or model were given,
-    or no variable importance could be retrieved from the given model.
-    Check caret::varImp(model)
-note: Either no model was given or no CV was used for model training. The DI threshold is therefore based on all training data
-[1] "iteration = 2"
-[1] "AOA: "
-
-      0       1 
- 126132 2722907 
-[1] "choose 472.759583800783most dissimilar samples"
-note: variables were not weighted either because no weights or model were given,
-    or no variable importance could be retrieved from the given model.
-    Check caret::varImp(model)
-note: Either no model was given or no CV was used for model training. The DI threshold is therefore based on all training data
-[1] "iteration = 3"
-[1] "AOA: "
-
-      0       1 
- 119307 2729259 
-[1] "choose 467.181551652278most dissimilar samples"
-note: variables were not weighted either because no weights or model were given,
-    or no variable importance could be retrieved from the given model.
-    Check caret::varImp(model)
-note: Either no model was given or no CV was used for model training. The DI threshold is therefore based on all training data
-[1] "iteration = 4"
-[1] "AOA: "
-
-      0       1 
- 111700 2736398 
-[1] "choose 460.626610757148most dissimilar samples"
-note: variables were not weighted either because no weights or model were given,
-    or no variable importance could be retrieved from the given model.
-    Check caret::varImp(model)

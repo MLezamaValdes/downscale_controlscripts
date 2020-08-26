@@ -29,7 +29,7 @@ modispath <- paste0(main, "MODIS/")
 tdpath <-paste0(main, "timediff/")
 
 ######## set path to AOI
-aoip <- list.files(aoipath, pattern=".shp", full.names = T)
+aoip <- list.files(aoipath, pattern="actually.shp", full.names = T)
 
 #### set path to high resolution land polygon
 clpath <- "D:/new_downscaling/coastline/Coastline_high_res_polygon/" 
