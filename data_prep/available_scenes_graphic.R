@@ -20,10 +20,10 @@ all$minutesdiff <- all$timediff*60
 # hist(m, breaks=30)
 # hist(h, breaks=30)
 
-all[all$minutesdiff<30,]
-max(all$minutesdiff)
-plot(all$dat, all$minutesdiff, pch=19, lwd=2,main="time difference (min) Modis and Landsat",
-     xlab="years", ylab="minutes")
+# all[all$minutesdiff<30,]
+# max(all$minutesdiff)
+# plot(all$dat, all$minutesdiff, pch=19, lwd=2,main="time difference (min) Modis and Landsat",
+#      xlab="years", ylab="minutes")
 
 # all$highminutesdiff <- ifelse(all$minutesdiff>25,all$minutesdiff,NA)
 # all$lowminutesdiff <- ifelse(all$minutesdiff<25,all$minutesdiff,NA)
@@ -41,7 +41,11 @@ ggplot(data=all, aes(x=dat, y=minutesdiff))+
         panel.grid.minor = element_blank(),
         strip.background = element_blank(),
         strip.text = element_text(size=14))+
-  labs(title="time difference (min) Modis and Landsat and matching scenes over time", fill=" ", 
-       subtitle = paste0("n=", nrow(all)))
+  labs(title="time difference (min) Modis and Landsat and matching scenes over time",
+       subtitle = paste0("n scenes = ", nrow(all)))+
+  xlab("date")+ylab("min")
+
+ggsave(filename = "D:/new_downscaling/figures/timediff_time.png", 
+       width = 10, units = "in", dpi=300, type = "cairo")
 
        

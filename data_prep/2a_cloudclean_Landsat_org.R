@@ -1,5 +1,5 @@
 # cloudclean relevant Landsat scenes 
-y=3
+y=5
 m=1
 
 cloud_shadow <- c(328, 392, 840, 904, 1350)

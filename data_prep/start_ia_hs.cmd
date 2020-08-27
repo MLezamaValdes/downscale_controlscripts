@@ -4,7 +4,7 @@
 #SBATCH --nodes=1
 
 # set the number of CPU cores per node
-#SBATCH --ntasks-per-node 6
+#SBATCH --ntasks-per-node 60
 
 # How much memory is needed (per node)
 #SBATCH --mem=92GB

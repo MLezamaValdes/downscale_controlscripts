@@ -1,5 +1,5 @@
 # cloudclean relevant Landsat scenes 
-y=1
+y=4
 m=1
 L8scenepath <- paste0(main, "L8/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")
 btscenepath <- paste0("D:/new_downscaling/data_download_preprocessing/L8/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), 

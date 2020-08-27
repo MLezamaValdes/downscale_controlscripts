@@ -8,7 +8,8 @@ ccfiles <- lapply(seq(year), function(y){
   lapply(seq(month), function(m){
     L8scenepath <- paste0(main, "L8/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")
     cc <- paste0(L8scenepath, "timediff_comp_comp.csv")
-    file.copy(cc, paste0(ccpath, "tdcc_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), ".csv"))
+    file.copy(cc, paste0(ccpath, "tdcc_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), ".csv"),
+              overwrite = T)
     #try(read.csv2(cc))
   })
 })
@@ -24,7 +25,10 @@ tdcc <- lapply(seq(cpf), function(i){
 df <- do.call("rbind", tdcc)
 nrow(df)
 
+df2019 <- df[grepl("2019", df$L8date),]
+grepl("MYD", df2019$MODname)
 
+nrow(df2019[df2019$timediff<0.3,])
 
 write.csv2(df, "D:/new_downscaling/all_comb_scenes.csv")
 

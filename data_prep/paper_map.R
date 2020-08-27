@@ -7,44 +7,55 @@ require("plyr")
 require("rosm")
 library(cowplot) ## MOOOOOOO!!
 require("ggmap")
+library("rmapshaper")
 
 # get aoi in shape for ggplot
-aoi.p = fortify(aoi, region="id")
-aoi.df <- join(aoi.p, aoi@data, by="id")
 
-aoi_levy <- readOGR(list.files("D:/new_downscaling/aoi/", pattern=".shp",
+aoi_levy <- readOGR(list.files("D:/new_downscaling/aoi/", pattern="actually.shp",
                    full.names=T))
+aoi_levy <- spTransform(aoi_levy, crs("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+
 aoiL.p = fortify(aoi_levy, region="id")
-aoiL.df <- join(aoiL.p, aoi@data, by="id")
+aoiL.df <- join(aoiL.p, aoi_levy@data, by="id")
 
 # get coastline
 antacoast <- st_read("D:/Anta_map_data/Coastline_medium_res_polygon_v7.1/Coastline_medium_res_polygon_v7.1.shp")
 
-sites_box <- st_make_grid(st_bbox(aoi), n = 1) # mapview(sites_box) to verify
+simplepolys <- rmapshaper::ms_simplify(input = as(antacoast, 'Spatial'), keep=0.005) %>%
+  st_as_sf()
+antacoast <- simplepolys
+
+sites_box <- st_make_grid(st_bbox(aoi_levy), n = 1) # mapview(sites_box) to verify
 sites_box_anta <- st_transform(sites_box, crs=crs(antacoast))
 
-mapview(aoianta)+mapview(sites_box_anta)
-mapview(antacoast)+mapview(sites_box_anta)
+#mapview(aoianta)+mapview(sites_box_anta)
+#mapview(antacoast)+mapview(sites_box_anta)
 
+# the overview map
 anta_map <- ggplot() + 
-  geom_sf(data = antacoast, fill=NA) + 
+  geom_sf(data = antacoast, fill="white") + 
   geom_sf(data=sites_box_anta, fill = "chartreuse1", col = "chartreuse3") +
+  theme(panel.background = element_rect(color = "black", size=1, linetype = 1))+
+  ylab("") + xlab("")+
   coord_sf(datum = NA) + # to rm gridlines and axes
   theme_nothing()+ # from cowplot
-  labs(x = NULL, y = NULL) +
-  theme(
-    #panel.grid = element_blank(), # remove gridlines,
-    #plot.margin = unit(c(0.1, 0.1, 0, 0), "cm"),  #top, right, bottom, left
-    panel.background = element_rect(color = "black", size=1, linetype = 1))+
-  ylab("") + xlab("")
+  labs(x = NULL, y = NULL) 
 
-
+# terrain map
 register_google(key="AIzaSyAvHjgxPXsQ7Zv7GiaAw4SzzJ11FnHOA5o")
 map <- get_map(c(lon = 164, lat = -77.605660),
                zoom = 6, size = c(640,640), scale = 2, maptype = "terrain",
                source="google")
+map_sat <- get_map(c(lon = 164, lat = -77.605660),
+               zoom = 6, size = c(640,640), scale = 2, maptype = "satellite",
+               source="google")
+# map_t_b <- get_map(c(lon = 164, lat = -77.605660),
+#                    zoom = 6, size = c(640,640), scale = 2, maptype = "hybrid",
+#                    source="google")
+# ggmap(map_sat)
+# ggmap(map_t_b)
 
-
+  
 nicemap <- ggmap(map)+
   labs(x = "longitude", y="latitude")+
   theme(plot.title = element_text(colour = "gray15"),
@@ -60,7 +71,7 @@ nicemap <- ggmap(map)+
   scale_x_continuous(breaks=c(160,  164,  168),limits=c(157,170.5))+
   scale_y_continuous(breaks=c(-79, -78, -77, -76),limits=c(-79,-76))+
   geom_polygon(data = aoiL.df,
-               aes(long, lat, group = group),
+               aes(x=long, y=lat, group = group, fill=id),
                fill = "chartreuse1", colour = "chartreuse3", alpha = 0.2)+
   annotation_north_arrow(location = "bl", which_north = "true", 
                          pad_x = unit(6.5, "in"), pad_y = unit(0.5, "in"),
@@ -68,45 +79,83 @@ nicemap <- ggmap(map)+
 
 
 
-(map_with_inset <-
-    ggdraw(nicemap) +
-    draw_plot(anta_map, x = 0.62, y = 0.67, width = .25, height = .25))
+
+map_with_inset <- ggdraw(nicemap) +
+    draw_plot(anta_map, x = 0.62, y = 0.67, width = .25, height = .25)
+
+
+# extract the legend from one of the plots
+legend <- get_legend(
+  # create some space to the left of the legend
+  ggplot() +geom_polygon(data = aoiL.df,show.legend = T,
+                         aes(x=long, y=lat, group = group, fill=id),
+                         fill = "chartreuse1", colour = "chartreuse3", alpha = 0.2)+ 
+    theme(legend.box.margin = margin(0, 0, 0, 12))
+)
+
+# add the legend to the row we made earlier. Give it one-third of 
+# the width of one plot (via rel_widths).
+plot_grid(map_with_inset, legend, rel_widths = c(3, .6))
+
+
+map_with_inset
+
 
 #ggsave(filename = paste0(main, "MDV_map_b.pdf"), width = 10, height = 8, units = "in", dpi=300, device = cairo_pdf)
 
-ggsave(filename = paste0(main, "MDV_map_b.png"), width = 10, height = 8, units = "in", dpi=300, type = "cairo")
+ggsave(filename = paste0(main, "MDV_map_b_new.png"), width = 10, height = 8, units = "in", dpi=300, type = "cairo")
 
 # # to save this map:
 # ggsave(filename = paste0(main, "MDV_map.png"), width = 11, height=8.5, units = "in", dpi = 300)
-# 
 
 
 
 
-library(USAboundaries) # get outline of CA
 
 
-CA <- us_boundaries(type="state", resolution = "high", states="California")
+##################### make test sites map #############################
+testsites <- readOGR("D:/new_downscaling/modelling/only_test.shp")
+testsites <- spTransform(testsites, crs("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
 
-# plot(CA$geometry) # quick test plot
+tests.p = fortify(testsites, region="id")
+tests.df <- join(tests.p, testsites@data, by="id")
 
-# make a grid box for where our localities are, use n=1 to make single polygon
-sites_box <- st_make_grid(st_bbox(snw_crop), n = 1) # mapview(sites_box) to verify
+trainsites <- readOGR("D:/new_downscaling/modelling/trainsites_poly.shp")
+trainsites <- spTransform(trainsites, crs("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
 
-# set margins:
-par(mai=c(.1,0.1,0.1,0.1))
-
-# now make map
-(ca_map <- ggplot() + 
-    geom_sf(data = CA, fill=NA) + 
-    geom_sf(data=sites_box, col="black", fill="gray40") +
-    coord_sf(datum = NA) + # to rm gridlines and axes
-    theme_nothing()+ # from cowplot
-    labs(x = NULL, y = NULL) +
-    theme(
-      #panel.grid = element_blank(), # remove gridlines,
-      #plot.margin = unit(c(0.1, 0.1, 0, 0), "cm"),  #top, right, bottom, left
-      panel.background = element_rect(color = "black", size=1, linetype = 1))+
-    ylab("") + xlab(""))
+trains.p = fortify(trainsites, region="id")
+trains.df <- join(trains.p, testsites@data, by="id") 
 
 
+trains.df$tt <- "train"
+tests.df$tt <- "test"
+
+tt <- rbind(trains.df, tests.df)
+tt$tt <- as.factor(tt$tt)
+
+testsitesmap <- ggmap(map, legend="right")+
+  labs(x = "longitude", y="latitude")+
+  theme(plot.title = element_text(colour = "gray15"),
+        panel.background = element_rect(fill = "#F5F5F5"),
+        axis.text.x = element_text(face="bold", color="gray15", 
+                                   size=8),
+        axis.text.y = element_text(face="bold", color="gray15", 
+                                   size=8),
+        axis.title.x = element_text(face="bold", color="gray15", 
+                                    size=8),
+        axis.title.y = element_text(face="bold", color="gray15", 
+                                    size=8))+
+  scale_x_continuous(breaks=c(160,  164,  168),limits=c(157,170.5))+
+  scale_y_continuous(breaks=c(-79, -78, -77, -76),limits=c(-79,-76))+
+  geom_polygon(data = tt, na.rm=T,
+               aes(x=long, y=lat, group = group, fill=tt),colour = "gray29", 
+               alpha = 0.3,fill = "gray29", )+
+  # geom_polygon(data = tests.df,na.rm=T,
+  #              aes(x=long, y=lat, group = group, fill=id),
+  #              fill = "gray87", colour = "gray29", 
+  #              alpha = 0.8)+
+  annotation_north_arrow(location = "bl", which_north = "true", 
+                         pad_x = unit(6.5, "in"), pad_y = unit(0.5, "in"),
+                         style = north_arrow_fancy_orienteering)
+
+testsitesmap

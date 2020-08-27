@@ -1,6 +1,6 @@
 
-y=1
-m=5
+y=5
+m=1
 
               
 
@@ -183,7 +183,7 @@ make_L8_MOD_stack <- function(y, m, timethres){
 
 ########################### RUN #####################################
 
-for(y in seq(year)){
+for(y in c(5:7)){
   for(m in seq(month)){
     print(c(y,m))
     rasterOptions(tmpdir="D:/new_downscaling/run/")
