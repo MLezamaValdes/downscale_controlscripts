@@ -1,7 +1,9 @@
 
+
 y=1
 m=1
 
+time_range <- readRDS("/scratch/tmp/llezamav/time_range.rds")
 ym <- substring(time_range[[y]][[m]][[1]][[1]], 1, 7)
 `%notin%` <- Negate(`%in%`)
 
@@ -28,13 +30,14 @@ library(caret)
 # train <- subset(ds, ds$spatialblocks %notin% testsites)
 
 expath <- "D:/new_downscaling/extraction/"
-
-train <- readRDS(paste0(expath, "train_DI__2019-01.rds"))
+modelpath <- "D:/new_downscaling/modelling/"
+  
 
 ######################################### RUN MODEL #################################################
+train <- readRDS(paste0(expath, "train_DI__2019-01.rds"))
 
 ### just for testing ###############
-n <- 7000
+n <- nrow(train)
 # only if subset
 trainsubset <- train[sample(nrow(train),n), ]
 saveRDS(trainsubset, paste0(outpath, "train_", ym, "_subset_", n, ".rds"))
@@ -54,27 +57,119 @@ foldids <- CreateSpacetimeFolds(train, spacevar="spatialblocks", timevar = "time
   length(foldids$index[[i]])
 }))
 
-metric <- "RMSE" # Selection of variables made by either Rsquared or RMSE
-methods <- c("lm","gbm","pls","nnet","rf")
-withinSE <- FALSE # favour models with less variables or not?
-response <- train$Landsat
-
-tctrl <- trainControl(method="cv", savePredictions = TRUE,
-                      returnResamp = "all",
-                      verbose=TRUE,
-                      index=foldids$index,
-                      indexOut=foldids$indexOut)
 
 #start parallel processing on all cores except 3:
 library(parallel)
 library(doParallel)
 library(ggplot2)
 
-cores <- detectCores()
-cl <- makeCluster(cores-3)
-registerDoParallel(cl)
 
 set.seed(100)
+
+metric <- "RMSE" # Selection of variables made by either Rsquared or RMSE
+methods <- c("rf",
+             "lm",
+             "gbm", # Stochastic Gradient Boosting
+             "pls", # Partial Least Squares
+             "nnet",
+             "cubist",
+             "svmRadial")
+withinSE <- FALSE # favour models with less variables or not?
+response <- train$Landsat
+predictors <- train[,c("Modis","ia", "hs", "dem", 
+                             "slope", "aspect", "TWI", 
+                             "soilraster", "landcoverres", 
+                             "swir6", "swir7")]
+
+for (i in 1:length(methods)){
+  
+  tctrl <- trainControl(method="cv", 
+                        savePredictions = TRUE,
+                        returnResamp = "all",
+                        verboseIter=TRUE,
+                        index=foldids$index,
+                        indexOut=foldids$indexOut)
+  
+  
+  method <- methods[i]
+  print(method)
+  tuneLength <- 2
+  tuneGrid <- NULL
+  if (method=="gbm"){
+    tuneLength <- 10
+  }
+  if (method=="rf"){
+    #   tuneLength <- 1
+    tuneGrid <- expand.grid(mtry = 2) # Create A Data Frame From All Combinations Of Factor Variables, 
+    # mtry: Number of variables randomly sampled as candidates at each split
+  }
+  
+  if (method=="pls"){
+    predictors <- data.frame(scale(predictors))
+    tuneLength <- 10
+  }
+  if (method=="nnet"){
+    #   tuneLength <- 1
+    predictors <- data.frame(scale(predictors))
+    tuneGrid <- expand.grid(size = seq(2,ncol(predictors),2),
+                            decay = seq(0,0.1,0.025))
+  }
+  cores <- detectCores()
+  cl <- makeCluster(cores-3)
+  registerDoParallel(cl)
+  ffs_model <- ffs(predictors,
+                   response,
+                   metric=metric,
+                   withinSE = withinSE,
+                   method = method,
+                   importance =TRUE,
+                   tuneLength = tuneLength,
+                   tuneGrid = tuneGrid,
+                   trControl = tctrl,
+                   trace = FALSE, #relevant for nnet
+                   linout = TRUE) #relevant for nnet
+
+  save(ffs_model,file=paste0(modelpath,"ffs_model_",method,"_", n, ".RData"))
+
+  stopCluster(cl)
+  
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ffsModel <- ffs(train[,c(1:3, 9:14, 16:17)],
                 train$Landsat,
                 method = "rf",

@@ -39,9 +39,8 @@ ccpath <- "/home/l/llezamav/cc/"
 
 #homecc <- "D:/new_downscaling/data_download_preprocessing/cc/"
 
-#year <- c(2019:2013)
+year <- c(2019:2013)
 month <- c("01","02","03","04", "09", "10","11", "12")
-year <- c(2019:2017)
 # year <- c(2018:2013)
 # month <- c("04", "09", "10","11", "12")
 
@@ -153,12 +152,13 @@ jnk = clusterEvalQ(cl, {library(raster);library(parallel); library(rgdal); libra
 clusterExport(cl, list("ccpath", "slrad", "timediff_comp", "asrad", "iahsrespath", "lat", "lon", "sl", "as",
                        "make_hs_ia", "month", "year","template"))
 
-parLapply(cl, seq(length(year)), function(y){
+y=7
+#parLapply(cl, seq(length(year)), function(y){
   print(paste0("starting yearindex ", y))
   lapply(seq(month), function(m){
     print(paste0("year=",y,"month=",m))
     make_hs_ia(y,m)
   })
-})
+#})
 
 stopCluster(cl)

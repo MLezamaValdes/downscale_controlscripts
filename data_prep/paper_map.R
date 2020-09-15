@@ -1,15 +1,19 @@
 library(ggspatial)
 library(ggplot2)
-require("rgdal") # requires sp, will use proj.4 if installed
+require("rgdal")
 require("maptools")
 require("ggplot2")
 require("plyr")
 require("rosm")
-library(cowplot) ## MOOOOOOO!!
+library(cowplot) 
 require("ggmap")
 library("rmapshaper")
 
 # get aoi in shape for ggplot
+graph_abs <- readOGR("C:/Users/mleza/OneDrive/Documents/ausschnitt_graphical_abstract.shp")
+
+#mapviewGetOption("basemaps")
+mapview(graph_abs, map.types = c("Esri.WorldImagery"))
 
 aoi_levy <- readOGR(list.files("D:/new_downscaling/aoi/", pattern="actually.shp",
                    full.names=T))

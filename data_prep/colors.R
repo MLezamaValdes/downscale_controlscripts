@@ -11,6 +11,19 @@ cols <- c("hotpink4", "gray15",
 
 barplot(seq(1:length(cols)), col=cols)
 
+
+# colsmonths
+cm <- c()
+cols <- c("hotpink4","coral3",
+          "darkgoldenrod2", "olivedrab3",
+          "cadetblue4","lightsteelblue2", "lightcyan4")
+levels(all$month)
+
+cols <- c("cadetblue4", "lightsteelblue2","hotpink4","coral3",
+          "darkgoldenrod2", "olivedrab3", "lightcyan4")
+barplot(seq(1:length(cols)), col=cols)
+
+
 # this paper
 cols2 <- c("hotpink4", "chartreuse3")
 barplot(seq(1:length(cols2)), col=cols2)

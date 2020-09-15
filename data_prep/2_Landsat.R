@@ -295,12 +295,10 @@ getprocessLANDSAT <- function(time_range){
       
       # get amount of land cloud cover for the selected tiles
       cc <- lapply(seq(selquery), function(i){ # für alle Tage
-        if(!selquery[[i]][[j]][1]=="no good scene here"){
         lapply(seq(length(selquery[[i]])), function(j){
           if(!selquery[[i]][[j]][1]=="no good scene here"){
           selquery[[i]][[j]][[1]]$cloudcov_land}
         })
-        }
       })
       
       # construct the new query out of tiles, which have only 20% cc
@@ -465,7 +463,6 @@ getprocessLANDSAT <- function(time_range){
             l8sum1 <- strsplit(strsplit(l8sum, ",")[[1]][[1]], ":")[[1]][[2]]
             timediff_df$L8name[i] <- substring(l8sum1, 1, nchar(l8sum1)-15)
           }
-
       }
       
       timediff_df$L8name <- substring(timediff_df$L8name, 2, nchar(timediff_df$L8name)) # eliminate leading space

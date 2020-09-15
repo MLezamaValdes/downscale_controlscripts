@@ -11,13 +11,18 @@ aoipath <- "/scratch/tmp/llezamav/aoi/"
 time_range <- readRDS("/scratch/tmp/llezamav/time_range.rds")
 ym <- substring(time_range[[y]][[m]][[1]][[1]], 1, 7)
 
-# get aux
-aux <- stack(paste0(datpath, "aux_stack_xy_swir67.tif"))
-#names(aux) <- c("dem", "slope", "aspect", "TWI", "soilraster", "landcoverres", "spatialblocks", "swir", "x", "y")
-# swir <- stack("D:/new_downscaling/SWIR/downloaded_scenes/2019-01/swir_tc_672019-01.tif")
-# auxnew <- stack(aux[[1:7]], swir, aux[[9:10]])
-# writeRaster(auxnew, paste0(datpath, "aux_stack_xy_swir67.tif"))
-names(aux) <- c("dem", "slope", "aspect", "TWI", "soilraster", "landcoverres", "spatialblocks", "swir6", "swir7", "x", "y")
+# get aux general
+# datpath <- auxpath
+aux <- stack(paste0(datpath, "aux_stack_xy_final.tif"))
+names(aux) <-  c("dem", "slope", "aspect", "TWI", "soilraster", "landcoverres", "spatialblocks","x", "y")
+
+# add SWIR to aux
+swiroutpath <- "D:/new_downscaling/SWIR/composites/" # TO DO!!!!!!!!!!!!!!!!!!!
+swirfile <- paste0(swiroutpath, "swir_tc_67", ym, ".tif")
+swir <- stack(swirfile)
+aux <- stack(aux, swir)
+names(aux) <- c("dem", "slope", "aspect", "TWI", "soilraster", "landcoverres", "spatialblocks","x", "y", "swir6", "swir7")
+#summary(aux)
 
 # get aoi
 aoi <- readOGR(paste0(aoipath, "Levy_MDV.shp"))
@@ -31,14 +36,14 @@ aoiaux <- spTransform(aoianta, crs(aux))
 
 # extract aux
 auxdf <- as.data.frame(extract(aux, aoiaux))
-write.csv2(auxdf, paste0(datpath, "aux_df_swir_x_y.csv"), row.names=F)
+write.csv2(auxdf, paste0(datpath, "aux_df_swir_x_y_swir_", ym, ".csv"), row.names=F)
 
 
 ################## get dyn stack for ym #############################################
 #tempdyn <- raster::stack(paste0("D:/new_downscaling/clean_data/", "new_L_MOD_hs_ia", ym, ".tif"))
 #tdnam <- read.csv("D:/new_downscaling/clean_data/names_sat_ia_hs_2019-01.csv")
 
-tempdyn <- raster::stack(paste0(datpath, "new_L_MOD_hs_ia", ym, ".tif"))
+tempdyn <- raster::stack(paste0(datpath, "L_MOD_hs_ia", ym, ".tif"))
 tdnam <- read.csv(paste0(datpath, "names_sat_ia_hs_2019-01.csv"))
 names(tempdyn) <- tdnam$x
 
@@ -54,11 +59,11 @@ if(all(test==TRUE, na.rm = T) | is.na(all(test))==TRUE){ # if fits, kick out col
 }
 
 # ############ make checkfiles for aux and tempdyn extraction ##############
-write.csv2(tmpdyndf[1:500,], paste0(datpath, "tempdyndf_check.csv"), row.names=F)
-write.csv2(auxdf[1:500,], paste0(datpath, "auxdf_check.csv"), row.names=F)
+write.csv2(tmpdyndf[1:500,], paste0(datpath, "tempdyndf_check_", ym, ".csv"), row.names=F)
+write.csv2(auxdf[1:500,], paste0(datpath, "auxdf_check_", ym, ".csv"), row.names=F)
 
 ################### sort into useful file #########################
-auxdf <- read.csv2(paste0(datpath, "aux_df_swir_x_y.csv"))
+auxdf <- read.csv2(paste0(datpath, "aux_df_swir_x_y_swir_", ym, ".csv"))
 
 new_package <- seq(1,(ncol(tmpdyndf)-2), by=4)
 end <- new_package+3
@@ -72,7 +77,7 @@ dfslices <- lapply(seq(new_package), function(i){
   x$id <- seq(1:nrow(x)) # as pixel ID for tempdyn
   x <- cbind(x, auxdf) # add tempdyn for one date + aux together
   names(x) <- c("Modis", "ia", "hs", "Landsat", "time", "xd", "yd", "id","dem", "slope", "aspect",
-                "TWI", "soilraster", "landcoverres", "spatialblocks", "swir6", "swir7", "xa", "ya")
+                "TWI", "soilraster", "landcoverres", "spatialblocks","xa", "ya", "swir6", "swir7")
   x
 })
 

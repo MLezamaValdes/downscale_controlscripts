@@ -1,41 +1,26 @@
 
-y=1
-m=1
+# needed: 
+# satellite stack (L_MOD) for y and m and names (satnames) UPLOADING
+# timediff_comp_comp.csv, i.e. tdcc
+# swirfiles (swir_tc_67)
 
-iahsrespath <- paste0(cddir, "ia_hs_res/")
 
-
+iahsrespath <- "/scratch/tmp/llezamav/ia_hs_res"
 auxpath <-  "D:/new_downscaling/auxiliary/"
 
-# # make soil raster
-# soilMDV <- readOGR(paste0(auxpath, "update8.shp"))
-# crs(soilMDV) <- crs(template)
-# soilDV <- crop(soilMDV, extent(template))
-# plot(soilDV)
-# 
-# soilraster <- rasterize(soilDV, template, field="SOIL")
-# writeRaster(soilraster, paste0(auxpath, "soil_MDV_raster.tif"))
-
-# soilraster <- raster(paste0(auxpath, "soil_MDV_raster.tif"))
-# TWI <- raster(paste0(dempath, "twi_saga_07_07.tif"))
-# aspect <- raster(paste0(dempath, "30m_aspect", areaname,".tif"))
-# slope <- raster(paste0(dempath, "30m_slope", areaname,".tif"))
-# dem <- raster(paste0(dempath, "DEM_30m_", areaname,"_clean_aoi_filled_mask_new.tif"))
-# spatialblocks <- raster(paste0(dempath, "blockmask.tif"))
-# landcover <- raster(paste0(main, "Rock_outcrop_ras_", areaname, ".tif"))
-# landcover[landcover==0.94] <- 1 #(rock)
-# landcover[landcover==0.97] <- 0 #(snow and ice) 
-# 
-# landcoverres <- resample(landcover, dem)
-# 
-# aux <- stack(dem, slope, aspect, TWI, soilraster, landcoverres, spatialblocks)
-# names(aux) <- c("dem", "slope", "aspect", "TWI", "soilraster", "landcoverres", "spatialblocks")
-# write.csv(names(aux), "D:/new_downscaling/auxiliary/names_aux.csv")
-# writeRaster(aux, "D:/new_downscaling/auxiliary/aux_stack.tif")
+y=1
+m=2
+time_range <- readRDS("/scratch/tmp/llezamav/time_range.rds")
+ym <- substring(time_range[[y]][[m]][[1]][[1]], 1, 7)
 
 
-aux <- stack("D:/new_downscaling/auxiliary/aux_stack.tif")
-swir <- paste0(swiroutpath, "swir_tc_", ym, ".tif")
+cddir <- "/scratch/tmp/llezamav/satstacks"
+
+aux <- stack("/scratch/tmp/llezamav/aux_stack_xy_swir67.tif")
+names(aux) <- c("dem", "slope", "aspect", "TWI", "soilraster", "landcoverres", "spatialblocks", "swir6", "swir7", "x", "y")
+
+swiroutpath <- "D:/new_downscaling/SWIR/composites/"
+swirfile <- paste0(swiroutpath, "swir_tc_67", ym, ".tif")
 
 ########## put allstacks + hs + ia together ############
 match_sat_ia_hs <- function(y,m){
@@ -67,10 +52,8 @@ match_sat_ia_hs <- function(y,m){
     return(x)
   })
   
-  ia_hs_nam <- sapply(seq(ia_hs), function(i){
-    x <- substring(names(ia_hs[[i]])[1],4)
-    gsub(".", "-",x,fixed=T)
-  })
+  iahsf <- sans_ext(basename(iahs_files_month))
+  ia_hs_nam <- substring(iahsf,11)
   
   iahsm <- stack(ia_hs)
 
@@ -112,6 +95,9 @@ match_sat_ia_hs <- function(y,m){
   })
 
   allstacks <- stack(satiahs_stack[tf])
+  
+  # get swir file
+  swir <- raster(swirfile)
   tempdyn <- stack(allstacks, swir)
   
   write.csv2(names(tempdyn), paste0(cddir, "names_sat_ia_hs_swir_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), ".csv"),
@@ -128,3 +114,14 @@ match_sat_ia_hs <- function(y,m){
               overwrite=T)
   
 }
+
+
+# lapply(seq(year), function(y){
+#   lapply(seq(month), function(m){
+for(y in c(1)){
+  for(m in c(3:length(month))){
+    match_sat_ia_hs(y,m)
+  }
+}
+#   })
+# })
