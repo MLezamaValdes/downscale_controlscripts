@@ -316,7 +316,7 @@ sas <- rev(allscenessubst[order(as.numeric(substring(allscenessubst, 1,26)))])
 table(sas)
 
 #swirresult <- lapply(seq(year), function(y){
-lapply(c(4:7), function(y){
+lapply(c(7), function(y){
   #lapply(seq(month), function(m){
   lapply(seq(month), function(m){
     res <- NA

@@ -3,17 +3,25 @@
 # satellite stack (L_MOD) for y and m and names (satnames) UPLOADING
 # timediff_comp_comp.csv, i.e. tdcc
 
+loc="Laptop"
+if(loc="Palma"){
+  time_range <- readRDS("/scratch/tmp/llezamav/time_range.rds")
+  cddir <- "/scratch/tmp/llezamav/satstacks/"
+  iahsrespath <- "/scratch/tmp/llezamav/ia_hs_res/"
+  
+} else if(loc="Laptop"){
+  iahsrespath <- paste0(cddir, "ia_hs_res/")
+  auxpath <-  "D:/new_downscaling/auxiliary/"
+  
+}
 
-iahsrespath <- "/scratch/tmp/llezamav/ia_hs_res"
-auxpath <-  "D:/new_downscaling/auxiliary/"
+
 
 y=1
 m=2
-time_range <- readRDS("/scratch/tmp/llezamav/time_range.rds")
 ym <- substring(time_range[[y]][[m]][[1]][[1]], 1, 7)
 
 
-cddir <- "/scratch/tmp/llezamav/satstacks"
 
 ########## put allstacks + hs + ia together ############
 match_sat_ia_hs <- function(y,m){
