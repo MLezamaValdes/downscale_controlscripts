@@ -15,6 +15,7 @@ m <- month(dat)
 all$minutesdiff <- all$timediff*60
 all$month <- as.factor(m)
 all$month <- factor(all$month, levels = c("9", "10", "11", "12", "1", "2", "3"))
+all$monthyear <- paste0(all$month, "_", year(dat))
 
 all[grepl("2018",all$dat)&all$timediff<0.3,]
 
@@ -54,7 +55,7 @@ ggplot(data=all, aes(x=dat, y=minutesdiff, colour=month))+
         strip.background = element_blank(),
         strip.text = element_text(size=14))+
   labs(title="time difference (min) in Landsat / Modis scenes over time",
-       subtitle = paste0("n scenes = ", nrow(all)))+
+       subtitle = paste0("n scenes = ", nrow(all), "; n unique months = ", length(unique(all$monthyear))))+
   xlab("date")+ylab("min")
 
 

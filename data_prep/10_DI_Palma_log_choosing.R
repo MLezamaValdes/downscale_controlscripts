@@ -1,7 +1,7 @@
 # DI on Palma
 
 y=1
-m=1
+m=2
 
 
 # install.packages("/home/l/llezamav/R/CAST_0.4.3.tar.gz", repos = NULL,
@@ -30,11 +30,12 @@ ym <- substring(time_range[[y]][[m]][[1]][[1]], 1, 7)
 pott3 <- read.csv2(paste0(datpath, "pott3_new_",ym, ".csv"))
 
 # convert time to numeric
-pott3$time_num <- as.numeric(as.factor(pott3$time))
+pott3$time_num <- as.numeric(as.factor(pott3$modtime))
+
 # get only relevant variables for DI 
-divars <- names(pott3)[c(1:4, 6:7, 9:14, 16:17, 20)]
-print(divars)
-potDI <- pott3[divars]
+potDI <- pott3[c("Landsat", "Modis", "ia", "hs",
+                  "dem", "slope", "aspect", "TWI", "soilraster", "x", "y", "swir6", "swir7",
+                  "modtime", "time_num")]
 
 ##### 1 get 150.000 random samples per month ###########################################
 

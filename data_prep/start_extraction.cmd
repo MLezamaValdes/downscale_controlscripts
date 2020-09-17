@@ -7,7 +7,7 @@
 #SBATCH --ntasks-per-node 4
 
 # How much memory is needed (per node)
-#SBATCH --mem=92GB
+#SBATCH --mem=120GB
 
 # set a partition
 #SBATCH --partition normal

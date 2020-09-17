@@ -49,7 +49,6 @@ m=2
 # extract_train_test <- function(y,m){
   ym <- substring(time_range[[y]][[m]][[1]][[1]], 1, 7)
   
-  
   # add SWIR to aux
   swirfile <- paste0(swiroutpath, "swir_tc_67", ym, ".tif")
   swir <- stack(swirfile)
@@ -87,15 +86,33 @@ m=2
   end <- new_package+3
   
   dfslices <- lapply(seq(new_package), function(i){
-    x <- tmpdyndf[,new_package[i]:end[i]] # get all columns for one date
-    xnam <- substring(names(x)[3], 4, 18) # get time info from hs/ia
-    x$time <- xnam # add time as row
-    x$xd <- tmpdyndf$x
+    # L, MOD, ia, hs
+    x <- tmpdyndf[,new_package[i]:end[i]] 
+    
+    # aux
+    x <- cbind(x, auxdf) 
+    
+    # coordinates and ID 
+    x$xd <- tmpdyndf$x 
     x$yd <- tmpdyndf$y
-    x$id <- seq(1:nrow(x)) # as pixel ID for tempdyn
-    x <- cbind(x, auxdf) # add tempdyn for one date + aux together
-    names(x) <- c("Modis", "ia", "hs", "Landsat", "time", "xd", "yd", "id","dem", "slope", "aspect",
-                  "TWI", "soilraster", "landcoverres", "spatialblocks","xa", "ya", "swir6", "swir7")
+    x$id <- seq(1:nrow(x))
+
+    # time info
+    # month, year (time) and complete date (date)
+    myd <- substring(strsplit(names(x)[2], ".", fixed = TRUE)[[1]][2], 2, 9)
+    mydhm <- paste0(myd, "_", strsplit(names(x)[2], ".", fixed = TRUE)[[1]][3])
+    
+    mydhm_str <- as.character(as.POSIXlt(mydhm, format="%Y%j_%H%M"))
+    x$modtime <- gsub(" ", "_", mydhm_str)
+    x$ymo <- substring(mydhm_str, 1, 7)
+    x$hmi <- substring(mydhm_str, 12, 16)
+    x$Lscene <- names(x)[1]
+    x$Mscene <- names(x)[2]
+    
+    names(x) <- c( "Landsat", "Modis", "ia", "hs",
+                   "dem", "slope", "aspect", "TWI", "soilraster", "landcoverres", 
+                   "spatialblocks", "x", "y", "swir6", "swir7",
+                   "id", "modtime", "ymo", "hmi", "Lscene", "Mscene")
     x
   })
   
