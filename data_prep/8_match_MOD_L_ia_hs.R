@@ -11,14 +11,15 @@ m=3
 
 ########## put allstacks + hs + ia together ############
 match_sat_ia_hs <- function(y,m){
+  rm(satstack)
   L8scenepath <- paste0(main, "L8/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")
 
   ym <- substring(time_range[[y]][[m]][[1]][[1]], 1, 7)
   
   # get satellite stack for y and m and rename correctly
-  try(satstack <- stack(paste0(cddir, "L_MOD_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), ".tif")))
+  try(satstack <- stack(paste0(cddir, "satstacks/L_MOD", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), ".tif")))
   if(exists("satstack")){
-    namdat <- read.csv2(paste0(cddir, "satnames_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), ".csv"))
+    namdat <- read.csv2(paste0(cddir, "satstacks/satnames_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), ".csv"))
     names(satstack) <- namdat$x
     
     # get matching table 
@@ -87,11 +88,11 @@ match_sat_ia_hs <- function(y,m){
     tempdyn <- stack(satiahs_stack[tf])
     
     
-    write.csv2(names(tempdyn), paste0(cddir, "names_sat_ia_hs_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), ".csv"),
+    write.csv2(names(tempdyn), paste0(cddir, "satstacks/names_sat_ia_hs_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), ".csv"),
                row.names = F)
     
     print("starting to write complete satellite stack")
-    writeRaster(tempdyn, paste0(cddir, "L_MOD_hs_ia_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), ".tif"),
+    writeRaster(tempdyn, paste0(cddir, "satstacks/L_MOD_hs_ia_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), ".tif"),
                 overwrite=T)
     
   } else {
@@ -103,8 +104,9 @@ match_sat_ia_hs <- function(y,m){
 
 # lapply(seq(year), function(y){
 #   lapply(seq(month), function(m){
-for(y in c(3)){
+for(y in c(2:length(year))){
   for(m in seq(month)){
+  #for(m in c(4:length(month))){
     print(c(y,m))
     match_sat_ia_hs(y,m)
   }
