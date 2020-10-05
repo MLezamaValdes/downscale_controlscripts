@@ -1,0 +1,136 @@
+# 12_final models
+
+
+loc="Palma"
+
+if(loc=="Palma"){
+  modelpath <- "/scratch/tmp/llezamav/modelling/"
+  regressionStatsRsenal <- source()
+  
+  library(raster)
+  library(rgdal)
+  scriptpath <- 
+  datpath <- "/scratch/tmp/llezamav/satstacks/"
+  aoipath <- "/scratch/tmp/llezamav/aoi/"
+  time_range <- readRDS("/scratch/tmp/llezamav/time_range.rds")
+  cddir <- "/scratch/tmp/llezamav/satstacks/"
+  iahsrespath <- "/scratch/tmp/llezamav/ia_hs_res/"
+  swiroutpath <- paste0(datpath, "swir/")
+  
+} else if(loc=="Laptop"){
+  modelpath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/model_ffs_Jan19/"
+  regressionStatsRsenal <- source("C:/Users/mleza/OneDrive/Documents/PhD/ML_dist/ML_dist/regressionstats_Rsenal.R")
+  library(ggplot2)
+  library(gridExtra)
+  
+  
+  
+  library(raster)
+  library(rgdal)
+  iahsrespath <- paste0(cddir, "ia_hs_res/")
+  aoipath <- "D:/new_downscaling/aoi/"
+  auxpath <-  "D:/new_downscaling/auxiliary/"
+  datpath <- "D:/new_downscaling/clean_data/satstacks/"
+  swiroutpath <- "D:/new_downscaling/SWIR/composites/" # TO DO!!!!!!!!!!!!!!!!!!!
+} else {
+  print("something's off")
+}
+
+
+
+# year <- c(2019:2013)
+# month <- c("01","02","03","04", "09", "10","11", "12")
+# 
+# `%notin%` <- Negate(`%in%`)
+
+# get aux general
+if(loc=="Laptop"){
+  datpath <- auxpath
+}
+
+# amount of training samples
+n <- 15000
+methods <- c("rf",
+           "gbm",
+           "nnet",
+           "svmLinear")
+
+par(mfrow=c(2,2), mar=c(5,3,2,2)+2)
+
+
+  
+eval <- lapply(seq(methods), function(i){
+  method <- methods[i]
+  load(paste0(modelpath, "ffs_model_",method,"_", n, ".RData"))
+  
+  if(method=="rf"){
+    predictions_rf <- ffs_model$pred[ffs_model$pred$mtry==ffs_model$bestTune$mtry,c("pred","obs")]
+    s <- regressionStats(predictions_rf$pred,predictions_rf$obs)
+    
+    p <- ggplot(predictions_rf, aes(obs,pred)) + 
+      stat_binhex(bins=100)+ggtitle(paste(method, "RMSE= ", round(round(s$RMSE, digits=2), digits=2), "R²= ", round(s$Rsq, digits=2)))+
+      xlim(min(predictions_rf),max(predictions_rf))+ylim(min(predictions_rf),max(predictions_rf))+
+      xlab("Measured LST 30m")+
+      ylab("Predicted LST 30m")+
+      geom_abline(slope=1, intercept=0,lty=2)+
+      scale_fill_gradientn(name = "data points", colors=viridis(10))
+    
+  }
+  
+  if(method=="gbm"){
+    predictions_gbm <- ffs_model$pred[ffs_model$pred$shrinkage==ffs_model$bestTune$shrinkage&
+                                        ffs_model$pred$interaction.depth==ffs_model$bestTune$interaction.depth&
+                                        ffs_model$pred$n.trees==ffs_model$bestTune$n.trees&
+                                        ffs_model$pred$n.minobsinnode==ffs_model$bestTune$n.minobsinnode,
+                                      c("pred","obs")]
+    s <- regressionStats(predictions_gbm$pred,predictions_gbm$obs)
+    
+    p <- ggplot(predictions_gbm, aes(obs,pred)) + 
+      stat_binhex(bins=100)+ggtitle(paste(method, "RMSE= ", round(s$RMSE, digits=2), "R²= ", round(s$Rsq, digits=2)))+
+      xlim(min(predictions_gbm),max(predictions_gbm))+ylim(min(predictions_gbm),max(predictions_gbm))+
+      xlab("Measured LST 30m")+
+      ylab("Predicted LST 30m")+
+      geom_abline(slope=1, intercept=0,lty=2)+
+      scale_fill_gradientn(name = "data points", colors=viridis(10))
+  }
+  
+  if(method=="nnet"){
+    predictions_nnet <- ffs_model$pred[ffs_model$pred$size==ffs_model$bestTune$size& 
+                                         ffs_model$pred$decay==ffs_model$bestTune$decay,
+                                       c("pred", "obs")]
+    s <- regressionStats(predictions_nnet$pred,predictions_nnet$obs)
+    p <- ggplot(predictions_nnet, aes(obs,pred)) + 
+      stat_binhex(bins=100)+ggtitle(paste(method, "RMSE= ", round(s$RMSE, digits=2), "R²= ", round(s$Rsq, digits=2)))+
+      xlim(min(predictions_nnet),max(predictions_nnet))+ylim(min(predictions_nnet),max(predictions_nnet))+
+      xlab("Measured LST 30m")+
+      ylab("Predicted LST 30m")+
+      geom_abline(slope=1, intercept=0,lty=2)+
+      scale_fill_gradientn(name = "data points", colors=viridis(10))
+    
+  }
+  
+  if(method=="svmLinear"){
+    predictions_svm <- ffs_model$pred[ffs_model$pred$C==ffs_model$bestTune$C,
+                                      c("pred", "obs")]
+    s <- regressionStats(predictions_svm$pred,predictions_svm$obs)
+    p <- ggplot(predictions_svm, aes(obs,pred)) + 
+      stat_binhex(bins=100)+ggtitle(paste(method, "RMSE= ", round(s$RMSE, digits=2), "R²= ", round(s$Rsq, digits=2)))+
+      xlim(min(predictions_svm),max(predictions_svm))+ylim(min(predictions_svm),max(predictions_svm))+
+      xlab("Measured LST 30m")+
+      ylab("Predicted LST 30m")+
+      geom_abline(slope=1, intercept=0,lty=2)+
+      scale_fill_gradientn(name = "data points", colors=viridis(10))
+    
+  }
+  
+  return(list(s,p))
+  
+})
+
+
+plots <- lapply(eval, `[[`, 2)
+
+#stats <- lapply(eval, `[[`, 1)
+
+grid.arrange(plots[[1]], plots[[2]], plots[[3]], plots[[4]], nrow = 2)
+

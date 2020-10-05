@@ -2,21 +2,21 @@
 library(raster)
 ############################ make a file containing split info ############################################
 
-datpath <- "D:/new_downscaling/clean_data/satstacks/"
-
-fs_tab <- data.frame(list.files(datpath, pattern="L_MOD_hs_ia_", full.names = T))
-fs_tab$filesize <- file.info(list.files(datpath, pattern="L_MOD_hs_ia_", full.names = T))$size
-
-names(fs_tab) <- c("path", "filesize")
-fs_tab <- fs_tab[order(fs_tab$filesize),]
-
-fs_tab$ym <- substring( basename(fs_tab$path), 13, 19)
-
-fs_tab$sep <- ifelse(fs_tab$filesize > 4000000000, 1, 0)
-fs_tab$year <- substring( basename(fs_tab$path), 13, 16)
-fs_tab$month <- substring( basename(fs_tab$path), 18, 19)
-
-#write.csv2(fs_tab, "D:/new_downscaling/clean_data/satstacks/fs_tab.csv")
+# datpath <- "D:/new_downscaling/clean_data/satstacks/"
+# 
+# fs_tab <- data.frame(list.files(datpath, pattern="L_MOD_hs_ia_", full.names = T))
+# fs_tab$filesize <- file.info(list.files(datpath, pattern="L_MOD_hs_ia_", full.names = T))$size
+# 
+# names(fs_tab) <- c("path", "filesize")
+# fs_tab <- fs_tab[order(fs_tab$filesize),]
+# 
+# fs_tab$ym <- substring( basename(fs_tab$path), 13, 19)
+# 
+# fs_tab$sep <- ifelse(fs_tab$filesize > 4000000000, 1, 0)
+# fs_tab$year <- substring( basename(fs_tab$path), 13, 16)
+# fs_tab$month <- substring( basename(fs_tab$path), 18, 19)
+# 
+# write.csv2(fs_tab, "D:/new_downscaling/clean_data/satstacks/fs_tab.csv")
 
 fs_tab <- read.csv2("D:/new_downscaling/clean_data/satstacks/fs_tab.csv")
 

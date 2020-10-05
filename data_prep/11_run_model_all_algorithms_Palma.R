@@ -55,7 +55,7 @@ if(testing){
 kval <- min(length(unique(train$time_num)), length(unique(train$spatialblocks)))
 
 # split training cuarter into various blocks for cv during training
-foldids <- CreateSpacetimeFolds(train, spacevar="spatialblocks", timevar = "time_num",
+foldids <- CreateSpacetimeFolds(train, spacevar="spatialblocks", timevar = "time_num", # leave month out
                                 k=kval,seed=100)
 
 (trainlength <- sapply(seq(foldids$indexOut), function(i){
@@ -65,7 +65,6 @@ foldids <- CreateSpacetimeFolds(train, spacevar="spatialblocks", timevar = "time
 set.seed(100)
 
 metric <- "RMSE" # Selection of variables made by either Rsquared or RMSE
-# gbm didn't work
 methods <- c("rf",
              "gbm",
              "nnet",

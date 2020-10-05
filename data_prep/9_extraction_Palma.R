@@ -163,7 +163,7 @@ extract_train_test <- function(y,m){
     
     print(paste0("length of all samples (tdfcc) = ", nrow(tddfcc)))
     
-    if(length(tddfcc)>0){
+    if(nrow(tddfcc)>0){
       ################## take out TEST for this month ##########################
       
       # take only samples that are in test blocks
