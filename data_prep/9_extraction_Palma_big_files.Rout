@@ -1,0 +1,425 @@
+
+R version 3.6.0 (2019-04-26) -- "Planting of a Tree"
+Copyright (C) 2019 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> 
+> 
+> 
+> loc="Palma"
+> 
+> if(loc=="Palma"){
++   library(raster)
++   library(rgdal)
++   datpath <- "/scratch/tmp/llezamav/satstacks/"
++   aoipath <- "/scratch/tmp/llezamav/aoi/"
++   time_range <- readRDS("/scratch/tmp/llezamav/time_range.rds")
++   cddir <- "/scratch/tmp/llezamav/satstacks/"
++   iahsrespath <- "/scratch/tmp/llezamav/ia_hs_res/"
++   swiroutpath <- paste0(datpath, "swir/")
++   
++ } else if(loc=="Laptop"){
++   library(raster)
++   library(rgdal)
++   iahsrespath <- paste0(cddir, "ia_hs_res/")
++   aoipath <- "D:/new_downscaling/aoi/"
++   auxpath <-  "D:/new_downscaling/auxiliary/"
++   datpath <- "D:/new_downscaling/clean_data/satstacks/"
++   swiroutpath <- "D:/new_downscaling/SWIR/composites/" # TO DO!!!!!!!!!!!!!!!!!!!
++ } else {
++   print("something's off")
++ }
+Loading required package: sp
+rgdal: version: 1.4-4, (SVN revision 833)
+ Geospatial Data Abstraction Library extensions to R successfully loaded
+ Loaded GDAL runtime: GDAL 3.0.0, released 2019/05/05
+ Path to GDAL shared files: 
+ GDAL binary built with GEOS: TRUE 
+ Loaded PROJ.4 runtime: Rel. 6.0.0, March 1st, 2019, [PJ_VERSION: 600]
+ Path to PROJ.4 shared files: (autodetected)
+ Linking to sp version: 1.3-1 
+> 
+> year <- c(2019:2013)
+> month <- c("01","02","03","04", "09", "10","11", "12")
+> 
+> `%notin%` <- Negate(`%in%`)
+> 
+> # get aux general
+> if(loc=="Laptop"){
++   datpath <- auxpath
++ }
+> 
+> aux <- stack(paste0(datpath, "aux_stack_xy_final.tif"))
+> names(aux) <-  c("dem", "slope", "aspect", "TWI", "soilraster", "landcoverres", "spatialblocks","x", "y")
+> 
+> # get aoi
+> aoi <- readOGR(paste0(aoipath, "Levy_MDV.shp"))
+OGR data source with driver: ESRI Shapefile 
+Source: "/scratch/tmp/llezamav/aoi/Levy_MDV.shp", layer: "Levy_MDV"
+with 1 features
+It has 1 fields
+Integer64 fields read as strings:  id 
+> antaproj <- crs("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m
++ +no_defs +ellps=WGS84 +towgs84=0,0,0")
+> aoianta <- spTransform(aoi, antaproj)
+> aoiaux <- spTransform(aoianta, crs(aux))
+> 
+> 
+> 
+> ################## START LOOP PER MONTH ####################################
+> 
+> extract_train_test_big_files <- function(y,m){
++   
++   rasterOptions(tmpdir="/scratch/tmp/llezamav/tmp/")
++   
++   ym <- substring(time_range[[y]][[m]][[1]][[1]], 1, 7)
++   
++   print(paste0("~~~~~~STARTING WITH ", ym, " NOW~~~~~~~~"))
++   
++   # add SWIR to aux
++   swirfile <- paste0(swiroutpath, "swir_tc_67", ym, ".tif")
++   
++   if(loc=="Laptop"){
++     datpath <- "D:/new_downscaling/clean_data/satstacks/"
++   }
++   
++   pat <- paste0("L_MOD_hs_ia_", ym)
++ 
++   allf <- list.files(datpath, pattern = pat, full.names=T)
++   
++   all_splits <- allf[grepl(allf, pattern="_..tif$")] # files with _1, _2 ending
++   not_split <- allf[!grepl(allf, pattern="_..tif$")] # original unsplit file
++   
++   tdnam <- read.csv(paste0(datpath, "names_sat_ia_hs_", ym, ".csv")) # names for tempdyn
++   
++   # generate split ranges
++   rs <- stack(not_split)
++   maxpackages <- 15
++   new_package_split <- seq(1,(nlayers(rs)-2), by=(maxpackages*4))
++   end_split <- new_package_split+(maxpackages*4-1)
++   end_split[length(end_split)] <- nlayers(rs)
++   
++   new_package_split
++   end_split
++ 
++   
++   if(file.exists(paste0(swiroutpath, "swir_tc_67", ym, ".tif"))){ # if there is a SWIR file
++     swir <- stack(swirfile)
++     aux <- stack(aux, swir)
++     names(aux) <- c("dem", "slope", "aspect", "TWI", "soilraster", "landcoverres", "spatialblocks","x", "y", "swir6", "swir7")
++     
++     # extract aux
++     auxdf <- as.data.frame(extract(aux, aoiaux))
++     write.csv2(auxdf, paste0(datpath, "aux_df_swir_x_y_swir_", ym, ".csv"), row.names=F)
++     write.csv2(auxdf[1:500,], paste0(datpath, "extraction_result/auxdf_check_", ym, ".csv"), row.names=F)
++     
++     print("aux extraction done")
++     
++     ################## get dyn stack for ym #############################################
++     if(loc=="Laptop"){
++       datpath <- "D:/new_downscaling/clean_data/satstacks/"
++     }
++     
++     for(i in seq(all_splits)){ # for all splits
++       print(paste0("starting with tempdyn split ", i, " now"))
++       tempdyn <- stack(all_splits[i])
++       names(tempdyn) <- tdnam$x[new_package_split[i]:end_split[i]]
++       
++       
++       ################## extract dyn stack  #############################################
++       tempdyn <- stack(tempdyn, aux$x, aux$y)
++       
++       rasterOptions(tmpdir="/scratch/tmp/llezamav/tmp/")
++       
++       # for(i in seq(nlayers(tempdyn))){
++       #   print(i)
++       #   print(summary(tempdyn[[i]]))
++       # }
++       
++       tmpdyndf <- as.data.frame(extract(tempdyn, aoiaux))
++       write.csv2(tmpdyndf, paste0(datpath, "extraction_result/tempdyn_", ym,"_", i, "_df.csv"), row.names=F)
++       
++       print("tempdyn extraction done")
++       
++       # tmpdyndf <- read.csv2(paste0(datpath, "tempdyn_new_", ym,"_df.csv"), header = T)
++       test <- tmpdyndf[1:100,1]==seq(1:100)
++       if(all(test==TRUE, na.rm = T) | is.na(all(test))==TRUE){ # if fits, kick out column, if all is NA or doesn't fit, don't
++         tmpdyndf <- tmpdyndf[,2:ncol(tmpdyndf)] # eliminate rowname column if there's one
++       }
++       
++       # ############ make checkfiles for aux and tempdyn extraction ##############
++       write.csv2(tmpdyndf[1:500,], paste0(datpath, "extraction_result/tempdyndf_check_", ym, "_", i, ".csv"), row.names=F)
++       
++       ################### sort into useful file #########################
++       #auxdf <- read.csv2(paste0(datpath, "aux_df_swir_x_y_swir_", ym, ".csv"))
++       
++       new_package <- seq(1,(ncol(tmpdyndf)-2), by=4)
++       end <- new_package+3
++       
++       dfslices <- lapply(seq(new_package), function(i){
++         # L, MOD, ia, hs
++         x <- tmpdyndf[,new_package[i]:end[i]] 
++         
++         # aux
++         x <- cbind(x, auxdf) 
++         
++         # coordinates and ID 
++         x$xd <- tmpdyndf$x 
++         x$yd <- tmpdyndf$y
++         x$id <- seq(1:nrow(x))
++         
++         # time info
++         # month, year (time) and complete date (date)
++         myd <- substring(strsplit(names(x)[2], ".", fixed = TRUE)[[1]][2], 2, 9)
++         mydhm <- paste0(myd, "_", strsplit(names(x)[2], ".", fixed = TRUE)[[1]][3])
++         
++         mydhm_str <- as.character(as.POSIXlt(mydhm, format="%Y%j_%H%M"))
++         x$modtime <- gsub(" ", "_", mydhm_str)
++         x$ymo <- substring(mydhm_str, 1, 7)
++         x$hmi <- substring(mydhm_str, 12, 16)
++         x$Lscene <- names(x)[1]
++         x$Mscene <- names(x)[2]
++         
++         names(x) <- c( "Landsat", "Modis", "ia", "hs",
++                        "dem", "slope", "aspect", "TWI", "soilraster", "landcoverres", 
++                        "spatialblocks", "x", "y", "swir6", "swir7",
++                        "id", "modtime", "ymo", "hmi", "Lscene", "Mscene")
++         x
++       })
++       
++       tddf <- do.call(rbind,dfslices)
++       
++       print("tddf done")
++       
++       ################### get complete cases ##################################
++       
++       
++       tddf$Modis[tddf$Modis > 30] <- NA
++       tddf$Modis[tddf$Modis <= -100] <- NA
++       tddf$Landsat[tddf$Landsat <= -100] <- NA
++       tddf$Landsat[tddf$Landsat > 30] <- NA
++       
++       tddfcc <- tddf[complete.cases(tddf),]
++       
++       write.csv2(tddfcc[1:500,], paste0(datpath, "extraction_result/extr_comp_check_",ym, "_", i, ".csv"), row.names = F)
++       #tddf <- read.csv2(paste0(datpath, "extr_comp_",ym, ".csv"), header=T)
++       
++       write.csv2(tddfcc, paste0(datpath, "extraction_result/extr_complete_cases_",ym, "_", i, ".csv"), row.names=F)
++       
++       #tddfcc <- read.csv2(paste0(datpath, "extr_complete_cases_", ym, ".csv"))
++       
++       print(paste0("tddfcc", i, "done"))
++       
++       print(paste0("length of all samples (tdfcc ", i, ") = ", nrow(tddfcc)))
++       
++     }
++     
++     # list all tdfcc files for this month and put them together to form one dataframe (rbind)
++     pat_tddfcc <- paste0("extr_complete_cases_",ym, "_")
++     tdfiles <- list.files(datpath, pattern=pat_tddfcc, full.names = T)
++     
++     tddfcc_list <- lapply(seq(tdfiles), function(i){
++       read.csv2(tdfiles)
++     })
++     
++     tddfcc <- do.call(rbind,tddfcc_list)
++     
++     
++     if(length(tddfcc)>0){
++       ################## take out TEST for this month ##########################
++       
++       # take only samples that are in test blocks
++       testsites <- c(26, 63, 43, 12, 35, 40, 31, 79,  5,  2, 60, 11)
++       
++       test <- subset(tddfcc, tddfcc$spatialblocks %in% testsites)
++       
++       saveRDS(test, paste0(datpath, "extraction_result/test_ds_", ym, ".rds"))
++       write.csv2(test, paste0(datpath, "extraction_result/test_ds_", ym, ".csv"))
++       
++       # make a max 150000 samples big test subset
++       if(nrow(test)<150000){
++         ntest <- nrow(test)
++       } else {
++         ntest <- 150000
++       }
++       
++       ts <- sample(nrow(test), ntest)
++       testsubset <- test[ts,]
++       
++       saveRDS(testsubset, paste0(datpath, "extraction_result/testsubset_ds_", ym, ".rds"))
++       write.csv2(testsubset, paste0(datpath, "extraction_result/testsubset_ds_", ym, ".csv"))
++       
++       print("test done")
++       
++       
++       ######## make TRAIN dataset #############################################
++       pottrain <-  subset(tddfcc, tddfcc$spatialblocks %notin% testsites)
++       
++       # get 3 Mio random samples per month to choose from in random and DI picking
++       if(nrow(pottrain)<3000000){
++         ntrain <- nrow(pottrain)
++       } else {
++         ntrain <- 3000000
++       }
++       
++       splpot <- sample(rownames(pottrain), ntrain)
++       pott3 <- tddfcc[splpot,]
++       write.csv2(pott3, paste0(datpath, "extraction_result/pott3_",ym, ".csv"), row.names=F)
++       
++       print("train done")
++       
++       # clean up environment
++       rm(pott3)
++       rm(tempdyn)
++       rm(aux)
++       rm(dfslices)
++       rm(tddfcc)
++       rm(tddf)
++       rm(swirfile)
++       
++     } else {
++       com <- "not enough complete cases for this month"
++       write.csv2(com, paste0(datpath, "extraction_result/few_samples_",ym, ".csv"))
++     }
++   } else {
++     print("no SWIR file available for this month")
++   }
++   
++   
++ }
+> 
+> 
+> (fs_tab <- read.csv2(list.files(datpath, pattern="fs_tab", full.names = T)))
+    X                                                            path
+1  26 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2018-09.tif
+2  33 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2019-09.tif
+3  20 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2017-10.tif
+4  18 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2017-03.tif
+5  19 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2017-09.tif
+6  34 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2019-10.tif
+7  25 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2018-03.tif
+8  11 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2016-02.tif
+9   7 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2015-03.tif
+10 12 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2016-03.tif
+11  8 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2015-10.tif
+12 24 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2018-02.tif
+13 35 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2019-11.tif
+14 36 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2019-12.tif
+15 22 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2017-12.tif
+16 21 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2017-11.tif
+17  6 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2015-02.tif
+18 13 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2016-10.tif
+19 17 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2017-02.tif
+20  1 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2013-11.tif
+21 15 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2016-12.tif
+22 27 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2018-10.tif
+23 23 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2018-01.tif
+24 29 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2018-12.tif
+25 10 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2016-01.tif
+26 16 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2017-01.tif
+27  9 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2015-11.tif
+28 30 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2019-01.tif
+29 28 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2018-11.tif
+30  2 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2013-12.tif
+31  5 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2015-01.tif
+32 31 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2019-02.tif
+33 14 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2016-11.tif
+34  3 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2014-11.tif
+35  4 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2014-12.tif
+36 32 D:/new_downscaling/clean_data/satstacks/L_MOD_hs_ia_2019-03.tif
+      filesize      ym sep year month
+1    236372507 2018-09   0 2018     9
+2    238275007 2019-09   0 2019     9
+3    297264578 2017-10   0 2017    10
+4    297539982 2017-03   0 2017     3
+5    311322139 2017-09   0 2017     9
+6    324391712 2019-10   0 2019    10
+7    791102754 2018-03   0 2018     3
+8    823783652 2016-02   0 2016     2
+9    933206937 2015-03   0 2015     3
+10  1083235537 2016-03   0 2016     3
+11  1091904525 2015-10   0 2015    10
+12  1097304666 2018-02   0 2018     2
+13  1406158502 2019-11   0 2019    11
+14  1630687061 2019-12   0 2019    12
+15  1657097651 2017-12   0 2017    12
+16  1721420116 2017-11   0 2017    11
+17  1737938832 2015-02   0 2015     2
+18  1936330789 2016-10   0 2016    10
+19  2673340136 2017-02   0 2017     2
+20  2675925427 2013-11   0 2013    11
+21  3519853714 2016-12   0 2016    12
+22  3740872549 2018-10   0 2018    10
+23  3763788606 2018-01   0 2018     1
+24  3778250072 2018-12   0 2018    12
+25  3964660842 2016-01   0 2016     1
+26  4460375622 2017-01   1 2017     1
+27  4514902521 2015-11   1 2015    11
+28  4915970890 2019-01   1 2019     1
+29  6029540040 2018-11   1 2018    11
+30  6220415719 2013-12   1 2013    12
+31  6247989217 2015-01   1 2015     1
+32  6772754071 2019-02   1 2019     2
+33  7171807998 2016-11   1 2016    11
+34  8625263361 2014-11   1 2014    11
+35 10398350764 2014-12   1 2014    12
+36 11339594468 2019-03   1 2019     3
+> 
+> for(y in seq(year)){
++   for(m in seq(month)){
++     
++     print(c(y,m))
++     ym <- substring(time_range[[y]][[m]][[1]][[1]], 1, 7)
++     print(ym)
++     pat <- paste0("L_MOD_hs_ia_", ym)
++     allf <- list.files(datpath, pattern = pat, full.names=T)
++     septest <- as.numeric(fs_tab$sep[fs_tab$year==year[y] & fs_tab$month==as.numeric(month)[m]])
++     test_1_2 <- any(grepl(allf, pattern="_..tif$"))
++     if(septest!=0){
++       if(test_1_2==TRUE){ # if there are files with _1, _2 ending
++           print(paste0(ym, "big files extraction"))
++           extract_train_test_big_files(y,m)
++       } 
++     } else {
++         print(paste0(ym, "already done"))
++     }
++     
++   }
++ }
+[1] 1 1
+[1] "2019-01"
+[1] "2019-01big files extraction"
+[1] "~~~~~~STARTING WITH 2019-01 NOW~~~~~~~~"
+[1] "aux extraction done"
+[1] "starting with tempdyn split 1 now"
+[1] "tempdyn extraction done"
+[1] "tddf done"
+[1] "tddfcc1done"
+[1] "length of all samples (tdfcc 1) = 0"
+[1] "starting with tempdyn split 2 now"
+[1] "tempdyn extraction done"
+[1] "tddf done"
+[1] "tddfcc2done"
+[1] "length of all samples (tdfcc 2) = 0"
+[1] 1 2
+[1] "2019-02"
+[1] 1 3
+[1] "2019-03"
+[1] 1 4
+[1] "2019-04"
+Error in if (septest != 0) { : argument is of length zero
+Execution halted

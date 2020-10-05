@@ -17,12 +17,33 @@ Type 'demo()' for some demos, 'help()' for on-line help, or
 'help.start()' for an HTML browser interface to help.
 Type 'q()' to quit R.
 
-> y=1
-> m=1
 > 
-> library(raster)
+> 
+> 
+> loc="Palma"
+> 
+> if(loc=="Palma"){
++   library(raster)
++   library(rgdal)
++   datpath <- "/scratch/tmp/llezamav/satstacks/"
++   aoipath <- "/scratch/tmp/llezamav/aoi/"
++   time_range <- readRDS("/scratch/tmp/llezamav/time_range.rds")
++   cddir <- "/scratch/tmp/llezamav/satstacks/"
++   iahsrespath <- "/scratch/tmp/llezamav/ia_hs_res/"
++   swiroutpath <- paste0(datpath, "swir/")
++   
++ } else if(loc=="Laptop"){
++   library(raster)
++   library(rgdal)
++   iahsrespath <- paste0(cddir, "ia_hs_res/")
++   aoipath <- "D:/new_downscaling/aoi/"
++   auxpath <-  "D:/new_downscaling/auxiliary/"
++   datpath <- "D:/new_downscaling/clean_data/satstacks/"
++   swiroutpath <- "D:/new_downscaling/SWIR/composites/" # TO DO!!!!!!!!!!!!!!!!!!!
++   } else {
++   print("something's off")
++ }
 Loading required package: sp
-> library(rgdal)
 rgdal: version: 1.4-4, (SVN revision 833)
  Geospatial Data Abstraction Library extensions to R successfully loaded
  Loaded GDAL runtime: GDAL 3.0.0, released 2019/05/05
@@ -32,102 +53,63 @@ rgdal: version: 1.4-4, (SVN revision 833)
  Path to PROJ.4 shared files: (autodetected)
  Linking to sp version: 1.3-1 
 > 
-> datpath <- "/scratch/tmp/llezamav/stack_extraction/"
-> aoipath <- "/scratch/tmp/llezamav/aoi/"
+> year <- c(2019:2013)
+> month <- c("01","02","03","04", "09", "10","11", "12")
 > 
-> # set month to look at
-> time_range <- readRDS("/scratch/tmp/llezamav/time_range.rds")
-> ym <- substring(time_range[[y]][[m]][[1]][[1]], 1, 7)
+> `%notin%` <- Negate(`%in%`)
 > 
-> # # get aux
-> # aux <- stack(paste0(datpath, "aux_stack_xy_swir67.tif"))
-> # #names(aux) <- c("dem", "slope", "aspect", "TWI", "soilraster", "landcoverres", "spatialblocks", "swir", "x", "y")
-> # # swir <- stack("D:/new_downscaling/SWIR/downloaded_scenes/2019-01/swir_tc_672019-01.tif")
-> # # auxnew <- stack(aux[[1:7]], swir, aux[[9:10]])
-> # # writeRaster(auxnew, paste0(datpath, "aux_stack_xy_swir67.tif"))
-> # names(aux) <- c("dem", "slope", "aspect", "TWI", "soilraster", "landcoverres", "spatialblocks", "swir6", "swir7", "x", "y")
-> # 
-> # # get aoi
-> # aoi <- readOGR(paste0(aoipath, "Levy_MDV.shp"))
-> # antaproj <- crs("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m
-> # +no_defs +ellps=WGS84 +towgs84=0,0,0")
-> # aoianta <- spTransform(aoi, antaproj)
-> # 
-> # 
-> # ################# THIS CAN GO AFTER I HAVE THE aux extraction FILE DONE ############################
-> # aoiaux <- spTransform(aoianta, crs(aux))
-> # 
-> # # extract aux
-> # auxdf <- as.data.frame(extract(aux, aoiaux))
-> # write.csv2(auxdf, paste0(datpath, "aux_df_swir_x_y.csv"), row.names=F)
-> # 
-> # 
-> # ################## get dyn stack for ym #############################################
-> # #tempdyn <- raster::stack(paste0("D:/new_downscaling/clean_data/", "new_L_MOD_hs_ia", ym, ".tif"))
-> # #tdnam <- read.csv("D:/new_downscaling/clean_data/names_sat_ia_hs_2019-01.csv")
-> # 
-> # tempdyn <- raster::stack(paste0(datpath, "new_L_MOD_hs_ia", ym, ".tif"))
-> # tdnam <- read.csv(paste0(datpath, "names_sat_ia_hs_2019-01.csv"))
-> # names(tempdyn) <- tdnam$x
-> # 
-> # ################## extract dyn stack  #############################################
-> # tempdyn <- stack(tempdyn, aux$x, aux$y)
-> # tmpdyndf <- as.data.frame(extract(tempdyn, aoianta))
-> # write.csv2(tmpdyndf, paste0(datpath, "tempdyn_new_", ym,"_df.csv"), row.names=F)
-> # 
-> # # tmpdyndf <- read.csv2(paste0(datpath, "tempdyn_new_", ym,"_df.csv"), header = T)
-> # test <- tmpdyndf[1:100,1]==seq(1:100)
-> # if(all(test==TRUE, na.rm = T) | is.na(all(test))==TRUE){ # if fits, kick out column, if all is NA or doesn't fit, don't 
-> #   tmpdyndf <- tmpdyndf[,2:ncol(tmpdyndf)] # eliminate rowname column if there's one
-> # }
-> #  
-> # # ############ make checkfiles for aux and tempdyn extraction ##############
-> # write.csv2(tmpdyndf[1:500,], paste0(datpath, "tempdyndf_check.csv"), row.names=F)
-> # write.csv2(auxdf[1:500,], paste0(datpath, "auxdf_check.csv"), row.names=F)
-> # 
-> # ################### sort into useful file #########################
-> # auxdf <- read.csv2(paste0(datpath, "aux_df_swir_x_y.csv"))
-> # 
-> # new_package <- seq(1,(ncol(tmpdyndf)-2), by=4)
-> # end <- new_package+3
-> # 
-> # dfslices <- lapply(seq(new_package), function(i){
-> #   x <- tmpdyndf[,new_package[i]:end[i]] # get all columns for one date
-> #   xnam <- substring(names(x)[3], 4, 18) # get time info from hs/ia
-> #   x$time <- xnam # add time as row
-> #   x$xd <- tmpdyndf$x
-> #   x$yd <- tmpdyndf$y
-> #   x$id <- seq(1:nrow(x)) # as pixel ID for tempdyn
-> #   x <- cbind(x, auxdf) # add tempdyn for one date + aux together
-> #   names(x) <- c("Modis", "ia", "hs", "Landsat", "time", "xd", "yd", "id","dem", "slope", "aspect",
-> #                 "TWI", "soilraster", "landcoverres", "spatialblocks", "swir6", "swir7", "xa", "ya")
-> #   x
-> # })
-> # 
-> # tddf <- do.call(rbind,dfslices)
-> # 
-> # ################### get complete cases ##################################
-> # 
-> # #write.csv2(tddf, paste0(datpath, "extr_comp_",ym, ".csv"), row.names = F)
-> # #tddf <- read.csv2(paste0(datpath, "extr_comp_",ym, ".csv"), header=T)
-> # 
-> # tddf$Modis[tddf$Modis > 30] <- NA
-> # tddf$Modis[tddf$Modis <= -100] <- NA
-> # tddf$Landsat[tddf$Landsat <= -100] <- NA
-> # tddf$Landsat[tddf$Landsat > 30] <- NA
-> # 
-> # tddfcc <- tddf[complete.cases(tddf),] 
-> # 
-> # 
-> # 
-> # 
-> # write.csv2(tddfcc[1:500,], paste0(datpath, "extr_complete_", ym, "_check.csv"), row.names=F)
-> # write.csv2(tddfcc, paste0(datpath, "extr_complete_cases_",ym, ".csv"), row.names=F)
+> # get aux general
+> aux <- stack(paste0(datpath, "aux_stack_xy_final.tif"))
+> names(aux) <-  c("dem", "slope", "aspect", "TWI", "soilraster", "landcoverres", "spatialblocks","x", "y")
 > 
-> tddfcc <- read.csv2(paste0(datpath, "extr_complete_", ym, ".csv"))
-Error in file(file, "rt") : cannot open the connection
-Calls: read.csv2 -> read.table -> file
-In addition: Warning message:
-In file(file, "rt") :
-  cannot open file '/scratch/tmp/llezamav/stack_extraction/extr_complete_2019-01.csv': No such file or directory
-Execution halted
+> # get aoi
+> aoi <- readOGR(paste0(aoipath, "Levy_MDV.shp"))
+OGR data source with driver: ESRI Shapefile 
+Source: "/scratch/tmp/llezamav/aoi/Levy_MDV.shp", layer: "Levy_MDV"
+with 1 features
+It has 1 fields
+Integer64 fields read as strings:  id 
+> antaproj <- crs("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m
++ +no_defs +ellps=WGS84 +towgs84=0,0,0")
+> aoianta <- spTransform(aoi, antaproj)
+> aoiaux <- spTransform(aoianta, crs(aux))
+> 
+> 
+> 
+> ################## START LOOP PER MONTH ####################################
+> 
+> extract_train_test <- function(y,m){
++   
++   rasterOptions(tmpdir="/scratch/tmp/llezamav/tmp/")
++   
++   ym <- substring(time_range[[y]][[m]][[1]][[1]], 1, 7)
++   
++   print(paste0("~~~~~~STARTING WITH ", ym, " NOW~~~~~~~~"))
++   
++   # add SWIR to aux
++   swirfile <- paste0(swiroutpath, "swir_tc_67", ym, ".tif")
++   
++   if(file.exists(paste0(swiroutpath, "swir_tc_67", ym, ".tif"))){
++     swir <- stack(swirfile)
++     aux <- stack(aux, swir)
++     names(aux) <- c("dem", "slope", "aspect", "TWI", "soilraster", "landcoverres", "spatialblocks","x", "y", "swir6", "swir7")
++     
++     # extract aux
++     auxdf <- as.data.frame(extract(aux, aoiaux))
++     write.csv2(auxdf, paste0(datpath, "aux_df_swir_x_y_swir_", ym, ".csv"), row.names=F)
++     
++     print("aux extraction done")
++     
++     ################## get dyn stack for ym #############################################
++     if(loc=="Laptop"){
++       datpath <- "D:/new_downscaling/clean_data/"
++     }
++ 
++     tempdyn <- raster::stack(paste0(datpath, "L_MOD_hs_ia_", ym, ".tif"))
++     tdnam <- read.csv(paste0(datpath, "names_sat_ia_hs_", ym, ".csv"))
++     names(tempdyn) <- tdnam$x
++     
++ + +     
++ +     
++ + + +     # }
++ 

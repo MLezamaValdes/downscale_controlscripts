@@ -1,8 +1,7 @@
 
 y=1
 m=1
-# 
-# loc="Palma"
+
 testing=TRUE
 print("loading Palma libs and paths")
 library(raster)
@@ -38,7 +37,7 @@ print("loaded train rds")
 
 if(testing){
   ### just for testing ###############
-  n <- 15000
+  n <- 6000
   
   # only if subset
   trainsubset <- train[sample(nrow(train),n), ]
@@ -49,8 +48,6 @@ if(testing){
 } else {
   n <- nrow(train)
 }
-
-#################
 
 kval <- min(length(unique(train$time_num)), length(unique(train$spatialblocks)))
 
@@ -87,7 +84,6 @@ for (i in 1:length(methods)){
                         index=foldids$index,
                         indexOut=foldids$indexOut)
   
-  
   method <- methods[i]
   print(method)
   tuneLength <- 2
@@ -95,7 +91,7 @@ for (i in 1:length(methods)){
   
   if (method=="rf"){
     #   tuneLength <- 1
-    tuneGrid <- expand.grid(mtry=seq(2,3))
+    tuneGrid <- expand.grid(mtry=seq(2,ncol(predictors)))
     # Create A Data Frame From All Combinations Of Factor Variables, 
     # mtry: Number of variables randomly sampled as candidates at each split
   }
@@ -105,7 +101,6 @@ for (i in 1:length(methods)){
                                             "slope", "aspect", "TWI",
                                             "soilraster",
                                             "swir6", "swir7")]))
-    
     tctrl <- trainControl(method="repeatedcv",
                           number=kval,
                           repeats=kval,
@@ -114,7 +109,6 @@ for (i in 1:length(methods)){
                           verboseIter=TRUE,
                           index=foldids$index,
                           indexOut=foldids$indexOut)
-    
   }
   if (method=="nnet"){
     #   tuneLength <- 1
@@ -127,15 +121,10 @@ for (i in 1:length(methods)){
     #   tuneLength <- 1
     tuneGrid <- expand.grid(C= 2^c(0:4))
   }
-  
-  
   cores <- detectCores()
   cl <- makeCluster(cores-3)
   registerDoParallel(cl)
-  
-  
-  
-  if(method=="gbm"){ # importance = TRUE kills it
+  if(method="gbm"){ # importance = TRUE kills it
     ffs_model <- ffs(predictors,response, 
                      method="gbm", 
                      trControl=tctrl,
@@ -156,10 +145,8 @@ for (i in 1:length(methods)){
                      trControl = tctrl,
                      trace = FALSE, #relevant for nnet
                      linout = TRUE) #relevant for nnet
-    
-    
   }
-  
   save(ffs_model,file=paste0(outpath,"ffs_model_",method,"_", n, ".RData"))
   stopCluster(cl)
 }
+

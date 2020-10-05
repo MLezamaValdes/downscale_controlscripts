@@ -104,9 +104,9 @@ match_sat_ia_hs <- function(y,m){
 
 # lapply(seq(year), function(y){
 #   lapply(seq(month), function(m){
-for(y in c(2:length(year))){
+for(y in c(5:length(year))){
   for(m in seq(month)){
-  #for(m in c(4:length(month))){
+  #for(m in c(7:length(month))){
     print(c(y,m))
     match_sat_ia_hs(y,m)
   }
