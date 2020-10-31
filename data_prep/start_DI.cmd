@@ -13,7 +13,7 @@
 #SBATCH --partition normal
 
 # set max wallclock time
-#SBATCH --time=48:00:00
+#SBATCH --time=80:00:00
 
 # set name of job
 #SBATCH --job-name=train_DI
@@ -33,4 +33,4 @@ module add icc/2019.1.144-GCC-8.2.0-2.31.1  impi/2018.4.274
 module add ifort/2019.1.144-GCC-8.2.0-2.31.1  impi/2018.4.274
 module add R/3.6.0
 module add foss R rgdal
-R CMD BATCH --vanilla 10_DI_Palma.R
+R CMD BATCH --vanilla 10_DI_Palma.R 

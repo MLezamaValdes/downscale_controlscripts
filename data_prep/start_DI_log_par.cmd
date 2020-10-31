@@ -4,7 +4,7 @@
 #SBATCH --nodes=1
 
 # set the number of CPU cores per node
-#SBATCH --ntasks-per-node 70
+#SBATCH --ntasks-per-node 24
 
 # How much memory is needed (per node)
 #SBATCH --mem=160GB
@@ -13,16 +13,16 @@
 #SBATCH --partition normal
 
 # set max wallclock time
-#SBATCH --time=48:00:00
+#SBATCH --time=120:00:00
 
 # set name of job
-#SBATCH --job-name=DI
+#SBATCH --job-name=DI_log_par
 
 # mail alert at start, end and abortion of execution
 #SBATCH --mail-type=ALL
 
 # set an output file
-#SBATCH --output output_DI.dat
+#SBATCH --output output_DI_log_par.dat
 
 # send mail to this address
 #SBATCH --mail-user=llezamav@uni-muenster.de
@@ -33,4 +33,4 @@ module add icc/2019.1.144-GCC-8.2.0-2.31.1  impi/2018.4.274
 module add ifort/2019.1.144-GCC-8.2.0-2.31.1  impi/2018.4.274
 module add R/3.6.0
 module add foss R rgdal
-R CMD BATCH --vanilla 10_DI_Palma_log_choosing.R
+R CMD BATCH --vanilla 10_DI_Palma_log_choosing_par.R

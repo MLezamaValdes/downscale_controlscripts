@@ -8,12 +8,19 @@ require("rosm")
 library(cowplot) 
 require("ggmap")
 library("rmapshaper")
+library("mapview")
+library(raster)
+library(sf)
+#remotes::install_github("coolbutuseless/ggpattern")
+library(ggpattern)
 
-# get aoi in shape for ggplot
-graph_abs <- readOGR("C:/Users/mleza/OneDrive/Documents/ausschnitt_graphical_abstract.shp")
+main <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/paper/paper_draft/figures/"
+
+# # get aoi in shape for ggplot
+# graph_abs <- readOGR("C:/Users/mleza/OneDrive/Documents/ausschnitt_graphical_abstract.shp")
 
 #mapviewGetOption("basemaps")
-mapview(graph_abs, map.types = c("Esri.WorldImagery"))
+#mapview(graph_abs, map.types = c("Esri.WorldImagery"))
 
 aoi_levy <- readOGR(list.files("D:/new_downscaling/aoi/", pattern="actually.shp",
                    full.names=T))
@@ -32,9 +39,6 @@ antacoast <- simplepolys
 sites_box <- st_make_grid(st_bbox(aoi_levy), n = 1) # mapview(sites_box) to verify
 sites_box_anta <- st_transform(sites_box, crs=crs(antacoast))
 
-#mapview(aoianta)+mapview(sites_box_anta)
-#mapview(antacoast)+mapview(sites_box_anta)
-
 # the overview map
 anta_map <- ggplot() + 
   geom_sf(data = antacoast, fill="white") + 
@@ -50,14 +54,12 @@ register_google(key="AIzaSyAvHjgxPXsQ7Zv7GiaAw4SzzJ11FnHOA5o")
 map <- get_map(c(lon = 164, lat = -77.605660),
                zoom = 6, size = c(640,640), scale = 2, maptype = "terrain",
                source="google")
+map_terrain_background <- get_map(c(lon = 164, lat = -77.605660),
+                              zoom = 6, size = c(640,640), scale = 2, maptype = "terrain-background",
+                              source="google")
 map_sat <- get_map(c(lon = 164, lat = -77.605660),
                zoom = 6, size = c(640,640), scale = 2, maptype = "satellite",
                source="google")
-# map_t_b <- get_map(c(lon = 164, lat = -77.605660),
-#                    zoom = 6, size = c(640,640), scale = 2, maptype = "hybrid",
-#                    source="google")
-# ggmap(map_sat)
-# ggmap(map_t_b)
 
   
 nicemap <- ggmap(map)+
@@ -137,7 +139,27 @@ tests.df$tt <- "test"
 tt <- rbind(trains.df, tests.df)
 tt$tt <- as.factor(tt$tt)
 
-testsitesmap <- ggmap(map, legend="right")+
+map_sat <- get_map(c(lon = 158.5, lat = -77.605660),
+                   zoom = 6, size = c(640,640), scale = 2, maptype = "satellite",
+                   source="google")
+
+maptype = c("terrain",
+            "terrain-background", "satellite", "roadmap", "hybrid", "toner",
+            "watercolor", "terrain-labels", "terrain-lines", "toner-2010",
+            "toner-2011", "toner-background", "toner-hybrid", "toner-labels",
+            "toner-lines", "toner-lite")
+map_sat_2 <- get_map(c(lon = 161.5, lat = -77.5),
+                   zoom = 6, size = c(640,640), scale = 2, maptype = "toner-lite",
+                   source="google")
+plot_map <- get_stamenmap(as.numeric(bbox(sites_box)),
+                          zoom = 7,
+                          force = TRUE,
+                          maptype = "terrain")
+
+
+
+
+testsitesmap <- ggmap(map_sat, legend="right")+
   labs(x = "longitude", y="latitude")+
   theme(plot.title = element_text(colour = "gray15"),
         panel.background = element_rect(fill = "#F5F5F5"),
@@ -149,17 +171,27 @@ testsitesmap <- ggmap(map, legend="right")+
                                     size=8),
         axis.title.y = element_text(face="bold", color="gray15", 
                                     size=8))+
-  scale_x_continuous(breaks=c(160,  164,  168),limits=c(157,170.5))+
-  scale_y_continuous(breaks=c(-79, -78, -77, -76),limits=c(-79,-76))+
-  geom_polygon(data = tt, na.rm=T,
-               aes(x=long, y=lat, group = group, fill=tt),colour = "gray29", 
-               alpha = 0.3,fill = "gray29", )+
-  # geom_polygon(data = tests.df,na.rm=T,
-  #              aes(x=long, y=lat, group = group, fill=id),
-  #              fill = "gray87", colour = "gray29", 
-  #              alpha = 0.8)+
-  annotation_north_arrow(location = "bl", which_north = "true", 
-                         pad_x = unit(6.5, "in"), pad_y = unit(0.5, "in"),
-                         style = north_arrow_fancy_orienteering)
+  geom_polygon_pattern(data = trains.df, na.rm=T,size=1,
+               aes(x=long, y=lat, group = group, fill=tt, colour=NA),
+               color="black",
+               fill            = NA,
+               colour          = '#66CD00',
+               pattern_spacing = 0.015,
+               pattern_density = 0.05,
+               pattern_fill    = '#66CD00',
+               pattern_colour  = '#66CD00',
+               pattern_angle   = 45)+
+  geom_polygon_pattern(data = tests.df,na.rm=T,size=1,
+                       aes(x=long, y=lat, group = group, fill=tt, colour=NA), 
+                       color="black",
+                       fill            = NA,
+                       colour          = '#1b1ff5',
+                       pattern_spacing = 0.015,
+                       pattern_density = 0.05,
+                       pattern_fill    = '#1b1ff5',
+                       pattern_colour  = '#1b1ff5',
+                       pattern_angle   = 45)+
+  scale_fill_manual(name = '', values = c(test = "chartreuse3", train ="#ADE8FF"))
 
 testsitesmap
+ggsave(filename = paste0(main, "test_map.png"), width = 10, height = 8, units = "in", dpi=300, type = "cairo")

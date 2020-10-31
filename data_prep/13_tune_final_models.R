@@ -69,7 +69,7 @@ for (method in methods){
   kval <- min(length(unique(train$time_num)), length(unique(train$spatialblocks)))
   
   # split training cuarter into various blocks for cv during training
-  foldids <- CreateSpacetimeFolds(train, spacevar="spatialblocks", timevar = "time_num",
+  foldids <- CreateSpacetimeFolds(train, spacevar="spatialblocks", timevar = "time_num", # LEAVE MONTH OUT
                                   k=kval,seed=100)
   
   # as in 11

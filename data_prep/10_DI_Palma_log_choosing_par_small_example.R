@@ -6,11 +6,6 @@ library(parallel)
 library(CAST,lib.loc="/home/l/llezamav/R/")
 library(caret,lib.loc="/home/l/llezamav/R/")
 
-`%notin%` <- Negate(`%in%`)
-
-nc <- detectCores()
-cl <- makeCluster(nc-2)
-
 datpath <- "/scratch/tmp/llezamav/satstacks/extraction_result_new/"
 #datpath <- "D:/new_downscaling/extraction/"
 
@@ -27,6 +22,7 @@ time_range <- readRDS("/scratch/tmp/llezamav/time_range.rds")
 di_log_choosing <- function(y,m){
   
   ym <- substring(time_range[[y]][[m]][[1]][[1]], 1, 7)
+  `%notin%` <- Negate(`%in%`)
   
   pat <- paste0("few_samples_",ym)
   print(paste0("proceeding: ",(length(list.files(datpath, pattern=pat))>0)==F))
@@ -34,7 +30,7 @@ di_log_choosing <- function(y,m){
     ###################### prep variables ###########################################
     potpath <- paste0(datpath, "pott3_",ym, ".csv")
     print(paste0("path to pott3",potpath))
-    pott3 <- read.csv2(potpath)
+    pott3 <- read.csv2(potpath, nrows=50)
     
     # convert time to numeric
     pott3$time_num <- as.numeric(as.factor(pott3$modtime))
@@ -64,15 +60,16 @@ di_log_choosing <- function(y,m){
     
     ### 2 sample selection via DI ###################################################################
     
-    registerDoParallel(cl)
-    
     samples <- randsamples
+    
+    cli <- makeCluster(9, outfile="/home/l/llezamav/par_aoa_out.txt")
+    registerDoParallel(cli)
     
     i=0
     t0prev <- 0
     x <- 3.5
     repeat {
-      di <- aoa(newdata=potDI_ds, train=samples, cl=cl)
+      di <- aoa(newdata=potDI_ds, train=samples, cl=cli)
       t <- table(di$AOA)
       
       diff_out_aoa <- t[1]-t0prev
@@ -102,26 +99,58 @@ di_log_choosing <- function(y,m){
         break
       }
       
+      
       i=i+1
     }
     
+    
+    stopCluster(cli)
+    
+    write.csv2(samples, paste0(datpath, "train_test/samples_train_DI_", "_" ,  ym, "small_example.csv"))
     
     # take dataset at the chosen rownames to get full dataset
     trainDS <- pott3[rownames(samples),]
     all(rownames(trainDS)==rownames(samples))
     
-    saveRDS(trainDS, paste0(datpath, "train_test/train_DI_", "_" , ym, ".rds"))
-    write.csv2(trainDS, paste0(datpath, "train_test/train_DI_", "_" ,  ym, ".csv"))
+    saveRDS(trainDS, paste0(datpath, "train_test/train_DI_", "_" , ym, "small_example..rds"))
+    write.csv2(trainDS, paste0(datpath, "train_test/train_DI_", "_" ,  ym, "small_example..csv"))
     
   }
 }
 
-#for(y in seq(year)){
-for(y in seq(1)){
-  for(m in seq(month)){
-    print(c(y,m))
-    di_log_choosing(y,m)
-  }
-}
+
+
+########################### RUN ###########################################
+
+# !!!!!! ##############
+month <- c("02","03","04", "09", "10","11", "12")
+# !!!!!! ##############
+
+
+no_cores <- 8
+cl <- makeCluster(no_cores, outfile="/home/l/llezamav/par_month_out.txt")
+y=1
+
+jnk = clusterEvalQ(cl, {
+  library(doParallel);
+  library(parallel);
+  library(CAST,lib.loc="/home/l/llezamav/R/");
+  library(caret,lib.loc="/home/l/llezamav/R/")})
+clusterExport(cl, list("cl","di_log_choosing", "time_range","month", "year", "datpath", "y"))
+
+
+
+parLapply(cl, seq(length(month)), function(m){
+  
+#lapply( seq(length(month)), function(m){
+      
+  print(paste0("starting yearindex ", y, "month: ", m))
+      print(c(y,m))
+      di_log_choosing(y,m)
+})
+
+stopCluster(cl)
+
+
 
 
