@@ -7,22 +7,22 @@
 #SBATCH --ntasks-per-node 1
 
 # How much memory is needed (per node)
-#SBATCH --mem=2GB
+#SBATCH --mem=60GB
 
 # set a partition
 #SBATCH --partition normal
 
 # set max wallclock time
-#SBATCH --time=1:00:00
+#SBATCH --time=4:00:00
 
 # set name of job
-#SBATCH --job-name=filesize
+#SBATCH --job-name=gather
 
 # mail alert at start, end and abortion of execution
 #SBATCH --mail-type=ALL
 
 # set an output file
-#SBATCH --output output_filesize.dat
+#SBATCH --output output_gather.dat
 
 # send mail to this address
 #SBATCH --mail-user=llezamav@uni-muenster.de
@@ -33,4 +33,4 @@ module add icc/2019.1.144-GCC-8.2.0-2.31.1  impi/2018.4.274
 module add ifort/2019.1.144-GCC-8.2.0-2.31.1  impi/2018.4.274
 module add R/3.6.0
 module add foss R rgdal
-R CMD BATCH --vanilla check_extraction_Palma.R
+R CMD BATCH --vanilla 10a_gather_DI_trainingssamples.R

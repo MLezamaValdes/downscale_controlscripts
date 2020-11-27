@@ -1,7 +1,8 @@
 # 12_final models
 
+library(CAST)
 
-loc="Palma"
+loc="Laptop"
 
 if(loc=="Palma"){
   modelpath <- "/scratch/tmp/llezamav/modelling/"
@@ -9,29 +10,27 @@ if(loc=="Palma"){
   
   library(raster)
   library(rgdal)
-  scriptpath <- 
-  datpath <- "/scratch/tmp/llezamav/satstacks/"
-  aoipath <- "/scratch/tmp/llezamav/aoi/"
+  library(viridis)
+
   time_range <- readRDS("/scratch/tmp/llezamav/time_range.rds")
-  cddir <- "/scratch/tmp/llezamav/satstacks/"
-  iahsrespath <- "/scratch/tmp/llezamav/ia_hs_res/"
-  swiroutpath <- paste0(datpath, "swir/")
+
+  outpath <- "/scratch/tmp/llezamav/modelling/"
+  modelpath <- outpath
+  
   
 } else if(loc=="Laptop"){
-  modelpath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/model_ffs_Jan19/"
+  
+  modelpath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/testmodel_allyears/"
   regressionStatsRsenal <- source("C:/Users/mleza/OneDrive/Documents/PhD/ML_dist/ML_dist/regressionstats_Rsenal.R")
+  figurepath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/paper/paper_draft/figures/"
   library(ggplot2)
   library(gridExtra)
-  
+  library(viridis)
   
   
   library(raster)
   library(rgdal)
-  iahsrespath <- paste0(cddir, "ia_hs_res/")
-  aoipath <- "D:/new_downscaling/aoi/"
-  auxpath <-  "D:/new_downscaling/auxiliary/"
-  datpath <- "D:/new_downscaling/clean_data/satstacks/"
-  swiroutpath <- "D:/new_downscaling/SWIR/composites/" # TO DO!!!!!!!!!!!!!!!!!!!
+ 
 } else {
   print("something's off")
 }
@@ -43,10 +42,10 @@ if(loc=="Palma"){
 # 
 # `%notin%` <- Negate(`%in%`)
 
-# get aux general
-if(loc=="Laptop"){
-  datpath <- auxpath
-}
+# # get aux general
+# if(loc=="Laptop"){
+#   datpath <- auxpath
+# }
 
 # amount of training samples
 n <- 15000
@@ -61,6 +60,7 @@ par(mfrow=c(2,2), mar=c(5,3,2,2)+2)
   
 eval <- lapply(seq(methods), function(i){
   method <- methods[i]
+  #load(paste0(modelpath, "ffs_model_",method,"time_only_", n, ".RData"))
   load(paste0(modelpath, "ffs_model_",method,"_", n, ".RData"))
   
   if(method=="rf"){
@@ -74,6 +74,10 @@ eval <- lapply(seq(methods), function(i){
       ylab("Predicted LST 30m")+
       geom_abline(slope=1, intercept=0,lty=2)+
       scale_fill_gradientn(name = "data points", colors=viridis(10))
+    df <- data.frame(ffs_model$selectedvars, c(0,ffs_model$selectedvars_perf), c(0, ffs_model$selectedvars_perf_SE))
+    df$type <- ffs_model$modelInfo$label
+    names(df) <- c("selvars", "selvars_perf", "selvars_perf_SE", "type")
+    df
     
   }
   
@@ -92,6 +96,14 @@ eval <- lapply(seq(methods), function(i){
       ylab("Predicted LST 30m")+
       geom_abline(slope=1, intercept=0,lty=2)+
       scale_fill_gradientn(name = "data points", colors=viridis(10))
+    #
+    df <- data.frame(ffs_model$selectedvars, c(ffs_model$selectedvars_perf), c(ffs_model$selectedvars_perf_SE))
+    
+
+    df$type <- ffs_model$modelInfo$label
+    names(df) <- c("selvars", "selvars_perf", "selvars_perf_SE", "type")
+    df
+    
   }
   
   if(method=="nnet"){
@@ -106,6 +118,11 @@ eval <- lapply(seq(methods), function(i){
       ylab("Predicted LST 30m")+
       geom_abline(slope=1, intercept=0,lty=2)+
       scale_fill_gradientn(name = "data points", colors=viridis(10))
+    df <- data.frame(ffs_model$selectedvars, c(0,ffs_model$selectedvars_perf), c(0, ffs_model$selectedvars_perf_SE))
+    
+    df$type <- ffs_model$modelInfo$label
+    names(df) <- c("selvars", "selvars_perf", "selvars_perf_SE", "type")
+    df
     
   }
   
@@ -114,23 +131,44 @@ eval <- lapply(seq(methods), function(i){
                                       c("pred", "obs")]
     s <- regressionStats(predictions_svm$pred,predictions_svm$obs)
     p <- ggplot(predictions_svm, aes(obs,pred)) + 
-      stat_binhex(bins=100)+ggtitle(paste(method, "RMSE= ", round(s$RMSE, digits=2), "R²= ", round(s$Rsq, digits=2)))+
+      stat_binhex(bins=100)+
+      ggtitle(paste(method, "RMSE= ", round(s$RMSE, digits=2), "R²= ", round(s$Rsq, digits=2)))+
       xlim(min(predictions_svm),max(predictions_svm))+ylim(min(predictions_svm),max(predictions_svm))+
       xlab("Measured LST 30m")+
       ylab("Predicted LST 30m")+
       geom_abline(slope=1, intercept=0,lty=2)+
       scale_fill_gradientn(name = "data points", colors=viridis(10))
     
+    df <- data.frame(ffs_model$selectedvars, c(0,ffs_model$selectedvars_perf), c(0,ffs_model$selectedvars_perf_SE))
+    
+    df$type <- ffs_model$modelInfo$label
+    names(df) <- c("selvars", "selvars_perf", "selvars_perf_SE", "type")
+    df
+    
   }
   
-  return(list(s,p))
+  print(i)
+  
+  return(list(s,df,p))
   
 })
 
 
-plots <- lapply(eval, `[[`, 2)
+plots <- lapply(eval, `[[`, 3)
 
 #stats <- lapply(eval, `[[`, 1)
 
-grid.arrange(plots[[1]], plots[[2]], plots[[3]], plots[[4]], nrow = 2)
+library(gridExtra)
+library(grid)
+eg <- grid.arrange(plots[[1]], plots[[2]], plots[[3]], plots[[4]], nrow = 2,
+             top=textGrob("internal ffs evaluation",
+                          gp=gpar(fontsize=20,font=3))
+)
+ggsave(paste0(figurepath, "internal_ffs_eval.png"), plot = eg)
 
+perf <- lapply(eval, `[[`, 2)
+
+
+plot(ffs_model)
+plot_ffs(ffs_model)
+plot_ffs(ffs_model, plotType="selected")

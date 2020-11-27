@@ -4,6 +4,8 @@
 library(ggplot2)
 require(reshape2)
 
+tdipath <- "C:/Users/mleza/OneDrive/Desktop/training_datasets_2019/"
+testpath <- "C:/Users/mleza/OneDrive/Desktop/testsubsets/"
 dat <- read.csv2(paste0(tdipath, "training_18_19_n4000.csv"))
 test <- read.csv2(paste0(testpath, "test_18_19_n4000.csv"))
 
@@ -81,7 +83,7 @@ qplot(as.numeric(availableMonths$month), geom="histogram",
 
 #### how many samples from which time step ---------------------------------------------------
 
-# not happy with the keys yet
+# not happy with the keys yet, check out https://rpubs.com/lgadar/matrix-visualizations
 
 library('plot.matrix')
 

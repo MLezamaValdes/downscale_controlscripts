@@ -1,40 +1,29 @@
 
-y=1
-m=1
-# 
-# loc="Palma"
-testing=TRUE
-print("loading Palma libs and paths")
-library(raster)
-library(rgdal)
-datpath <- "/scratch/tmp/llezamav/satstacks/"
-aoipath <- "/scratch/tmp/llezamav/aoi/"
-time_range <- readRDS("/scratch/tmp/llezamav/time_range.rds")
-cddir <- "/scratch/tmp/llezamav/satstacks/"
-iahsrespath <- "/scratch/tmp/llezamav/ia_hs_res/"
-swiroutpath <- paste0(datpath, "swir/")
-time_range <- readRDS("/scratch/tmp/llezamav/time_range.rds")
-outpath <- "/scratch/tmp/llezamav/modelling/"
 
-expath <- "/scratch/tmp/llezamav/stack_extraction/"
+print("loading Palma libs and paths")
+
+outpath <- "/scratch/tmp/llezamav/modelling/"
+trainpath <- "/scratch/tmp/llezamav/satstacks/extraction_result_new/train_test/"
+
+
 library(parallel)
 library(doParallel)
 library(CAST,lib.loc="/home/l/llezamav/R/")
 library(caret,lib.loc="/home/l/llezamav/R/")
 library(gbm,lib.loc="/home/l/llezamav/R/")
-
 library(Cubist,lib.loc="/home/l/llezamav/R/")
 library(pls,lib.loc="/home/l/llezamav/R/")
 library(kernlab,lib.loc="/home/l/llezamav/R/")
+
+testing=FALSE
+
+
 print("libraries loaded")
+print("loading datasets")
 
-ym <- substring(time_range[[y]][[m]][[1]][[1]], 1, 7)
-`%notin%` <- Negate(`%in%`)
-print("notin done")
+train <- read.csv2(paste0(trainpath, "training_complete_150000_clhs.csv"))
 
-print("loading rds")
-train <- readRDS(paste0(expath, "train_DI__2019-01.rds"))
-print("loaded train rds")
+print("loaded train dataset")
 
 if(testing){
   ### just for testing ###############
@@ -42,21 +31,32 @@ if(testing){
   
   # only if subset
   trainsubset <- train[sample(nrow(train),n), ]
-  saveRDS(trainsubset, paste0(outpath, "train_", ym, "_subset_", n, ".rds"))
+  saveRDS(trainsubset, paste0(outpath, "train_subset_", n, ".rds"))
   train <- trainsubset 
   
-  testsubset <- readRDS(paste0(expath, "test_ds_2019-01.rds"))
+  testsubset <- read.csv2("/scratch/tmp/llezamav/satstacks/extraction_result_new/test_n2000.csv")
+  
 } else {
   n <- nrow(train)
 }
 
 #################
 
-kval <- min(length(unique(train$time_num)), length(unique(train$spatialblocks)))
+# kval <- min(length(unique(train$time_num)), length(unique(train$spatialblocks)))
+
+kval <- 3 # for faster ffs, then in final model more k
+print(paste("k crossvalidation folds:", kval))
+
+train$ymo <- as.factor(train$ymo)
 
 # split training cuarter into various blocks for cv during training
-foldids <- CreateSpacetimeFolds(train, spacevar="spatialblocks", timevar = "time_num", # LEAVE MONTH OUT!
-                                k=kval,seed=100)
+# if(cvmode=="time_only"){
+#   foldids <- CreateSpacetimeFolds(train, timevar = "ymo",
+#                                   k=kval,seed=100)
+# } else {
+  foldids <- CreateSpacetimeFolds(train, spacevar="spatialblocks", timevar = "ymo",
+                                  k=kval,seed=100)
+# }
 
 (trainlength <- sapply(seq(foldids$indexOut), function(i){
   length(foldids$indexOut[[i]])
@@ -77,6 +77,11 @@ predictors <- train[,c("Modis","ia", "hs", "dem",
                        "swir6", "swir7")]
 length(predictors)
 
+cores <- detectCores()
+print(paste("cores = ", cores))
+cl <- makeCluster(cores-3, outfile="/home/l/llezamav/par_algorithms.txt")
+registerDoParallel(cl)
+
 for (i in 1:length(methods)){
   
   tctrl <- trainControl(method="cv", 
@@ -96,7 +101,7 @@ for (i in 1:length(methods)){
     #   tuneLength <- 1
     tuneGrid <- expand.grid(mtry=seq(2,3))
     # Create A Data Frame From All Combinations Of Factor Variables, 
-    # mtry: Number of variables randomly sampled as candidates at each split
+    # mtry: Number of variables randomly sampled as2-10 candidates at each split
   }
   if (method=="gbm"){
     #tuneLength <- 10
@@ -126,13 +131,7 @@ for (i in 1:length(methods)){
     #   tuneLength <- 1
     tuneGrid <- expand.grid(C= 2^c(0:4))
   }
-  
-  
-  cores <- detectCores()
-  cl <- makeCluster(cores-3)
-  registerDoParallel(cl)
-  
-  
+
   
   if(method=="gbm"){ # importance = TRUE kills it
     ffs_model <- ffs(predictors,response, 
@@ -160,5 +159,7 @@ for (i in 1:length(methods)){
   }
   
   save(ffs_model,file=paste0(outpath,"ffs_model_",method,"_", n, ".RData"))
-  stopCluster(cl)
 }
+
+stopCluster(cl)
+

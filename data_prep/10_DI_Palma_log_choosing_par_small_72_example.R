@@ -1,21 +1,43 @@
 # DI on Palma
 
+rm(list=ls())
 
-library(doParallel)
-library(parallel)
-library(CAST,lib.loc="/home/l/llezamav/R/")
-library(caret,lib.loc="/home/l/llezamav/R/")
+#location <- "Laptop"
+location <- "Palma"
 
-datpath <- "/scratch/tmp/llezamav/satstacks/extraction_result_new/"
-#datpath <- "D:/new_downscaling/extraction/"
+if(location == "Laptop"){
+  library(doParallel)
+  library(parallel)
+  library(CAST)
+  library(caret)
+  
+  datpath <- "C:/Users/mleza/OneDrive/Desktop/pott3/"
+  
+  year <- c(2019:2013)
+  month <- c("01","02","03","04", "09", "10","11", "12")
+  
+  time_range <- readRDS(paste0(datpath, "time_range.rds"))
+  
+
+} else {
+  library(doParallel)
+  library(parallel)
+  library(CAST,lib.loc="/home/l/llezamav/R/")
+  library(caret,lib.loc="/home/l/llezamav/R/")
+  
+  datpath <- "/scratch/tmp/llezamav/satstacks/extraction_result_new/"
+  #datpath <- "D:/new_downscaling/extraction/"
+  
+  
+  year <- c(2019:2013)
+  month <- c("01","02","03","04", "09", "10","11", "12")
+  
+  
+  # set month to look at
+  time_range <- readRDS("/scratch/tmp/llezamav/time_range.rds")
+  }
 
 
-year <- c(2019:2013)
-month <- c("01","02","03","04", "09", "10","11", "12")
-
-
-# set month to look at
-time_range <- readRDS("/scratch/tmp/llezamav/time_range.rds")
 
 ###################### START WITH POTT3 ALREADY FROM SERVER ###########################################
 
@@ -25,12 +47,13 @@ di_log_choosing <- function(y,m){
   `%notin%` <- Negate(`%in%`)
   
   pat <- paste0("few_samples_",ym)
+  potpath <- paste0(datpath, "pott3_",ym, ".csv")
+  
   print(paste0("proceeding: ",(length(list.files(datpath, pattern=pat))>0)==F))
-  if((length(list.files(datpath, pattern=pat))>0)==F){
+  if((length(list.files(datpath, pattern=pat))>0)==F & file.exists(potpath)){
     ###################### prep variables ###########################################
-    potpath <- paste0(datpath, "pott3_",ym, ".csv")
-    print(paste0("path to pott3",potpath))
-    pott3 <- read.csv2(potpath, nrows=50)
+    print(paste0("path to pott3 ",potpath))
+    pott3 <- read.csv2(potpath)
     
     # convert time to numeric
     pott3$time_num <- as.numeric(as.factor(pott3$modtime))
@@ -38,8 +61,25 @@ di_log_choosing <- function(y,m){
     # get only relevant variables for DI 
     potDI <- pott3[c("Landsat", "Modis", "ia", "hs",
                      "dem", "slope", "aspect", "TWI", "soilraster", "x", "y", "swir6", "swir7",
-                     "modtime", "time_num")]
+                      "time_num")]
     print(paste0("nrow(potDI) = ", nrow(potDI)))
+    
+    
+    vartest <- sapply(seq(potDI), function(i){
+      var(potDI[,i])
+    })
+    
+
+    if(any(vartest==0)){
+      novarpos <- which(vartest==0)
+      
+      novarnams <- names(potDI)[novarpos]
+      write.csv2(novarnams, paste0(datpath, "train_test/novar_varnames_",  ym, ".csv"))
+      
+      potDI[,novarpos] <- NULL
+      
+    }
+    
     
     ##### 1 get 150.000 random samples per month ###########################################
     
@@ -62,7 +102,13 @@ di_log_choosing <- function(y,m){
     
     samples <- randsamples
     
-    cli <- makeCluster(9, outfile="/home/l/llezamav/par_aoa_out.txt")
+    
+    if(location=="Laptop"){
+          cli <- makeCluster(2, outfile="C:/Users/mleza/test.txt")
+    } else {
+      cli <- makeCluster(27, outfile="/home/l/llezamav/par_aoa_out_72.txt")
+    }
+    
     registerDoParallel(cli)
     
     i=0
@@ -93,29 +139,31 @@ di_log_choosing <- function(y,m){
       potDI_ds <- subset(potDI_ds, rownames(potDI_ds) %notin% names(most_diss))
       
       # stop if either all samples are in the AOA or if there are less remaining samples than chosen in this step
-      print(paste0("stopping criterion met? all in AOA=1? ", any(di$AOA==0)==FALSE,
-                   "or less samples to choose from than needed in last choose? nrow(potDI_ds) )", 
-                   nrow(potDI_ds), "choose=", choose, "(should be 0 and then stop) - i.e.", nrow(potDI_ds) < choose))
+      print(paste0("y=", y, " m=", m, " stopping criterion met? 1: All in AOA=1? ", any(di$AOA==0)==FALSE,
+                   " or 2: less samples to choose from than needed in last choose? nrow(potDI_ds) )", 
+                   nrow(potDI_ds), " or too little to choose? choose=", choose, " (should be 0 and then stop) - i.e. ", nrow(potDI_ds) < choose))
       if(any(di$AOA==0)==FALSE | nrow(potDI_ds) < choose | choose < 5){
         break
       }
       
-      
       i=i+1
     }
     
-    
-    stopCluster(cli)
-    
-    write.csv2(samples, paste0(datpath, "train_test/samples_train_DI_", "_" ,  ym, "small_example.csv"))
+    #write.csv2(samples, paste0(datpath, "train_test/s_train_DI-",  ym, "se.csv"))
     
     # take dataset at the chosen rownames to get full dataset
     trainDS <- pott3[rownames(samples),]
     all(rownames(trainDS)==rownames(samples))
     
-    saveRDS(trainDS, paste0(datpath, "train_test/train_DI_", "_" , ym, "small_example..rds"))
-    write.csv2(trainDS, paste0(datpath, "train_test/train_DI_", "_" ,  ym, "small_example..csv"))
+    saveRDS(trainDS, paste0(datpath, "train_test/train_DI_", ym, ".rds"))
+    write.csv2(trainDS, paste0(datpath, "train_test/train_DI_",  ym, ".csv"))
     
+    
+    stopCluster(cli)
+    
+    
+  } else {
+    print("no pott 3 file here")
   }
 }
 
@@ -123,34 +171,46 @@ di_log_choosing <- function(y,m){
 
 ########################### RUN ###########################################
 
-# !!!!!! ##############
-month <- c("02","03","04", "09", "10","11", "12")
-# !!!!!! ##############
-
-
 no_cores <- 8
-cl <- makeCluster(no_cores, outfile="/home/l/llezamav/par_month_out.txt")
-y=1
+if(location=="Laptop"){
+  cl <- makeCluster(2, outfile="C:/Users/mleza/test_cl.txt")
 
-jnk = clusterEvalQ(cl, {
-  library(doParallel);
-  library(parallel);
-  library(CAST,lib.loc="/home/l/llezamav/R/");
-  library(caret,lib.loc="/home/l/llezamav/R/")})
-clusterExport(cl, list("cl","di_log_choosing", "time_range","month", "year", "datpath", "y"))
+  registerDoParallel(cl)
+  jnk = clusterEvalQ(cl, {
+    library(doParallel);
+    library(parallel);
+    library(CAST);
+    library(caret)})
+  clusterExport(cl, list("cl","di_log_choosing", "time_range","month", "year", "datpath","location"))
 
 
+} else {
+  cl <- makeCluster(no_cores, outfile="/home/l/llezamav/par_month_out_72.txt")
 
-parLapply(cl, seq(length(month)), function(m){
+  registerDoParallel(cl)
+  jnk = clusterEvalQ(cl, {
+    library(doParallel);
+    library(parallel);
+    library(CAST,lib.loc="/home/l/llezamav/R/");
+    library(caret,lib.loc="/home/l/llezamav/R/")})
+  clusterExport(cl, list("cl","di_log_choosing", "time_range","month", "year", "datpath", "location"))
+
+}
+
+
+lapply(c(2:7), function(y){
+    parLapply(cl, seq(month), function(m){
   
-#lapply( seq(length(month)), function(m){
-      
-  print(paste0("starting yearindex ", y, "month: ", m))
-      print(c(y,m))
-      di_log_choosing(y,m)
+  #lapply( seq(length(month)), function(m){
+        print(paste0("starting yearindex ", y, "month: ", m))
+        print(c(y,m))
+        di_log_choosing(y,m)
+  })
+
 })
 
 stopCluster(cl)
+
 
 
 
