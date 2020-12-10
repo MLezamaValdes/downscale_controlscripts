@@ -1,5 +1,6 @@
 #loc <- "Laptop"
-loc <- "Palma"
+rm(list=ls())
+loc <- "Laptop"
 
 if(loc=="Laptop"){
   tdipath <- "C:/Users/mleza/OneDrive/Desktop/"
@@ -24,19 +25,20 @@ if(loc=="Laptop"){
 train <- read.csv2(paste0(paste0(tdipath, "training_complete.csv")))
 
 names(train)
+n <- 100000
 
-rhs <- randomLHS(150000, ncol(train))
+rhs <- randomLHS(n, ncol(train))
 dim(rhs)
 
 library(dplyr)
 trainvars <- train %>% select(Landsat, Modis, ia, hs, dem, slope, aspect, TWI, soilraster, 
          landcoverres, swir6, swir7)
 
-trainsubset <- clhs(trainvars, size=150000 ) 
+trainsubset <- clhs(trainvars, size=n ) 
 trainsubset_comp <- train[trainsubset,]
 
 all(rownames(trainsubset_comp) %in% trainsubset)
 
-write.csv2(trainsubset_comp, paste0(tdipath, "training_complete_150000_clhs.csv"))
+write.csv2(trainsubset_comp, paste0(tdipath, "training_complete_", n, "_clhs.csv"))
 
 

@@ -21,13 +21,13 @@ testing=FALSE
 print("libraries loaded")
 print("loading datasets")
 
-train <- read.csv2(paste0(trainpath, "training_complete_1e+05_clhs.csv"))
+train <- read.csv2(paste0(trainpath, "training_complete_150000_clhs.csv"))
 
 print("loaded train dataset")
 
 if(testing){
   ### just for testing ###############
-  n <- 15000
+  n <- 150000
   
   # only if subset
   trainsubset <- train[sample(nrow(train),n), ]
@@ -136,6 +136,16 @@ for (i in 1:length(methods)){
   if(method=="gbm"){ # importance = TRUE kills it
     ffs_model <- ffs(predictors,response, 
                      method="gbm", 
+                     trControl=tctrl,
+                     tuneGrid=tuneGrid,
+                     withinSE = FALSE,
+                     tuneLength=tuneLength,           
+                     metric=metric)
+    
+  } else if(method=="rf"){ # importance = TRUE kills it
+    ffs_model <- ffs(predictors,response, 
+                     method=method, 
+                     ntree=100,
                      trControl=tctrl,
                      tuneGrid=tuneGrid,
                      withinSE = FALSE,

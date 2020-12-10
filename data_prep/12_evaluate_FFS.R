@@ -1,4 +1,4 @@
-# 12_final models
+# TO DO: INCLUDE SVM THAT IS STILL RUNNING # 
 
 library(CAST)
 
@@ -20,7 +20,7 @@ if(loc=="Palma"){
   
 } else if(loc=="Laptop"){
   
-  modelpath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/testmodel_allyears/"
+  modelpath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/ffs_150000/"
   regressionStatsRsenal <- source("C:/Users/mleza/OneDrive/Documents/PhD/ML_dist/ML_dist/regressionstats_Rsenal.R")
   figurepath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/paper/paper_draft/figures/"
   library(ggplot2)
@@ -48,11 +48,13 @@ if(loc=="Palma"){
 # }
 
 # amount of training samples
-n <- 15000
+n <- 150000
 methods <- c("rf",
            "gbm",
-           "nnet",
-           "svmLinear")
+           "nnet"
+           
+           #"svmLinear"
+           )
 
 par(mfrow=c(2,2), mar=c(5,3,2,2)+2)
 
@@ -60,6 +62,7 @@ par(mfrow=c(2,2), mar=c(5,3,2,2)+2)
   
 eval <- lapply(seq(methods), function(i){
   method <- methods[i]
+  print(method)
   #load(paste0(modelpath, "ffs_model_",method,"time_only_", n, ".RData"))
   load(paste0(modelpath, "ffs_model_",method,"_", n, ".RData"))
   
@@ -79,6 +82,11 @@ eval <- lapply(seq(methods), function(i){
     names(df) <- c("selvars", "selvars_perf", "selvars_perf_SE", "type")
     df
     
+    cvp <- plot(ffs_model, main=method)
+    
+    ffsp <- plot_ffs(ffs_model, main = paste0("ffs plot", method))
+     plot_ffs(ffs_model, plotType="selected", main = method)
+    
   }
   
   if(method=="gbm"){
@@ -97,12 +105,16 @@ eval <- lapply(seq(methods), function(i){
       geom_abline(slope=1, intercept=0,lty=2)+
       scale_fill_gradientn(name = "data points", colors=viridis(10))
     #
-    df <- data.frame(ffs_model$selectedvars, c(ffs_model$selectedvars_perf), c(ffs_model$selectedvars_perf_SE))
+    df <- data.frame(ffs_model$selectedvars, c(0,ffs_model$selectedvars_perf), c(0,ffs_model$selectedvars_perf_SE))
+    
+    cvp <- plot(ffs_model, main=method)
+    ffsp <- plot_ffs(ffs_model, main = paste0("ffs plot", method))
     
 
     df$type <- ffs_model$modelInfo$label
     names(df) <- c("selvars", "selvars_perf", "selvars_perf_SE", "type")
     df
+    plot_ffs(ffs_model, plotType="selected", main = method)
     
   }
   
@@ -123,6 +135,11 @@ eval <- lapply(seq(methods), function(i){
     df$type <- ffs_model$modelInfo$label
     names(df) <- c("selvars", "selvars_perf", "selvars_perf_SE", "type")
     df
+    
+    cvp <- plot(ffs_model, main=method)
+    ffsp <- plot_ffs(ffs_model, main = paste0("ffs plot", method))
+    
+    plot_ffs(ffs_model, plotType="selected", main = method)
     
   }
   
@@ -145,30 +162,51 @@ eval <- lapply(seq(methods), function(i){
     names(df) <- c("selvars", "selvars_perf", "selvars_perf_SE", "type")
     df
     
+    cvp <- plot(ffs_model, main=method)
+    ffsp <- plot_ffs(ffs_model, main = paste0("ffs plot", method))
+    plot_ffs(ffs_model, plotType="selected", main = method)
+    text(1,1,"selected variables and RMSE",cex=2,font=2)
+    
   }
   
   print(i)
   
-  return(list(s,df,p))
+  return(list(s,df,p, cvp,ffsp))
   
 })
 
 
-plots <- lapply(eval, `[[`, 3)
 
-#stats <- lapply(eval, `[[`, 1)
+stats <- lapply(eval, `[[`, 1)
+perf <- lapply(eval, `[[`, 2)
+plots <- lapply(eval, `[[`, 3)
+cv_plots <- lapply(eval, `[[`, 4)
+ffsp <- lapply(eval, `[[`, 5)
 
 library(gridExtra)
 library(grid)
-eg <- grid.arrange(plots[[1]], plots[[2]], plots[[3]], plots[[4]], nrow = 2,
+
+# plot scatter
+eg <- grid.arrange(plots[[1]], plots[[2]], plots[[3]], nrow = 2,
              top=textGrob("internal ffs evaluation",
                           gp=gpar(fontsize=20,font=3))
 )
 ggsave(paste0(figurepath, "internal_ffs_eval.png"), plot = eg)
 
-perf <- lapply(eval, `[[`, 2)
+
+# plot tuning
+cv_p <- grid.arrange(cv_plots[[1]], cv_plots[[2]], cv_plots[[3]], nrow = 2,
+                   top=textGrob("tuning internal ffs evaluation",
+                                gp=gpar(fontsize=20,font=3))
+)
+ggsave(paste0(figurepath, "tuning_ffs_eval.png"), plot = cv_p)
 
 
-plot(ffs_model)
-plot_ffs(ffs_model)
-plot_ffs(ffs_model, plotType="selected")
+# plot rmse
+ffsplots <- grid.arrange(ffsp[[1]], ffsp[[2]], ffsp[[3]], nrow = 2,
+                     top=textGrob("rmse ffs evaluation",
+                                  gp=gpar(fontsize=20,font=3))
+)
+ggsave(paste0(figurepath, "rmse_ffs_eval.png"), plot = ffsplots)
+
+
