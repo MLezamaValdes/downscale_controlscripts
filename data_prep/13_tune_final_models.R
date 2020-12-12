@@ -6,7 +6,7 @@ print("loading Palma libs and paths")
 n <- 150000
 
 
-loc="Laptop"
+loc="Palma"
 if(loc=="Palma"){
   
   outpath <- "/scratch/tmp/llezamav/modelling/"
@@ -45,7 +45,7 @@ if(loc=="Laptop"){
 print("libraries loaded")
 
 print("loading datasets")
-train <- read.csv2(paste0(trainpath, "training_complete_15000_clhs.csv"))
+train <- read.csv2(paste0(trainpath, "training_complete_150000_clhs.csv"))
 
 print("loaded train dataset")
 
@@ -117,6 +117,7 @@ for (i in 1:length(methods)){
   tuneGrid <- NULL
   
   ffs_model <- get(load(paste0(modelpath, "ffs_model_",method,"_", n, ".RData")))
+  print(paste0("model name = ", "ffs_model_",method,"_", n, ".RData"))
   predictornames <- ffs_model$selectedvars
   print(predictornames)
   predictors <- train[,which(names(train)%in%predictornames)]
