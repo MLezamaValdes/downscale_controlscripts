@@ -99,7 +99,7 @@ metric <- "RMSE" # Selection of variables made by either Rsquared or RMSE
 #              "gbm")
 # methods <- c("rf",
 #              "nnet")
-methods <- c("nnet")
+methods <- c("gbm")
 withinSE <- FALSE # favour models with less variables or not?
 response <- train$Landsat
 n <- 150000
@@ -197,7 +197,7 @@ for (i in 1:length(methods)){
 
   }  else if(method=="gbm"){
     
-    model_final <- train(predictors,
+    model_final <- train(predictors[-6],
                          response, 
                          method=method, 
                          trControl=tctrl,
@@ -205,6 +205,7 @@ for (i in 1:length(methods)){
                          withinSE = FALSE,
                          tuneLength=tuneLength,           
                          metric=metric)
+
 
   } else {
   

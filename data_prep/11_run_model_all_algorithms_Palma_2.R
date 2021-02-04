@@ -65,10 +65,11 @@ train$ymo <- as.factor(train$ymo)
 set.seed(100)
 
 metric <- "RMSE" # Selection of variables made by either Rsquared or RMSE
-methods <- c("rf",
-             "gbm",
-             "nnet",
-             "svmLinear")
+# methods <- c("rf",
+#              "gbm",
+#              "nnet",
+#              "svmLinear")
+methods <- c("svmLinear")
 withinSE <- FALSE # favour models with less variables or not?
 response <- train$Landsat
 predictors <- train[,c("Modis","ia", "hs", "dem", 
