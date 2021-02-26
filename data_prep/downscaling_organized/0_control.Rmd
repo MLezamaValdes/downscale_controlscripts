@@ -1,0 +1,235 @@
+---
+title: "Downscaling controlscript"
+author: "Maite Lezama Valdes"
+date: "18 2 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T, message=FALSE, warning=FALSE)
+
+only_setup <- TRUE
+
+if(only_setup==TRUE){
+  show_html_images <- FALSE
+} else {
+  show_html_images <- TRUE
+}
+
+
+
+```
+
+##   GENERAL INFO ABOUT AREA AND TIMESTEP & RUN
+
+```{r switches}
+# newarea can be 0 (no) or 1 (yes). If area is not new, it is assumed that the land outline shapefile and cropped rock outcrop is already available and doesn't need to be unzipped etc.
+newarea <- 0
+areaname <- "MDV"
+
+# L8: either "Bt" or "L1"
+L8downloadtype <- "Bt"
+
+
+## time range parameters 
+year <- c(2020:2013)
+month <- c("01","02","03","04", "09", "10","11", "12")
+
+# maximum time between satellite scenes 
+timethres <- 0.6
+
+
+```
+
+
+## SET PATHS
+
+Seagate = E
+IRONWOLF = D 
+
+```{r paths}
+scriptpath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/downscale_controlscripts/data_prep/"
+scriptpath_organized <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/downscale_controlscripts/data_prep/downscaling_organized/"
+
+maindir <- "D:/downscaling_after_talk/" # this must point to an existing directory, rest is generated in setup
+main <- paste0(maindir, "data_download_preprocessing/")
+L8datpath <- paste0(main, "L8/")
+modispath <- paste0(main, "MODIS/")
+tdpath <-paste0(main, "timediff/")
+cddir <- paste0(maindir, "clean_data/")
+
+
+######## set path to DEM, AOI, land outline
+
+dempath <- "E:/new_downscaling/tiles_westcoast/" # this must point to an existing directory with dem inside
+aoipath <-  "E:/new_downscaling/aoi/" # this must point to an existing directory with "Levy_MDV_actually.shp"
+aoip <- list.files(aoipath, pattern="actually.shp", full.names = T)
+clpath <- "E:/new_downscaling/coastline/Coastline_high_res_polygon/"
+```
+
+
+```{r, eval=F, include=F}
+## PATH TO TOOLS CMD
+
+######## set paths for translating to SAGA
+path_saga_norm <- "C:/OSGeo4W64/apps/saga-ltr/"
+sagaCmd <- paste0(path_saga_norm, "saga_cmd.exe")
+saga_outpath <- paste0(main, "SAGA_run/")
+
+######## set paths for batch processing in HEG tool
+# make an batchindir directory with the hdf files to batch convert and an batchoutdir directory with 
+# the prm template file, where output files will be written to
+# batchrunpath needs to be where MyHEG_batchScript.bat is located
+batchrunpath <- "C:/Users/mleza/HEG/HEG_Win/bin/BatchRunning/BatchRunning/"
+batchindir <- paste0(batchrunpath, "indir/") 
+batchoutdir <- paste0(batchrunpath, "outdir/")
+# for stacking images per month
+
+```
+
+##  CALL SETUP
+
+- load libraries
+- make time range list 
+- create directories for Landsat and MODIS data
+- read AOI shape
+- define and source some functions
+
+```{r sourceSetup}
+source(paste0(scriptpath_organized, "0a_setup.R"))
+```
+
+## Load template
+
+```{r}
+# this is one raster with a complete coverage of the research area to use as a template 
+template <- raster("E:/new_downscaling/clean_data/template_new.tif")
+
+```
+
+## 1 DEM
+#### DEM 8m REMA 
+```{r, eval=F}
+file.edit(paste0(scriptpath_organized, "1_DEM.R"))
+```
+
+* Use DEM tiles "17_34_8m", "17_35_8m","18_35_8m", "18_34_8m", "19_34_8m", "16_35_8m", "17_36_8m", "19_35_8m" 
+* set everything below 100m to NA
+* make 8m mosaic, everything below -50m goes
+* 3x3 mean filter
+* crop to aoi
+* fill missing values with 200m RAMP
+* resample first to 8m and cover and mask, then resample to 30m to evade sharp cuts
+* calculate slope and aspect
+* make a 20000x20000 blockmask (20km²)
+
+```{r, eval=show_html_images}
+dem <- raster(paste0(dempath, "DEM_30m_", areaname,"_clean_aoi_filled_mask_new.tif"))
+blockmask <- raster(paste0(dempath, "blockmask_aoi.tif"))
+aspect_deg <- raster(paste0(dempath, "30m_aspectMDV.tif"))
+slope_deg <- raster(paste0(dempath, "30m_slopeMDV.tif"))
+# aspect_rad <- raster(paste0(dempath, "30m_radians_aspectMDV.tif"))
+# slope_rad <- raster(paste0(dempath, "30m_radians_slopeMDV.tif"))
+
+
+mapview(aoianta, alpha.regions=0.2)+
+  mapview(blockmask)+  
+  mapview(aspect_deg)+
+  mapview(slope_deg)+
+  mapview(dem)
+
+
+```
+
+## 2 Landsat
+getprocessLANDSAT() is a function(time_range)
+
+```{r}
+login_USGS("MaiteLezama", "Eos300dmmmmlv")
+login_earthdata(username="Mlezama", password="Eos300dm")
+    
+y=1
+m=1
+#time_range[[y]][[m]]
+```
+
+Landsat data are distributed in UTM - thus, the aoi is converted to UTM 57 south (WGS84). 
+Footprints come in long lat. 
+Per day, the footprints for "bt" data are taken from  the query and their intersection with the research area is checked. 
+Only those scenes are selected, where at least 30% of research area (total 20719560545m² or 20719.6km²) is covered by the scene (i.e. 6906.5km²) in the footprint. 
+Only scenes that also show less than 20% land cloud cover are selected and written as querynew.RDS into the Landsat scene directory. Also "downloadScenes.csv" is written, which contains the date specifics on the downloaded scenes. 
+
+Time: Landsat comes in GMT and MODIS in UTC, and there is no time difference between Greenwich Mean Time and Coordinated Universal Time. 
+
+To order the scenes, a text file will be generated, with all the record ids. Those will be submitted for ordering on
+[espa](https://espa.cr.usgs.gov/ordering/new/), where "Brightness Temperature - Thermal band TOA processing" and "Pixel QA" will be selected. Finally, all is downloaded via the package espa.tools with earthexplorer_download(). 
+
+
+
+
+###   CALL DOWNLOAD AND PREPROCESSING
+
+```{r, include=F, eval=F}
+
+if(newarea==1){
+  prepDEM()
+}
+
+## Login to USGS ERS
+login_USGS("MaiteLezama", "Eos300dmmmmlv")
+
+
+      # y=1
+      # m=5
+      # time_range[[y]][[m]]
+      # getprocessLANDSAT(time_range)
+      # getprocessMODIS(time_range)
+      # 
+
+
+# from 2019-11 on 
+# should be like this when it all works:
+# for(y in seq(year)){
+#   for(m in seq(month)){
+#       getprocessLANDSAT(time_range)
+#       getprocessMODIS_new(time_range)
+#   }
+# }
+
+
+
+
+#y=6, m=1: Empty reply from server - try later
+#y=7, m=6 error
+# check when L8 Launch
+
+# MODIS files deprecated for 2018_09
+for(y in c(7)){
+  for(m in c(8)){
+    login_USGS("MaiteLezama", "Eos300dmmmmlv")
+    login_earthdata(username="Mlezama", password="Eos300dm")
+    
+    getprocessLANDSAT(time_range)
+    getprocessMODIS_new(time_range)
+    getprocessMODIS_new_MYD(time_range)
+    #make_L8_MOD_stack(y,m,timethres)
+  }
+}
+
+# # y=7, m=8 didn't work yet
+# for(y in seq(year)){
+#   for(m in seq(month)){
+#     
+#     modisscenepath <- paste0(modispath, substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")
+#     MODLSTpath <- paste0(modisscenepath, "mydLST/")
+#     ftc <- list.files(MODLSTpath, full.names=T, pattern="small_proj")
+#     file.copy(ftc, paste0("D:/new_downscaling/data_download_preprocessing/MODIS/",
+#                           substring(time_range[[y]][[m]][[1]][[1]], 1, 7),"/LST/", basename(ftc)))
+#     
+#     
+#   }
+# }
+
+
+```
+

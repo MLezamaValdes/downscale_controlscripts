@@ -8,6 +8,7 @@ library(ggplot2)
 library(viridis)
 library(gridExtra)
 library(grid)
+library(caret)
 library(raster)
 
 modelpath <-"C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/final_150000/"
@@ -45,6 +46,15 @@ i=1
   print(method)
   
   n <- 150000
+  
+  final_model$finalModel$importance
+  finImp <- varImp(final_model, scale = F)
+  
+  p + scale_x_continuous(labels = comma)
+  
+  plot(finImp, main="variable importance final model (rf, n=150000)")
+
+  
   
   final_model <- get(load(paste0(modelpath,"final_model_",method,"_", n, ".RData")))
   print(paste0("model name = ", "final_model_",method,"_", n, ".RData"))

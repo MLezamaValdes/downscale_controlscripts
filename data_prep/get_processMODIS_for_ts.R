@@ -2,7 +2,7 @@ library(getSpatialData)
 library(rgdal)
 
 scripts <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/downscale_controlscripts/data_prep/"
-batchrunpath <- "C:/HEGtools/HEG_Win/bin/BatchRunning/"
+batchrunpath <- "C:/Users/mleza/HEG/HEG_Win/bin/BatchRunning/BatchRunning/"
 batchoutdir <- paste0(batchrunpath, "outdir/")
 batchindir <- paste0(batchrunpath, "indir/")
 time_range <- readRDS(list.files(scripts, pattern="time_range.rds", full.names = T))
@@ -10,7 +10,7 @@ modispath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscali
 # run HEG tool to tranlate swaths to geotiff
 tplpath <- list.files(batchoutdir, pattern="unix.prm", full.names = T)
 
-aoipath <- "D:/new_downscaling/aoi/"
+aoipath <- "E:/new_downscaling/aoi/"
 aoi <- readOGR(list.files(aoipath, pattern="actually.shp", full.names = T))
 
 y <- 1
@@ -112,9 +112,12 @@ get_processMODIS_for_ts <- function(time_range, modispath, username, password, a
           }
           
           # run HEG tool
+          library(R.utils)
+          
           source("C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/downscaleRS/R/runheg.R")
           try(runheg(files=filescomp, indir=batchindir, 
                      outdir=batchoutdir, tplpath=tplpath, layer = "LST|"))
+          
           
           # transport results to other filespath
           dir.create(file.path(MODtifHDFoutpath)) # create MODtifHDFoutpath
@@ -144,7 +147,7 @@ get_processMODIS_for_ts <- function(time_range, modispath, username, password, a
             
             # Valid Range = 7500-65535
             lstcm[lstcm == 0 ] <- NA
-            #lst[[i]][lst[[i]] < 7500 & lst[[1]] > 65535] <- NA
+            lstcm[[i]][lstcm[[i]] < 7500 & lstcm[[1]] > 65535] <- NA
             
             # scale factor = 0.02
             lst_1_conv <- lstcm*0.02

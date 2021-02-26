@@ -117,12 +117,12 @@ mos_filled_30_aoi <- raster(paste0(dempath, "DEM_30m_", areaname,"_clean_aoi_fil
 ############################### calculate slope and aspect ##############################################################
 
 slas <- terrain(mos_filled_30_aoi, opt=c("slope", "aspect"), unit="degrees", neighbors=8)
+slasrad <- terrain(mos_filled_30_aoi, opt=c("slope", "aspect"), unit="radians", neighbors=8)
 
 for(i in seq(2)){
   writeRaster(slas[[i]], paste0(dempath, "30m_", names(slas[[i]]), areaname,".tif"), format="GTiff", overwrite=T)
 }
 
-slasrad <- terrain(mos_filled_30_aoi, opt=c("slope", "aspect"), unit="radians", neighbors=8)
 for(i in seq(2)){
   writeRaster(slasrad[[i]], paste0(dempath, "30m_radians_", names(slas[[i]]), areaname,".tif"), format="GTiff", overwrite=T)
 }
