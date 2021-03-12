@@ -20,7 +20,9 @@ library(suncalc)
 library(shadow)
 library(horizon)
 library(rgeos)
-
+library(RCurl)
+library(espa.tools)
+library(ggplot2)
 
 ######## year, month day list #############################################################################################
 ###########################################################################################################################
@@ -86,6 +88,21 @@ if(newarea==1){
 }
 
 
+######## Landsat cloud settings ########################################################################################################
+###########################################################################################################################
+
+
+
+cloud_shadow <- c(328, 392, 840, 904, 1350)
+cld <- c(352, 368, 416, 432, 480, 864, 880, 928, 944, 992)
+mc_cloud <- c(386, 388, 392, 400, 416, 432, 898, 900, 904, 928, 944)
+hc_cloud <- c(480, 992)
+hc_cirrus <- c(834, 836, 840, 848, 864, 880, 898, 900, 904, 912, 928, 944, 992)
+lc_cirrus <- c(322, 324, 328, 336, 352, 368, 386, 388, 392, 400, 416, 432, 480)
+lc_cloud <- c(322, 324, 328, 336, 352, 368, 834, 836, 840, 848, 864, 880)
+
+cloud <- c(cloud_shadow,cld,mc_cloud,hc_cloud,hc_cirrus)
+
 
 ######## functions ########################################################################################################
 ###########################################################################################################################
@@ -110,7 +127,7 @@ source(paste0(scriptpath, "4a_get_MYD_patch.R"))
 
 #### to be updated in package
 
-l8datlist <- function(scenes){
+l8datlist <- function(scenes, bandpattern){
   
   if(L8downloadtype != "Bt"){
     tifs <- lapply(seq(scenes), function(i){
@@ -130,13 +147,24 @@ l8datlist <- function(scenes){
     })
     
   } else {
-    tifs <- lapply(seq(scenes), function(i){
-      list.files(scenes[i], pattern="band10", full.names=T)
-    })
-    names <- lapply(seq(scenes), function(i){
-      list.files(scenes[i], pattern="band10", full.names=T)
-    })
     
+    tifs <- lapply(seq(bandpattern), function(k){
+      
+      lapply(seq(scenes), function(i){
+        list.files(scenes[i], pattern=bandpattern[k], full.names=T)
+      })
+      
+    })
+
+    names <- lapply(seq(bandpattern), function(k){
+      
+      lapply(seq(scenes), function(i){
+        list.files(scenes[i], pattern=bandpattern[k], full.names=F)
+      })
+      
+    })
+
+
     bqa <- lapply(seq(scenes), function(i){
       list.files(scenes[i], pattern="pixel_qa.tif$",  full.names = T)
     })
@@ -151,4 +179,26 @@ l8datlist <- function(scenes){
 }
 
 
+checkMyInternet <- function(){
+  out<-FALSE
+  while (out==FALSE){
+    if (is.character(getURL("www.google.com"))) {
+      out <- TRUE
+      print("all clear")
+    } else {
+      out <- FALSE
+    }
+    
+    ############# if no connetion, wait some time 
+    if(out==FALSE){
+      print("sleeping for 2min due to internet issues")
+      Sys.sleep(120)
+    }
+  }
+}
 
+
+workspace.size <- function() {
+  ws <- sum(sapply(ls(envir=globalenv()), function(x)object.size(get(x))))
+  round(ws/1e+9, digits = 3)
+}

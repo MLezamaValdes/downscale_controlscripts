@@ -60,14 +60,14 @@ L_cloudclean <- function(y, m){
 }
 
 
-# do complete 1 as well :) 
-
-for(y in c(2:length(year))){
-  for(m in seq(month)){
-    print(c(y,m))
-    L_cloudclean(y,m)
-    gc()
-  }
-}
+# # do complete 1 as well :) 
+# 
+# for(y in c(2:length(year))){
+#   for(m in seq(month)){
+#     print(c(y,m))
+#     L_cloudclean(y,m)
+#     gc()
+#   }
+# }
 
 

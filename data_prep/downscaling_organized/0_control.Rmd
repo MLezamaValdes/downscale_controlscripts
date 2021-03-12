@@ -16,7 +16,8 @@ if(only_setup==TRUE){
   show_html_images <- TRUE
 }
 
-
+library(tidyr)
+library(ggplot2)
 
 ```
 
@@ -44,8 +45,8 @@ timethres <- 0.6
 
 ## SET PATHS
 
-Seagate = E
-IRONWOLF = D 
+Micro IR Seagate = E
+IRONWOLF / ELEMENTS = D 
 
 ```{r paths}
 scriptpath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/downscale_controlscripts/data_prep/"
@@ -57,6 +58,7 @@ L8datpath <- paste0(main, "L8/")
 modispath <- paste0(main, "MODIS/")
 tdpath <-paste0(main, "timediff/")
 cddir <- paste0(maindir, "clean_data/")
+figurepath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/paper/paper_draft/figures/"
 
 
 ######## set path to DEM, AOI, land outline
@@ -97,6 +99,7 @@ batchoutdir <- paste0(batchrunpath, "outdir/")
 
 ```{r sourceSetup}
 source(paste0(scriptpath_organized, "0a_setup.R"))
+#file.edit(paste0(scriptpath_organized, "0a_setup.R"))
 ```
 
 ## Load template
@@ -149,26 +152,209 @@ login_USGS("MaiteLezama", "Eos300dmmmmlv")
 login_earthdata(username="Mlezama", password="Eos300dm")
     
 y=1
-m=1
+m=2
+ymid <- substring(time_range[[y]][[m]][[1]][[1]], 1, 7)
 #time_range[[y]][[m]]
 ```
 
 Landsat data are distributed in UTM - thus, the aoi is converted to UTM 57 south (WGS84). 
 Footprints come in long lat. 
 Per day, the footprints for "bt" data are taken from  the query and their intersection with the research area is checked. 
+
+### The Top of Atmosphere Brightness Temperature (toa_bt) product from Landsat 8 is used, which comes in 30m resolution, Kelvin, fill_value="-9999" (to be rescaled by 0.1). The valid range is from 1500 to 3500. 
+
 Only those scenes are selected, where at least 30% of research area (total 20719560545m² or 20719.6km²) is covered by the scene (i.e. 6906.5km²) in the footprint. 
 Only scenes that also show less than 20% land cloud cover are selected and written as querynew.RDS into the Landsat scene directory. Also "downloadScenes.csv" is written, which contains the date specifics on the downloaded scenes. 
 
 Time: Landsat comes in GMT and MODIS in UTC, and there is no time difference between Greenwich Mean Time and Coordinated Universal Time. 
 
 To order the scenes, a text file will be generated, with all the record ids. Those will be submitted for ordering on
-[espa](https://espa.cr.usgs.gov/ordering/new/), where "Brightness Temperature - Thermal band TOA processing" and "Pixel QA" will be selected. Finally, all is downloaded via the package espa.tools with earthexplorer_download(). 
+[espa](https://espa.cr.usgs.gov/ordering/new/), where "Brightness Temperature - Thermal band TOA processing" and "Pixel QA" will be selected. This is a workaround, as ordering takes a lot of runtime, as a maximum of one dataset per 30 min can be ordered. Finally, all is downloaded via the package espa.tools with earthexplorer_download(). 
+
+
+```{r, eval=F}
+file.edit(paste0(scriptpath_organized, "2_1_selectLandsat.R"))
+file.edit(paste0(scriptpath_organized, "2_2a_downloadLandsat.R"))
+file.edit(paste0(scriptpath_organized, "2_2b_downloadLandsat.R"))
+file.edit(paste0(scriptpath_organized, "2_3_processLandsat.R"))
+file.edit(paste0(scriptpath_organized, "2_2c_place_scenes.R"))
+
+```
+
+Identify potentially good scenes: 
+```{r, eval=F}
+source(paste0(scriptpath_organized, "2_1_selectLandsat.R"))
+
+for(y in seq(year)){
+  for(m in seq(month)){
+    checkMyInternet()
+    login_USGS("MaiteLezama", "Eos300dmmmmlv")
+    try(login_earthdata(username="Mlezama", password="Eos300dm"))
+    selectLANDSAT(time_range)
+  }
+}
+
+
+```
+
+"downloadScenes.csv" is where those scenes are, that passed the qualitycheck for clouds. For those scenes, I look for MODIS scenes that are located 20+/- around the L8 date. The time differences are documented in "timediff_df.csv". 
+
+Actualized queries "MODquerymatched_msel.rds" and "L8querymatched.rds" are written out. 
+
+From the Landsat 8 query now, 
+
+
+Gather all record ids to submit online to [espa](https://espa.cr.usgs.gov/ordering/new/)
+
+
+```{r, eval=F, include=F}
+source(paste0(scriptpath_organized, "2_2a_downloadLandsat.R"))
+```
+
+```{r, eval=F, include=F}
+#Check for differences with old run: 
+file.edit(paste0(scriptpath_organized, "2_2a_check_for_differences.R"))
+
+oldnewplot
+
+```
+
+Download by espa ID
+
+```{r, eval=F, include=F}
+file.edit(paste0(scriptpath_organized, "2_2b_downloadLandsat.R"))
+```
+
+Only MODIS data from Aqua have a close match time. 
+
+```{r, echo=F}
+tdcomp <- read.csv2(paste0(tdpath, "all_timediffs.csv")) 
+
+t <- table(tdcomp$MODMYD)
+
+tdcomp$MODMYD <- as.factor(tdcomp$MODMYD)
+levels(tdcomp$MODMYD) <- c("Terra", "Aqua")
+
+ggplot(tdcomp, aes(x=MODMYD, y=allminutesdiff, fill=MODMYD))+geom_boxplot()+
+  theme_minimal()+ylab("minutes")+xlab("")+
+    scale_fill_brewer(palette="Paired")+ theme(legend.position = "none")+
+  ggtitle("Time difference between Landsat scenes and Terra and Aqua MODIS scenes",
+          subtitle = paste0("n Terra = ",  t[1], ", n Aqua = ", t[2]))
+
+
+ggsave(filename = paste0(figurepath, "Terra_Aqua_timediff_Landsat.png"), 
+       width = 8, height = 8, units = "in", dpi=300, type = "cairo")
+
+source(paste0(scriptpath_organized, "2_2a_check_for_differences.R"))
+```
+
+Those 97 scenes are those from the 104 found in the second query, that had already been processed.
+```{r, echo=F}
+timediff_scene_plot
+```
+
+#### So, what was lost exactly in comparison to the last run, where we had > 300 scenes? 
+```{r, echo=F}
+timediffplot_old_new_query
+ATplot
+plcc
+```
+
+#### ...mostly scenes from Terra (MOD) were lost, that reduces the overall time difference in the dataset. Also, the median land cloud cover decreased.
 
 
 
+### Process Landsat
+
+Here, I'm using already downloaded images. If it would be a new download, files would be unzipped. 
+Get date, time, filename and land cloud cover from the MODIS-matched Landsat query and write that info into timediff_df. 
+Identify which quality assessment band codes are regarded here as clouds (cloud shadow, clouds, medium and high confidence cloud and high confidence cirrus). 
+
+Help files for selection of MODIS and documentation of time differences are written. 
+
+### patterned differences between Landsat bands 10 and 11, but it was recommended to use band 10 rather than 11 due to stray light
+
+"Additional work is underway to assess whether this correction is adequate for use with the split-window atmospheric correction technique. Until that work is complete, it is not recommended that Band 11 be used for the split-window technique." [USGS L8 calibration notices](https://www.usgs.gov/core-science-systems/nli/landsat/landsat-8-oli-and-tirs-calibration-notices)
+
+```{r}
+d1011 <- raster(paste0(L8datpath, "difference_b10_b11.tif"))
+mapview(d1011, map.types="Esri.WorldImagery")
+```
+
+### Brightness temperature TOA 
+```{r}
+btc_ex <- raster(paste0(L8datpath, "BTC_LC08_L1GT_057116_20190106_20190130_01_T2_bt_band10.tif"))
+btc_ex_res <- raster(paste0(L8datpath, "BTC_res_LC08_L1GT_057116_20190106_20190130_01_T2_bt_band10.tif"))
+LST_ex <- raster(paste0(L8datpath, "LST_LC08_L1GT_057116_20190106_20190130_01_T2_bt_band10.tif.tif"))
+
+mapview(btc_ex, map.types="Esri.WorldImagery")+
+  mapview(btc_ex_res)+
+  mapview(LST_ex)
+
+
+diff_BTC_LST <- LST_ex - btc_ex_res
+mapview(diff_BTC_LST)
+```
+
+
+
+
+```{r, eval=F}
+#file.edit(paste0(scriptpath_organized, "2_3_processLandsat.R"))
+source(paste0(scriptpath_organized, "2_3_processLandsat.R"))
+
+file_location <- "E:/new_downscaling/data_download_preprocessing/L8"
+
+y=2
+m=1
+processLandsat(time_range, new_download=FALSE) # new_download=TRUE if all espa downloads are in one folder
+workspace.size()
+
+
+
+```
+
+
+```{r, eval=F}
+source(paste0(scriptpath_organized, "2a_cloudclean_Landsat_org.R"))
+file.edit(paste0(scriptpath_organized, "2a_cloudclean_Landsat_org.R"))
+
+```
+
+
+### Landsat and MODIS
+MODIS LST product stems from channels 31 and 32, here is a comparison of the wavelengths covered by the thermal channels in both sensors: 
+```{r, echo=F}
+
+sbdf <- data.frame(sensor=c("Landsat ", "Landsat ", "MODIS ", "MODIS "),
+           band = c(10,11,31,32),
+           loRange = c(10.6, 11.5, 11.2, 12.5),
+           hiRange = c(11.2, 12.5, 11.28, 12.27))
+
+sbdfl <- gather(data=sbdf, key=bandrange, value=nm, loRange:hiRange, factor_key = TRUE)
+sbdfl$sens_band <- as.factor(paste0(sbdfl$sensor, sbdf$band))
+
+ggplot(sbdfl)+
+  geom_line(aes(x=nm, y=sens_band, group=sens_band), lineend="round", size=2)+
+  theme_minimal()+ylab("")+ggtitle("wavelength coverage by used thermal bands in Landsat TIRS and MODIS")
+```
+
+
+## MODIS 
+according to MODIS_LST_products_UserGuide_C5.pdf 
+MOD11_L2, masked with the MODIS Cloud Mask data product (MOD35_L2)
+The LST retrieval in a MODIS swath is constrained to pixels that:
+(1). have nominal Level 1B radiance data in bands 31 and 32,
+(2). are on land or inland water,
+(3). are in clear-sky conditions at a confidence (defined in MOD35) of >=95% over land
+<= 2000m or >= 66% over land > 2000m, and at a confidence of >= 66% over lakes. 
+
+MODIS: take a look at Error_LST
+
+#### use emissivity from modis product ? 
+#### compare gdal translate product with heg tool translation 
 
 ###   CALL DOWNLOAD AND PREPROCESSING
-
 ```{r, include=F, eval=F}
 
 if(newarea==1){
@@ -233,3 +419,22 @@ for(y in c(7)){
 
 ```
 
+## Open questions: 
+- What does -1 in Landsat Land Cloud Cover mean? Missing value I assume 
+- Is it problematic that we only get T2 datasets? 
+
+
+#to do for final run: 
+  
+\newcommand{\boxedcheckmark}
+  {{\ooalign{$\Box$\cr\hidewidth$\checkmark$\hidewidth}}}
+  
+$\checkmark$  band 10/11 reference (literature) 
+
+- training test areas 
+
+- SWIR raus 
+
+- hs & ia predict function (neue MODIS scene, MODELL + hs / is Berechnung -> prediction)
+
+- hypercube vs. mein sampling

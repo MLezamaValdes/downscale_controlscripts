@@ -1,0 +1,28 @@
+---
+title: "test"
+author: "Maite Lezama Valdes"
+date: "12 3 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+
+#to do for final run: 
+
+  
+\newcommand{\boxedcheckmark}
+  {{\ooalign{$\Box$\cr\hidewidth$\checkmark$\hidewidth}}}
+  
+$\checkmark$  band 10/11 reference (literature) 
+
+- training test areas 
+
+- SWIR raus 
+
+- hs & ia predict function (neue MODIS scene, MODELL + hs / is Berechnung -> prediction)
+
+- hypercube vs. mein sampling
