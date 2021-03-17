@@ -161,7 +161,7 @@ Landsat data are distributed in UTM - thus, the aoi is converted to UTM 57 south
 Footprints come in long lat. 
 Per day, the footprints for "bt" data are taken from  the query and their intersection with the research area is checked. 
 
-### The Top of Atmosphere Brightness Temperature (toa_bt) product from Landsat 8 is used, which comes in 30m resolution, Kelvin, fill_value="-9999" (to be rescaled by 0.1). The valid range is from 1500 to 3500. 
+The Top of Atmosphere Brightness Temperature (toa_bt) product from Landsat 8 is used, which comes in 30m resolution, Kelvin, fill_value="-9999" (to be rescaled by 0.1). The valid range is from 1500 to 3500. 
 
 Only those scenes are selected, where at least 30% of research area (total 20719560545m² or 20719.6km²) is covered by the scene (i.e. 6906.5km²) in the footprint. 
 Only scenes that also show less than 20% land cloud cover are selected and written as querynew.RDS into the Landsat scene directory. Also "downloadScenes.csv" is written, which contains the date specifics on the downloaded scenes. 
@@ -266,7 +266,7 @@ plcc
 
 ### Process Landsat
 
-Here, I'm using already downloaded images. If it would be a new download, files would be unzipped. 
+In this workflow run, I'm using already downloaded images. If it would be a new download, files would be unzipped. 
 Get date, time, filename and land cloud cover from the MODIS-matched Landsat query and write that info into timediff_df. 
 Identify which quality assessment band codes are regarded here as clouds (cloud shadow, clouds, medium and high confidence cloud and high confidence cirrus). 
 
@@ -340,18 +340,159 @@ ggplot(sbdfl)+
 ```
 
 
-## MODIS 
-according to MODIS_LST_products_UserGuide_C5.pdf 
-MOD11_L2, masked with the MODIS Cloud Mask data product (MOD35_L2)
+## 3 MODIS 
+According to MODIS_LST_products_UserGuide_C5.pdf, MOD11_L2 is masked with the MODIS Cloud Mask data product (MOD35_L2). 
+
 The LST retrieval in a MODIS swath is constrained to pixels that:
 (1). have nominal Level 1B radiance data in bands 31 and 32,
 (2). are on land or inland water,
 (3). are in clear-sky conditions at a confidence (defined in MOD35) of >=95% over land
 <= 2000m or >= 66% over land > 2000m, and at a confidence of >= 66% over lakes. 
 
-MODIS: take a look at Error_LST
 
-#### use emissivity from modis product ? 
+Taking a look at emissivity and LST error. Example scene from December 2019. Info on scene preparation [here](https://lpdaac.usgs.gov/products/mod11_l2v006/#:~:text=The%20MOD11_L2%20Version%206%20swath,the%20generalized%20split%2Dwindow%20algorithm.). 
+
+I used 0.94 as emissivity (Emissivity is defined as the amount of radiation emitted or absorbed by a body compared with that of a black body under identical conditions) for open soil and 0.97 for snow and ice based on the rock outcrop raster from Landsat (eta_res), see paper. The emissivity measured in MODIS product doesn't really look reliable, it's very patchy and there's no detectable variation with land cover type, which should really be the case. Moreover, all values are around 0.99, which seems pretty high. 
+
+So it's better to stick with the literature values. 
+
+
+```{r, echo=F}
+loc <- "E:/new_downscaling/data_download_preprocessing/MODIS/2019-12/hdfs/MOD29/"
+eta_res <- raster(paste0("E:/new_downscaling/data_download_preprocessing/Rock_outcrop_ras_", areaname, "_res.tif"))
+
+# get emissivity, LST, error, qc
+em_err <- stack(list.files(loc, pattern=".tif$", full.names = T))
+names(em_err) <- substring(names(em_err), 52, nchar(names(em_err)))
+
+# crop to aoi
+wgsproj <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+aoiwgs <- spTransform(aoi, wgsproj)
+em_err_anta <- crop(em_err, aoiwgs)
+em_err_anta[em_err_anta==0] <- NA
+
+# emissivity (eta_res: 0.94 for rock and 0.97 for snow and ice)
+em31 <- (em_err_anta[[1]]*0.002)+0.49
+em31cropped <- em31
+em31cropped[em31cropped<0.991] <- NA # some high values make it impossible to see distribution well
+mapview(em31cropped)+mapview(eta_res)
+```
+
+The LST error lies within 0.2 to 1.8 K for this scene. Although there is no similar information for Landsat 8 LST, I can use the error to exclude very unreliable pixels from training. 
+
+### *GATHERING LST ERROR HAS TO BE INCORPORATED IN TO MODIS WORKFLOW*
+```{r, echo=F}
+# LST error
+err <- (em_err_anta[[2]]*0.04)
+
+```
+
+The Quality control band in MOD11_L2 needs to be converted from decimal to binary format (package luna). Check meaning of qa_bits [here](https://rspatial.org/terra/modis/4-quality.html). Value of 1 indicates a good quality pixel for cloud state, cloud shadow, cloud flag and high cirrus detected. 
+
+```{r, echo=F}
+# install.packages("remotes")
+# remotes::install_github("rspatial/luna")
+library(luna)
+library(terra)
+from <- c(1,3,11,9)
+to   <- c(2,3,11,10)
+reject <- c("01,10", "1", "1","11")
+qa_bits <- cbind(from, to, reject)
+
+qc <- rast(em_err_anta[[4]])
+quality_mask <- modis_mask(qc, 16, qa_bits)
+qm <- raster(quality_mask)
+
+mapview::mapview(qm)+mapview(err)
+
+
+serr <- stack(qm, err)
+exerr <- data.frame(serr[])
+
+exerr <- exerr[!is.na(exerr$Err_LST),]
+exerr$LST_qc[is.na(exerr$LST_qc)] <- 0
+
+exerr$LST_qc <- as.factor(exerr$LST_qc)
+levels(exerr$LST_qc) <- c("not good", "good quality")
+
+ggplot(exerr, aes(y=Err_LST, x=LST_qc, fill=LST_qc))+
+  geom_boxplot()+theme_classic()+theme(legend.position = "none")+
+  scale_fill_manual(values=c("#ADADAD", "#B1C70C"))+
+  ggtitle("LST error by quality control")+xlab("LST Quality control")+
+  ylab("Error LST")
+
+```
+
+I'm asking myself, whether the algorithm for cloud, cirrus and quality determination just picks up on the open soil areas - they are cut out neatly here and the furthest 30min away scene from Landsat does not show any clouds - not sure... 
+
+### *CROP MODIS TO good quality pixels and let it complete as well to compare later*
+
+Now, MODIS LST is prepared by selecting the valid range and converting according to the factors specified in the product help page to LST in \°C. 
+```{r, echo=F}
+lst_masked <- mask(em_err_anta[[3]], qm)
+
+# convert to LST
+lst_masked[lst_masked < 7500 & lst_masked > 65535] <- NA 
+lst_maskedC <- (lst_masked*0.02)-273.15
+
+```
+
+### comparing LST from MODIS and from L8 
+
+```{r, echo=F}
+# get L8 scene
+lst_L8 <- raster("E:/new_downscaling/data_download_preprocessing/L8/2019-12/LST/LC08_L1GT_057115_20191224_20200110_01_T2_bt_band10.tif")
+mapview(lst_maskedC)+mapview(lst_L8)
+
+lst_maskedC_proj <- projectRaster(lst_maskedC, crs=crs(lst_L8))
+lst_l8_res <-  resample(lst_L8, lst_maskedC_proj)
+
+s <- stack(lst_l8_res,lst_maskedC_proj)
+
+ex <- s[]
+ex <- data.frame(ex)
+names(ex) <- c("L8", "MODIS")
+extr <- ex[complete.cases(ex),]
+```
+
+
+Take a look at Landsat 8 error for this scene - info on bit readout can be found [here](https://www.usgs.gov/core-science-systems/nli/landsat/landsat-collection-2-quality-assessment-bands)
+```{r}
+sceneloc <- list.files("E:/new_downscaling/data_download_preprocessing/L8/2019-12/get_data/LANDSAT/BT/", pattern="LC08_L1GT_057115_20191224_20200110_01_T2",
+                       full.names=T)
+scenefolder <- list.files(sceneloc, pattern="Bt$", full.names = T)
+
+pqa <- raster(list.files(scenefolder, pattern="pixel_qa", full.names=T))
+
+from <- c(6,1)
+to   <- c(7,1)
+reject <- c("11,10", "0")
+qa_bits <- cbind(from, to, reject)
+
+qc <- rast(pqa)
+quality_mask <- modis_mask(qc, 8, qa_bits)
+qm <- raster(quality_mask)
+
+mapview(pqa)+mapview(qm)
+
+lst_masked <- mask(lst_L8, qm)
+mapview(lst_L8)+mapview(qm)
+
+```
+
+
+Landsat shows slightly lower values than MODIS at 1km resolution. 
+
+```{r, echo=F}
+ggplot(extr, aes(x=L8, y=MODIS))+
+  geom_point()+geom_abline(intercept = 0, slope=1)+
+  geom_smooth(method=lm)+theme_classic()+
+  ggtitle("LST from L8 (resampled to 1km) and MODIS")
+
+
+```
+
+
 #### compare gdal translate product with heg tool translation 
 
 ###   CALL DOWNLOAD AND PREPROCESSING
@@ -430,6 +571,10 @@ for(y in c(7)){
   {{\ooalign{$\Box$\cr\hidewidth$\checkmark$\hidewidth}}}
   
 $\checkmark$  band 10/11 reference (literature) 
+
+$\checkmark$  MODIS: take a look at Error_LST: 0.2 to 1.8 - looks ok, not sure whether it helps to include that information, because L8 LST is also biased, but I don't get an error measurement there. Only thing could be to incorporate it in the extraction table and then see if training with only low error pixels will work better? 
+
+$\checkmark$  use EMISSIVITY from modis product? Won't... doesn't look promising because patchy & resolution issue - assuming emissivity for the two contrasting land cover types at 30m resolution seems to be the more sensible option
 
 - training test areas 
 

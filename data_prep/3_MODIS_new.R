@@ -86,38 +86,46 @@ getprocessMODIS_new <- function(time_range){
     ## set archive directory
     set_archive(modisscenepath)
     
-    print("basic settings done")
-    
-    
-    ####### GET DATA ONLINE ##############################################################################################
-    
     ## set aoi and time range for the query
     set_aoi(aoiutm)
     
-     
+    wgsproj <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+
     aoiwgs <- spTransform(aoi, wgsproj)
     
     query <- msel$msel
-    wgsproj <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
     
-    # get year and doy from query
-    lapply(seq(query), function(i){
-      ydoy  <- substring(query[[i]]$summary, 22,28)
-      yearn <- substring(ydoy, 1,4)
-      doyn <- substring(ydoy, 5,7)
-      filenamen <- substring(query[[i]]$summary, 12,55)
-
-      url = paste0("https://ladsweb.modaps.eosdis.nasa.gov/archive/allData/6/MOD11_L2/",yearn, "/", doyn, "/", filenamen)
+    print("basic settings done")
+    
+    
+####### GET DATA ONLINE ##############################################################################################
+    if(new_download==TRUE){
       
-      for(i in seq(url)){
-        q <- httr::GET(url[i],
-                       httr::authenticate(username, password) , silent = F)
-        bin <- httr::content(q, "raw")
-        writeBin(bin, paste0(modisscenepath, filenamen[i]))
+
+      
+      # get year and doy from query
+      lapply(seq(query), function(i){
+        ydoy  <- substring(query[[i]]$summary, 22,28)
+        yearn <- substring(ydoy, 1,4)
+        doyn <- substring(ydoy, 5,7)
+        filenamen <- substring(query[[i]]$summary, 12,55)
         
-      }
-      print(paste0("downloaded", query[[i]]$summary))
-    })
+        url = paste0("https://ladsweb.modaps.eosdis.nasa.gov/archive/allData/6/MOD11_L2/",yearn, "/", doyn, "/", filenamen)
+        
+        for(i in seq(url)){
+          q <- httr::GET(url[i],
+                         httr::authenticate(username, password) , silent = F)
+          bin <- httr::content(q, "raw")
+          writeBin(bin, paste0(modisscenepath, filenamen[i]))
+          
+        }
+        print(paste0("downloaded", query[[i]]$summary))
+      })
+      
+    }
+        
+####### COPY hdfs ##############################################################################################
+    
     
     dir.create(file.path(modisscenepath, "hdfs/"))
   
@@ -132,7 +140,7 @@ getprocessMODIS_new <- function(time_range){
         if(length(list.files(hdfpath))!=0){
 
 
-          ######### BATCH TRANSLATING SWATH TO GEOTIFF WITH HEG TOOL ####################################################
+######### BATCH TRANSLATING SWATH TO GEOTIFF WITH HEG TOOL ####################################################
 
           # get template prm file
           tpl <- read.delim(list.files(batchoutdir, pattern="unix.prm", full.names = T),
@@ -162,7 +170,7 @@ getprocessMODIS_new <- function(time_range){
 
           print("batch translating hdf to tif done")
 
-          ######## GO ON PROCESSING LST IN R ########################################################################################
+######## GO ON PROCESSING LST IN R ########################################################################################
 
           # get tif files
           lst <- lapply(seq(list.files(MODtifHDFoutpath, pattern=".tif$")), function(i){
@@ -254,34 +262,34 @@ getprocessMODIS_new <- function(time_range){
 
           print("values, resolution and projection adapted")
 
-          ############# PATCH IMAGES ####################################################################################
+############# PATCH IMAGES ####################################################################################
 
-          if(length(lst_res) > 1){
-            # write mosaic command
-            mrg <- character()
-            for(i in seq(lst_res)){
-              mrg[i] <- paste0("lst_res[[", i, "]]")
-            }
-            #mrg[length(mrg)] <- paste0("lst_res[[", length(mrg), "]]")
-            mrg <- paste(mrg, sep="", collapse=",")
-            cm <- paste("raster::mosaic(", mrg, ", tolerance=0.9,
-                    fun=mean, overwrite=T, overlap=T, ext=NULL)")
+          # if(length(lst_res) > 1){
+          #   # write mosaic command
+          #   mrg <- character()
+          #   for(i in seq(lst_res)){
+          #     mrg[i] <- paste0("lst_res[[", i, "]]")
+          #   }
+          #   #mrg[length(mrg)] <- paste0("lst_res[[", length(mrg), "]]")
+          #   mrg <- paste(mrg, sep="", collapse=",")
+          #   cm <- paste("raster::mosaic(", mrg, ", tolerance=0.9,
+          #           fun=mean, overwrite=T, overlap=T, ext=NULL)")
+          # 
+          #   mosaic <- eval(parse(text=cm))
+          #   mosaic[mosaic < -90] <- NA # correct for too low values
+          # 
+          #   writeRaster(mosaic, paste0(modisscenepath, areaname, "_MODIS_LST_Mosaic.tif"), format="GTiff",
+          #               overwrite=T, bylayer=T)
+          #   #mosaic <- raster(paste0(modisscenepath, areaname, "_MODIS_LST_Mosaic.tif"))
+          # 
+          #   # visualize mosaic
+          #   #mapview(mosaic, col.regions = viridis(500), legend = TRUE)
+          # 
+          #   print("MODIS images patched")
+          # }
 
-            mosaic <- eval(parse(text=cm))
-            mosaic[mosaic < -90] <- NA # correct for too low values
 
-            writeRaster(mosaic, paste0(modisscenepath, areaname, "_MODIS_LST_Mosaic.tif"), format="GTiff",
-                        overwrite=T, bylayer=T)
-            #mosaic <- raster(paste0(modisscenepath, areaname, "_MODIS_LST_Mosaic.tif"))
-
-            # visualize mosaic
-            #mapview(mosaic, col.regions = viridis(500), legend = TRUE)
-
-            print("MODIS images patched")
-          }
-
-
-          ############ MAKE A RASTER WHICH GIVES INFO ON INPUT RASTER ##########################################################
+############ MAKE A RASTER WHICH GIVES INFO ON INPUT RASTER ##########################################################
 
 
           # find max bounding box
@@ -412,7 +420,7 @@ getprocessMODIS_new <- function(time_range){
           print("timedifference to L8 written")
 
 
-}
+      }
 
     }
 

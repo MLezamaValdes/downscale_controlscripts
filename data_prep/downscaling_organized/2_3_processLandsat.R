@@ -254,10 +254,14 @@ processLandsat <- function(time_range, new_download=FALSE){
 
       
       # get rock outcrop raster with Emissivity values
+      
+      # eta <- raster(paste0("E:/new_downscaling/data_download_preprocessing/Rock_outcrop_ras_", areaname, ".tif"))
+      # eta_res <- resample(eta, template, method="ngb")
+      #writeRaster(eta_res, paste0("E:/new_downscaling/data_download_preprocessing/Rock_outcrop_ras_", areaname, "_res.tif"))
+      
       eta_res <- raster(paste0("E:/new_downscaling/data_download_preprocessing/Rock_outcrop_ras_", areaname, "_res.tif"))
       
-      # eta_res <- resample(eta, template)
-      # writeRaster(eta_res, paste0("E:/new_downscaling/data_download_preprocessing/Rock_outcrop_ras_", areaname, "_res.tif"))
+      
       BTC <- btc
       
       BTC_res <- lapply(seq(BTC), function(i){
