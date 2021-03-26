@@ -5,7 +5,9 @@ print("loading Palma libs and paths")
 outpath <- "/scratch/tmp/llezamav/modelling/"
 trainpath <- "/scratch/tmp/llezamav/satstacks/extraction_result_new/train_test/"
 
-
+install.packages("/home/l/llezamav/R/kernlab_0.9-29.tar.gz", repos = NULL, lib="/home/l/llezamav/R/")
+                 
+                 
 library(parallel)
 library(doParallel)
 library(CAST,lib.loc="/home/l/llezamav/R/")

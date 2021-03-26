@@ -2,7 +2,19 @@
 title: "Downscaling controlscript"
 author: "Maite Lezama Valdes"
 date: "18 2 2021"
-output: html_document
+
+output: 
+ rmarkdown::html_document:
+  #bookdown::html_document2:
+    theme: flatly
+    highlight: tango
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    toc_depth: 2
+link-citations: yes
+toc: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -21,7 +33,7 @@ library(ggplot2)
 
 ```
 
-##   GENERAL INFO ABOUT AREA AND TIMESTEP & RUN
+###   GENERAL INFO ABOUT AREA AND TIMESTEP & RUN
 
 ```{r switches}
 # newarea can be 0 (no) or 1 (yes). If area is not new, it is assumed that the land outline shapefile and cropped rock outcrop is already available and doesn't need to be unzipped etc.
@@ -43,7 +55,7 @@ timethres <- 0.6
 ```
 
 
-## SET PATHS
+### Set Paths
 
 Micro IR Seagate = E
 IRONWOLF / ELEMENTS = D 
@@ -89,7 +101,7 @@ batchoutdir <- paste0(batchrunpath, "outdir/")
 
 ```
 
-##  CALL SETUP
+###  Call Setup
 
 - load libraries
 - make time range list 
@@ -102,13 +114,16 @@ source(paste0(scriptpath_organized, "0a_setup.R"))
 #file.edit(paste0(scriptpath_organized, "0a_setup.R"))
 ```
 
-## Load template
+##### Load template
 
 ```{r}
 # this is one raster with a complete coverage of the research area to use as a template 
 template <- raster("E:/new_downscaling/clean_data/template_new.tif")
 
 ```
+
+
+##################################### SETUP until here ##################################################
 
 ## 1 DEM
 #### DEM 8m REMA 
@@ -135,11 +150,11 @@ slope_deg <- raster(paste0(dempath, "30m_slopeMDV.tif"))
 # slope_rad <- raster(paste0(dempath, "30m_radians_slopeMDV.tif"))
 
 
-mapview(aoianta, alpha.regions=0.2)+
-  mapview(blockmask)+  
-  mapview(aspect_deg)+
-  mapview(slope_deg)+
-  mapview(dem)
+mapview(aoianta, alpha.regions=0.2, na.color="#00000000")+
+  mapview(blockmask, na.color="#00000000")+  
+  mapview(aspect_deg, na.color="#00000000")+
+  mapview(slope_deg, na.color="#00000000")+
+  mapview(dem, na.color="#00000000")
 
 
 ```
@@ -272,13 +287,12 @@ Identify which quality assessment band codes are regarded here as clouds (cloud 
 
 Help files for selection of MODIS and documentation of time differences are written. 
 
-### patterned differences between Landsat bands 10 and 11, but it was recommended to use band 10 rather than 11 due to stray light
-
-"Additional work is underway to assess whether this correction is adequate for use with the split-window atmospheric correction technique. Until that work is complete, it is not recommended that Band 11 be used for the split-window technique." [USGS L8 calibration notices](https://www.usgs.gov/core-science-systems/nli/landsat/landsat-8-oli-and-tirs-calibration-notices)
+#### getting LST from Landsat
+Although there are patterned differences between Landsat bands 10 and 11, I'm sticking with the single band LST retrieval appraoch, becasue it was recommended to use band 10 rather than 11 due to stray light in the USGS calibration notices: "Additional work is underway to assess whether this correction is adequate for use with the split-window atmospheric correction technique. Until that work is complete, it is not recommended that Band 11 be used for the split-window technique." [USGS L8 calibration notices](https://www.usgs.gov/core-science-systems/nli/landsat/landsat-8-oli-and-tirs-calibration-notices)
 
 ```{r}
 d1011 <- raster(paste0(L8datpath, "difference_b10_b11.tif"))
-mapview(d1011, map.types="Esri.WorldImagery")
+mapview(d1011, map.types="Esri.WorldImagery", na.color="#00000000")
 ```
 
 ### Brightness temperature TOA 
@@ -287,13 +301,13 @@ btc_ex <- raster(paste0(L8datpath, "BTC_LC08_L1GT_057116_20190106_20190130_01_T2
 btc_ex_res <- raster(paste0(L8datpath, "BTC_res_LC08_L1GT_057116_20190106_20190130_01_T2_bt_band10.tif"))
 LST_ex <- raster(paste0(L8datpath, "LST_LC08_L1GT_057116_20190106_20190130_01_T2_bt_band10.tif.tif"))
 
-mapview(btc_ex, map.types="Esri.WorldImagery")+
-  mapview(btc_ex_res)+
-  mapview(LST_ex)
+mapview(btc_ex, map.types="Esri.WorldImagery", na.color="#00000000")+
+  mapview(btc_ex_res, na.color="#00000000")+
+  mapview(LST_ex, na.color="#00000000")
 
 
 diff_BTC_LST <- LST_ex - btc_ex_res
-mapview(diff_BTC_LST)
+mapview(diff_BTC_LST, na.color="#00000000")
 ```
 
 
@@ -375,7 +389,8 @@ em_err_anta[em_err_anta==0] <- NA
 em31 <- (em_err_anta[[1]]*0.002)+0.49
 em31cropped <- em31
 em31cropped[em31cropped<0.991] <- NA # some high values make it impossible to see distribution well
-mapview(em31cropped)+mapview(eta_res)
+mapview(em31cropped, na.color="#00000000")+
+  mapview(eta_res, na.color="#00000000")
 ```
 
 The LST error lies within 0.2 to 1.8 K for this scene. Although there is no similar information for Landsat 8 LST, I can use the error to exclude very unreliable pixels from training. 
@@ -403,7 +418,7 @@ qc <- rast(em_err_anta[[4]])
 quality_mask <- modis_mask(qc, 16, qa_bits)
 qm <- raster(quality_mask)
 
-mapview::mapview(qm)+mapview(err)
+mapview::mapview(qm, na.color="#00000000")+mapview(err, na.color="#00000000")
 
 
 serr <- stack(qm, err)
@@ -442,7 +457,7 @@ lst_maskedC <- (lst_masked*0.02)-273.15
 ```{r, echo=F}
 # get L8 scene
 lst_L8 <- raster("E:/new_downscaling/data_download_preprocessing/L8/2019-12/LST/LC08_L1GT_057115_20191224_20200110_01_T2_bt_band10.tif")
-mapview(lst_maskedC)+mapview(lst_L8)
+mapview(lst_maskedC, na.color="#00000000")+mapview(lst_L8, na.color="#00000000")
 
 lst_maskedC_proj <- projectRaster(lst_maskedC, crs=crs(lst_L8))
 lst_l8_res <-  resample(lst_L8, lst_maskedC_proj)
@@ -473,10 +488,7 @@ qc <- rast(pqa)
 quality_mask <- modis_mask(qc, 8, qa_bits)
 qm <- raster(quality_mask)
 
-mapview(pqa)+mapview(qm)
-
-lst_masked <- mask(lst_L8, qm)
-mapview(lst_L8)+mapview(qm)
+mapview(pqa, na.color="#00000000")+mapview(qm, na.color="#00000000")+mapview(lst_L8, na.color="#00000000")
 
 ```
 

@@ -66,13 +66,15 @@ getprocessMODIS_new <- function(time_range){
   # if there is something useful in L8 data
   #if(exists("qualL8")){
     
-  downloadedday <- read.csv2(list.files(L8scenepath, pattern="timediff_comp", full.names=T))
+  timediff_comp <- read.csv2(list.files(L8scenepath, pattern="timediff_comp", full.names=T))
+  
+  
 
   # cs <- strsplit(as.character(downloadedday$summary), ",", fixed = TRUE)
   # ad <- lapply(cs, `[[`, 2)
   # daynum <- as.numeric(lapply(strsplit(as.character(lapply(strsplit(as.character(ad), ":"),`[[`, 2)), "-"), `[[`, 1))
 
-  L8datetime <- as.POSIXlt(downloadedday$datetime, format="%Y:%j:%H:%M:%S")
+  L8datetime <- as.POSIXlt(downloadedday$l8date)
     
     
     print("STARTING MODIS DOWNLOAD AND PREP")
@@ -102,7 +104,6 @@ getprocessMODIS_new <- function(time_range){
     if(new_download==TRUE){
       
 
-      
       # get year and doy from query
       lapply(seq(query), function(i){
         ydoy  <- substring(query[[i]]$summary, 22,28)
