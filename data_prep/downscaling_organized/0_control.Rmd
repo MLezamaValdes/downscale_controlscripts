@@ -393,7 +393,7 @@ mapview(em31cropped, na.color="#00000000")+
   mapview(eta_res, na.color="#00000000")
 ```
 
-The LST error lies within 0.2 to 1.8 K for this scene. Although there is no similar information for Landsat 8 LST, I can use the error to exclude very unreliable pixels from training. 
+The LST error lies within 0.2 to 1.8 K for this scene. I can use the error to exclude very unreliable pixels from training. 
 
 ### *GATHERING LST ERROR HAS TO BE INCORPORATED IN TO MODIS WORKFLOW*
 ```{r, echo=F}
@@ -450,6 +450,37 @@ lst_masked <- mask(em_err_anta[[3]], qm)
 lst_masked[lst_masked < 7500 & lst_masked > 65535] <- NA 
 lst_maskedC <- (lst_masked*0.02)-273.15
 
+```
+### GDAL 
+ 
+
+
+```{r}
+hdfdir <- "E:/new_downscaling/data_download_preprocessing/MODIS/2019-01/hdfs/"
+f <- list.files(hdfdir, pattern="hdf$", full.names = T)
+hdffilepath <- f[which(grepl("707",  f))]
+
+# get LST subdataset
+hdf4_dataset <- system.file(hdffilepath, package="gdalUtils")
+sds <- get_subdatasets(hdffilepath)
+sds[1]
+```
+
+Geolocation control points (GCPs) work better than Geolocation array, because those are 5x smaller (aggregated) in comparison to the real LST value array. The warping procedure is taylored to what the HEG-Tool does, i.e. Nearest Neighbor resampling 
+```{r}
+# use gdalwarp
+gdalwarp(sds[1], 
+         dstfile = paste0(hdfdir,"LST_warp_", tools::file_path_sans_ext(basename(hdffilepath)), ".tif"),
+           tps=T, # Force use of thin plate spline transformer based on available GCPs.
+           #rpc=T, # Force use of Geolocation Arrays or RPC
+           verbose=TRUE,
+           s_srs = wgs84,
+           t_srs = wgs84,
+           #t_srs=antaproj,# target spatial reference set
+           overwrite = T,
+           tr = c(0.062141, 0.009285),
+           te = c(158.5, -78.9, 164.7, -76.0), 
+           r="near")
 ```
 
 ### comparing LST from MODIS and from L8 
