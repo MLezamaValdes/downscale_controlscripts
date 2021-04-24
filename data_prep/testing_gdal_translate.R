@@ -18,7 +18,7 @@ tmplras[] <- 1
 antaproj <- crs(aoianta)
 wgs84 <- "+proj=longlat +datum=WGS84 +no_defs"
 
-warp_MOD_Swath <- function(hdffilepath){
+#warp_MOD_Swath <- function(hdffilepath){
   # get LST subdataset
   hdf4_dataset <- system.file(hdffilepath, package="gdalUtils")
   sds <- get_subdatasets(hdffilepath)
@@ -41,7 +41,7 @@ warp_MOD_Swath <- function(hdffilepath){
   # TOMS-Earth-Probe_L2-TOMSEPL2_2000m1231t2303-o24142_v001-2004m0424t164259_1.vrt test.tif
   # 
   
-  tif <- raster(list.files(hdfdir, pattern="HEG", full.names = T)[1])
+  #tif <- raster(list.files(hdfdir, pattern="HEG", full.names = T)[1])
   tif_1000 <- raster(list.files(hdfdir, pattern="HEG_res1000", full.names = T)[1])
   tif_test <- raster(list.files(hdfdir, pattern="HEG_test_707", full.names = T)[1]) 
   
@@ -63,51 +63,55 @@ warp_MOD_Swath <- function(hdffilepath){
            tps=T, # Force use of thin plate spline transformer based on available GCPs.
            #rpc=T, # Force use of Geolocation Arrays or RPC
            verbose=TRUE,
-           s_srs = wgs84,
-           t_srs = wgs84,
+           s_srs = wgsproj,
+           t_srs = wgsproj,
            #t_srs=antaproj,# target spatial reference set
            overwrite = T,
-           tr = c(0.062141, 0.009285),
+           tr = c(0.05, 0.0093),
            te = c(158.5, -78.9, 164.7, -76.0), 
            r="near")
+  
+
+  
   warp_geoloc <- raster(paste0(hdfdir,"LST_warp_geoloc_", tools::file_path_sans_ext(basename(hdffilepath)), ".tif"))
-  warp_geoloc <- crop(warp_geoloc, aoiwgs)
+  #warp_geoloc <- crop(warp_geoloc, aoiwgs)
   
   mapview(warp_geoloc)+mapview(tif_test)
   warp_geoloc
   tif_test
   
   
-  aoiwgs <- spTransform(aoianta, CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs "))
+  aoiwgs <- spTransform(aoianta, CRS(wgsproj))
   ce <- extent(aoiwgs)+2
   warp_geoloc_cr <- raster::crop(warp_geoloc, ce)
   mapview(warp_geoloc_cr)
   
   
   projectedRaster <- projectRaster(warp_geoloc_cr, crs=antaproj)
-  mapview(projectedRaster)
+  mapview(projectedRaster)+mapview(tif_test)
   
   
   writeRaster(warp_geoloc_cr, 
               paste0(hdfdir,"LST_warp_geoloc_", tools::file_path_sans_ext(basename(hdffilepath)), ".tif"),
               overwrite=T)
+  
   # Geolocation data (latitude and longitude) at a coarse resolution (5 lines by
   # 5 samples) is also stored in the product
   
   
-  gdalwarp(paste0(hdfdir,"LST_warp_geoloc_", tools::file_path_sans_ext(basename(hdffilepath)), ".tif"), 
-           dstfile = paste0(hdfdir,"LST_warp_cropped_proj_", tools::file_path_sans_ext(basename(hdffilepath)), ".tif"),
-           #tps=T, # Force use of thin plate spline transformer based on available GCPs.
-           #geoloc=T, # Force use of Geolocation Arrays.
-           verbose=TRUE,
-           t_srs=antaproj,# target spatial reference set
-           s_srs = wgs84,
-           tr=c(1000,1000),
-           #s_srs=wgs84,# target spatial reference set
-           overwrite = T,
-           #r="cubic"
-           )
-  
+  # gdalwarp(paste0(hdfdir,"LST_warp_geoloc_", tools::file_path_sans_ext(basename(hdffilepath)), ".tif"), 
+  #          dstfile = paste0(hdfdir,"LST_warp_cropped_proj_", tools::file_path_sans_ext(basename(hdffilepath)), ".tif"),
+  #          #tps=T, # Force use of thin plate spline transformer based on available GCPs.
+  #          #geoloc=T, # Force use of Geolocation Arrays.
+  #          verbose=TRUE,
+  #          t_srs=antaproj,# target spatial reference set
+  #          s_srs = wgs84,
+  #          tr=c(1000,1000),
+  #          #s_srs=wgs84,# target spatial reference set
+  #          overwrite = T,
+  #          #r="cubic"
+  #          )
+  # 
   projectedfile <- raster( paste0(hdfdir,"LST_warp_cropped_proj_", tools::file_path_sans_ext(basename(hdffilepath)), ".tif"))
   mapview(projectedfile)+mapview(aoianta)
   
@@ -119,7 +123,7 @@ warp_MOD_Swath <- function(hdffilepath){
   x <- raster(paste0(hdfdir,"LST_warp_proj_", tools::file_path_sans_ext(basename(hdffilepath)), ".tif"))
   xc <- crop(x, aoianta)
   mapview(xc)
-}
+# }
 
 
 # gdal_translate HDF4_EOS:EOS_GRID:"MOD11A1.A2004091.h34v10.005.2007261231833.hdf":MODIS_Grid_Daily_1km_LST:LST_Day_1km LST.tif
@@ -182,8 +186,12 @@ lst_c <- lapply(seq(LST_warp_proj), function(i){
 #gdal_translate(sds[1], dst_dataset = paste0(hdfdir,"LST_", tools::file_path_sans_ext(basename(f)), ".tif"))
 
 # get info on geolocation out of the LST
-gdi <- gdalinfo(sds[11], nogcp=TRUE)
-gdi2 <- gdalinfo(sds)
+sds
+gdi <- gdalinfo(sds[1])
+
+#gdi2 <- gdalinfo(sds)
+
+
 
 
 getfromGDALINFO <- function(what, precutoff,nparam=1){
@@ -250,6 +258,7 @@ size/spsoparameters
 
 gdi[which(grepl("PIXEL", gdi))]
 
+gdi <- gdalinfo(sds[1]) # geolocation info in sds of LST
 geoloc_fields <- which(grepl("GEOL", gdi))
 latlonloc <- gdi[geoloc_fields]
 gdal_translate(substring(latlonloc[1], 13,nchar(latlonloc[1])), 
@@ -260,9 +269,34 @@ lonras <- raster(list.files(hdfdir, pattern="lon", full.names=T))
 latras <- raster(list.files(hdfdir, pattern="lat", full.names=T))
 
 lon_hr <- disaggregate(lonras, fact=5)
-lon_hr
+lat_hr <- disaggregate(latras, fact=5)
 
-latras 
+
+# now translating LST without cutting to extent
+gdalwarp(sds[1], 
+         dstfile = paste0(hdfdir,"LST_warp_geoloc_noext_", tools::file_path_sans_ext(basename(hdffilepath)), ".tif"),
+         tps=T, # Force use of thin plate spline transformer based on available GCPs.
+         #rpc=T, # Force use of Geolocation Arrays or RPC
+         verbose=TRUE,
+         s_srs = wgsproj,
+         t_srs = wgsproj,
+         #t_srs=antaproj,# target spatial reference set
+         overwrite = T,
+         tr = c(0.062141, 0.009285),
+         #te = c(158.5, -78.9, 164.7, -76.0), 
+         r="near")
+
+
+full_warped <- raster(paste0(hdfdir,"LST_warp_geoloc_noext_", tools::file_path_sans_ext(basename(hdffilepath)), ".tif"))
+fw_to_geoloc <- resample(full_warped, lon_hr)
+
+stack(lon_hr, )
+
+lon_hr
+lat_hr 
+
+plot(lon_hr)
+
 
 xmin <- min(lonras[])
 xmax <- max(lonras[])

@@ -1,33 +1,31 @@
 #2_2a_1_check_for_differences.R 
 
 
-ri <- read.table( paste0(L8datpath, "ri_txt/all_swir_ids.txt"))
+#
+# dirs <- grep(".csv$", list.files("E:/new_downscaling/data_download_preprocessing/L8/", full.names = T),
+#      value = TRUE, invert = TRUE)
+#
+# full_path_old_scenes <- unique(list.files(paste0(dirs, "/LST/"), full.names=T, pattern="bt_band10.tif"))
+#
+#
+# filenames_old_scenes <- unique(list.files(paste0(dirs, "/LST/"), full.names=F, pattern="bt_band10.tif"))
+# filenames_old_scenes <- substring(filenames_old_scenes, 1, 40)
+#
+#
+# filenames_old_date <- as.Date(substring(filenames_old_scenes, 18,25), format="%Y%m%d")
+# ri_date <- as.Date(substring(ri$V1, 18,25), format="%Y%m%d")
+#
+# df <- data.frame(old_files=filenames_old_date, in_new = filenames_old_scenes %in% ri$V1)
+# oldnewplot <- ggplot(df, aes(x=old_files, y=in_new))+geom_point()+theme_minimal()+
+#   ggtitle("old files in new files?",
+#           subtitle = paste0("n old = ", length(filenames_old_date), " n new = ", length(ri$V1)))+
+#   ylab("")+xlab("")
+#
+#
+# not_selected_now <- filenames_old_scenes[filenames_old_scenes %in% ri$V1==FALSE]
 
-dirs <- grep(".csv$", list.files("E:/new_downscaling/data_download_preprocessing/L8/", full.names = T), 
-     value = TRUE, invert = TRUE)
-
-full_path_old_scenes <- unique(list.files(paste0(dirs, "/LST/"), full.names=T, pattern="bt_band10.tif"))
-
-
-filenames_old_scenes <- unique(list.files(paste0(dirs, "/LST/"), full.names=F, pattern="bt_band10.tif"))
-filenames_old_scenes <- substring(filenames_old_scenes, 1, 40)
-
-
-filenames_old_date <- as.Date(substring(filenames_old_scenes, 18,25), format="%Y%m%d")
-ri_date <- as.Date(substring(ri$V1, 18,25), format="%Y%m%d")
-
-df <- data.frame(old_files=filenames_old_date, in_new = filenames_old_scenes %in% ri$V1)
-oldnewplot <- ggplot(df, aes(x=old_files, y=in_new))+geom_point()+theme_minimal()+
-  ggtitle("old files in new files?", 
-          subtitle = paste0("n old = ", length(filenames_old_date), " n new = ", length(ri$V1)))+
-  ylab("")+xlab("")
-
-
-
-not_selected_now <- filenames_old_scenes[filenames_old_scenes %in% ri$V1==FALSE]
-
-### get all momentary timediff files ##########################################################################
-# tdfiles <- list.files(L8datpath, pattern = "timediff", recursive=T, full.names = T)
+## get all momentary timediff files ##########################################################################
+# tdfiles <- list.files(L8datpath, pattern = "timediff_df.csv", recursive=T, full.names = T)
 # 
 # td <- lapply(seq(tdfiles), function(j){
 #   read.csv2(tdfiles[j])
@@ -42,28 +40,33 @@ not_selected_now <- filenames_old_scenes[filenames_old_scenes %in% ri$V1==FALSE]
 # tdcomp$allminutesdiff <- tdcomp$timediff*60
 # tdcomp$l8date_1 <- as.POSIXct(tdcomp$l8date)
 # 
-# tdcomp_closematch <- tdcomp[tdcomp$allminutesdiff < 15,]
+# tdcomp$mdate <- as.POSIXct(substring(tdcomp$modscene, 11,22), format="%Y%j_%H%M", tz="UTC")
+# tdcomp$mdate_NZ <- with_tz(tdcomp$mdate, tzone = "Pacific/Auckland")
 # 
-# tdcomp_closematch$MODMYD
-# write.csv2(tdcomp_closematch, paste0(tdpath, "timediffs_below_15.csv")) 
+# tdcomp$modmydnam <- NA
+# tdcomp$modmydnam[tdcomp$MODMYD == 1] <- "Terra"
+# tdcomp$modmydnam[tdcomp$MODMYD == 2] <- "Aqua"
+# 
+# tdcomp_closematch <- tdcomp[tdcomp$allminutesdiff < 17,]
+# 
+# write.csv2(tdcomp_closematch, paste0(tdpath, "timediffs_below_15.csv"))
 # write.csv2(tdcomp, paste0(tdpath, "all_timediffs.csv")) # = all_comb_scenes.csv in old version
 
 
 
 tdcomp <- read.csv2(paste0(tdpath, "all_timediffs.csv")) 
-
-
-tdcomp <- tdcomp[tdcomp$found==TRUE,]
-tdcomp <- tdcomp[complete.cases(tdcomp),]
-
+tdcomp_closematch <- read.csv2(paste0(tdpath, "timediffs_below_15.csv")) 
 
 head(tdcomp)
-p <- ggplot(data=tdcomp, aes(x=as.Date(l8date_1), y=allminutesdiff, colour=as.factor(month)))+
-  geom_point(size=2)+
-  scale_color_manual(values=c("lightsteelblue2","coral3","hotpink4",
-                              "darkgoldenrod2", "olivedrab3", "lightcyan4"))+
+p <- ggplot(data=tdcomp, 
+            aes(x=as.Date(l8date_1), y=allminutesdiff, group=as.factor(modmydnam), colour=as.factor(month)))+
+  #geom_point(size=2)+
+  geom_point(size=2,aes(shape=as.factor(modmydnam)))+
+  scale_shape_manual(values=c(16,17))+
+  scale_color_manual(values=c("navy","coral3","hotpink4",
+                              "darkgoldenrod2", "olivedrab3", "lightcyan4","lightsteelblue2"))+
   theme_bw() +
-  labs(color = "month")+
+  labs(color = "month", shape="MODIS")+
   theme(panel.grid.major = element_blank(), 
     plot.title = element_text(lineheight=.8, face="bold", size = 16),
     plot.subtitle = element_text(size = 14),
@@ -80,10 +83,35 @@ p <- ggplot(data=tdcomp, aes(x=as.Date(l8date_1), y=allminutesdiff, colour=as.fa
        subtitle = paste0("n scenes = ", nrow(tdcomp), "; n unique months = ", length(unique(tdcomp$monthyear))))+
   xlab("date")+ylab("min")
 
-timediff_scene_plot <- p + scale_x_date(date_labels = "%Y %m",date_breaks = "6 month")
+timediff_scene_plot_TA <- p + scale_x_date(date_labels = "%Y %m",date_breaks = "6 month")
 
 
+p <- ggplot(data=tdcomp_closematch,
+            aes(x=as.Date(l8date_1), y=allminutesdiff, group=as.factor(modmydnam), colour=as.factor(month)))+
+  #geom_point(size=2)+
+  geom_point(size=2,aes(shape=as.factor(modmydnam)))+
+  scale_shape_manual(values=c(16))+
+  scale_color_manual(values=c("navy","coral3","hotpink4",
+                              "darkgoldenrod2", "olivedrab3", "lightcyan4","lightsteelblue2"))+
+  theme_bw() +
+  labs(color = "month", shape="MODIS")+
+  theme(panel.grid.major = element_blank(), 
+        plot.title = element_text(lineheight=.8, face="bold", size = 16),
+        plot.subtitle = element_text(size = 14),
+        legend.text=element_text(size=14, hjust = 0),
+        legend.title = element_text(size=16, hjust=0),
+        axis.title.x = element_text(size = 16),
+        axis.title.y = element_text(size = 16),
+        panel.grid.minor = element_blank(),
+        axis.text.y = element_text(size = 11),
+        axis.text.x = element_text(size=11, angle=90,face="bold"),
+        strip.background = element_blank(),
+        strip.text = element_text(size=14))+
+  labs(title="time difference (min) in Landsat / Modis scenes over time",
+       subtitle = paste0("n scenes = ", nrow(tdcomp_closematch), "; n unique months = ", length(unique(tdcomp_closematch$monthyear))))+
+  xlab("date")+ylab("min")
 
+timediff_scene_plot_A <- p + scale_x_date(date_labels = "%Y %m",date_breaks = "6 month")
 ######### are there any images that
 
 
@@ -150,7 +178,7 @@ df <- lapply(seq(datefiles), function(j){
 df <- do.call("rbind",df)
 nrow(df)
 
-
+ri <- read.table( paste0(L8datpath, "ri_txt/all_swir_ids.txt"))
 df$selected_in_new <- df$fname %in% ri$V1 
 df$selected_in_new[df$selected_in_new==FALSE] <- "old"
 df$selected_in_new[df$selected_in_new==TRUE] <- "new"

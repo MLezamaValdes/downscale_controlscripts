@@ -35,7 +35,7 @@
 #'   }
 #' }
 
-getprocessMODIS_new <- function(time_range){
+getprocessMODIS <- function(time_range, new_download=FALSE){
   
   ####### LOAD PACKAGES, SET PATHS ###############################################################################
   
@@ -66,27 +66,30 @@ getprocessMODIS_new <- function(time_range){
   # if there is something useful in L8 data
   #if(exists("qualL8")){
     
-  timediff_comp <- read.csv2(list.files(L8scenepath, pattern="timediff_comp", full.names=T))
+  try(timediff_comp <- read.csv2(list.files(L8scenepath, pattern="timediff_df.csv", full.names=T)),silent=T)
   
-  
+  if(exists("timediff_comp")){
+    
+
 
   # cs <- strsplit(as.character(downloadedday$summary), ",", fixed = TRUE)
   # ad <- lapply(cs, `[[`, 2)
   # daynum <- as.numeric(lapply(strsplit(as.character(lapply(strsplit(as.character(ad), ":"),`[[`, 2)), "-"), `[[`, 1))
 
-  L8datetime <- as.POSIXlt(downloadedday$l8date)
+  L8datetime <- as.POSIXlt(timediff_comp$l8date)
     
     
     print("STARTING MODIS DOWNLOAD AND PREP")
     
     modisscenepath <- paste0(modispath, substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")
+    oldmodisscenepath <- paste0("E:/new_downscaling/data_download_preprocessing/MODIS/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")
     hdfpath <- paste0(modisscenepath, "hdfs/")
     MODtifHDFoutpath <- paste0(modisscenepath, "translated/")
     MODLSTpath <- paste0(modisscenepath, "LST/")
     
     
     ## set archive directory
-    set_archive(modisscenepath)
+    set_archive(hdfpath)
     
     ## set aoi and time range for the query
     set_aoi(aoiutm)
@@ -101,329 +104,299 @@ getprocessMODIS_new <- function(time_range){
     
     
 ####### GET DATA ONLINE ##############################################################################################
-    if(new_download==TRUE){
-      
-
-      # get year and doy from query
-      lapply(seq(query), function(i){
-        ydoy  <- substring(query[[i]]$summary, 22,28)
-        yearn <- substring(ydoy, 1,4)
-        doyn <- substring(ydoy, 5,7)
-        filenamen <- substring(query[[i]]$summary, 12,55)
+    # if(new_download==TRUE){
+    #   
+    # 
+    #   # get year and doy from query
+    #   lapply(seq(query), function(i){
+    #     seq(query[[i]], function(j){
+    #     ydoy  <- substring(query[[i]][[j]]$summary, 22,28)
+    #     yearn <- substring(ydoy, 1,4)
+    #     doyn <- substring(ydoy, 5,7)
+    #     filenamen <- query[[i]][[j]]$record_id
+    #     
+    #     url = paste0("https://ladsweb.modaps.eosdis.nasa.gov/archive/allData/6/MOD11_L2/",yearn, "/", doyn, "/", filenamen)
+    #     
+    #     for(i in seq(url)){
+    #       q <- httr::GET(url[i],
+    #                      httr::authenticate(username, password) , silent = F)
+    #       bin <- httr::content(q, "raw")
+    #       writeBin(bin, paste0(modisscenepath, filenamen[i]))
+    #       
+    #     }
+    #     print(paste0("downloaded", query[[i]]$summary))
+    #     })
+    # 
+    #   })
+    # }
         
-        url = paste0("https://ladsweb.modaps.eosdis.nasa.gov/archive/allData/6/MOD11_L2/",yearn, "/", doyn, "/", filenamen)
-        
-        for(i in seq(url)){
-          q <- httr::GET(url[i],
-                         httr::authenticate(username, password) , silent = F)
-          bin <- httr::content(q, "raw")
-          writeBin(bin, paste0(modisscenepath, filenamen[i]))
-          
+    lapply(seq(query), function(i){
+      lapply(seq(query[[i]]), function(j){
+        if(!is.null(query[[i]][[j]])){
+        if(nrow(query[[i]][[j]]) > 0){
+          print(paste0("~~~~~~~~~~ i_j = ", i, "_", j, "~~~~~~~~~~~~", query[[i]][[j]]$record_id, "~~~~~~~~~~"))
+          get_data(query[[i]][[j]])
+          }
         }
-        print(paste0("downloaded", query[[i]]$summary))
       })
-      
-    }
-        
-####### COPY hdfs ##############################################################################################
+    })
+    
+    ####### COPY hdfs ##############################################################################################
+    
+    dlf <- list.files(hdfpath, pattern=".hdf", recursive=T, full.names = T)
+    dlf <- dlf[grepl("_datasets", dlf)]
+    file.copy(from=dlf,to=paste0(hdfpath, basename(dlf)), overwrite = T)
+    
+    folder_datasets <- list.files(paste0(hdfpath,"_datasets", "/"), recursive = T, pattern=".hdf$", full.names = T)
+    file.remove(folder_datasets)
     
     
-    dir.create(file.path(modisscenepath, "hdfs/"))
-  
+    #     # put all hdfs into one folder (hdfpath)
+    # if(downloaded_already == TRUE){
+    #   
+    #   
+    #   # check, which of the scenes in the oldmodisscenedirectory are in the timediff_comp file, were queried again
+    #   oldmodisscene_in_query <- unlist(lapply(seq(list.files(oldmodisscenepath, pattern=".hdf$", full.names = T)), function(i){
+    #     any(grepl(
+    #               gsub(substring(list.files(oldmodisscenepath, pattern=".hdf$", full.names = F), 1,26), replacement = ".", pattern="_" )[i],
+    #               gsub(timediff_comp$MODname, replacement = ".", pattern="_")
+    #         ))
+    #   }))
+    #   
+    #   nl <- paste0(hdfpath, basename(list.files(oldmodisscenepath, pattern=".hdf$")))[oldmodisscene_in_query]
+    #   fc <- list.files(oldmodisscenepath, pattern=".hdf$", full.names = T)[oldmodisscene_in_query]
+    #   file.copy(from=fc, to=nl,
+    #             overwrite = TRUE)
+    # } else {
+    #   nl <- paste0(hdfpath, basename(list.files(modisscenepath, pattern=".hdf")))
+    #   file.copy(from=list.files(modisscenepath, pattern=".hdf$", full.names = T), to=nl,
+    #             overwrite = TRUE)
+    # }
 
-        # put all hdfs into one folder (hdfpath)
-        nl <- paste0(hdfpath, basename(list.files(modisscenepath, pattern=".hdf")))
-        file.copy(from=list.files(modisscenepath, pattern=".hdf", full.names = T), to=nl,
-                  overwrite = TRUE)
 
         print("MODIS data downloaded and in place")
 
-        if(length(list.files(hdfpath))!=0){
+        if(length(list.files(hdfpath, pattern=".hdf$"))!=0){
 
 
-######### BATCH TRANSLATING SWATH TO GEOTIFF WITH HEG TOOL ####################################################
+# ######### BATCH TRANSLATING SWATH TO GEOTIFF WITH HEG TOOL ####################################################
+# 
+#           # get template prm file
+#           tpl <- read.delim(list.files(batchoutdir, pattern="unix.prm", full.names = T),
+#                             sep="=", col.names = c("nam", "val"), header = F, stringsAsFactors = F)
+# 
+#           # run HEG tool to tranlate swaths to geotiff
+#           tplpath <- list.files(batchoutdir, pattern="unix.prm", full.names = T)
+# 
+#           # list all files in hdf dir
+#           filescomp <- list.files(hdfpath, full.names=T, pattern="MOD")
+# 
+#           # clean out batchoutdir if something there from previous run
+#           a <- character(0)
+#           if(!identical(a, list.files(batchoutdir, pattern=".tif"))){
+#             file.remove(list.files(batchoutdir, pattern=".tif", full.names = T))
+#           }
+# 
+#           # run HEG tool
+#           try(runheg(files=filescomp, indir=batchindir, outdir=batchoutdir, tplpath=tplpath, layer = "LST|"))
+# 
+#           # transport results to other filespath
+#           dir.create(file.path(MODtifHDFoutpath)) # create MODtifHDFoutpath
+#           MODtiffiles <- list.files(batchoutdir, pattern=".tif$", full.names=T)
+#           MODtifHEG <- paste0(MODtifHDFoutpath, basename(MODtiffiles))
+#           file.copy(from=MODtiffiles, to=MODtifHEG,
+#                     overwrite = TRUE)
+# 
+#           print("batch translating hdf to tif done")
 
-          # get template prm file
-          tpl <- read.delim(list.files(batchoutdir, pattern="unix.prm", full.names = T),
-                            sep="=", col.names = c("nam", "val"), header = F, stringsAsFactors = F)
 
-          # run HEG tool to tranlate swaths to geotiff
-          tplpath <- list.files(batchoutdir, pattern="unix.prm", full.names = T)
+############ GDALWARP TO GEOTIFF ##########################################################################################
 
-          # list all files in hdf dir
-          filescomp <- list.files(hdfpath, full.names=T, pattern="MOD")
+          f <- list.files(hdfpath, pattern="hdf$", full.names = T)
+          rel_sds <- c("LST", "Error_LST") # relevant subdatasets
+          
+          dir.create(MODLSTpath)
+          lapply(seq(f), function(i){
+            
+            sds <- get_subdatasets(f[i])
+            rel_sds_pos <- c(which(grepl(":LST", sds)), which(grepl(":Error_LST", sds)))
+                        # use gdalwarp
+            for(j in seq(rel_sds)){
+              
+              namsds <- strsplit(sds[rel_sds_pos[j]], ":")
+              namsdsi <- namsds[[1]][length(namsds[[1]])]
+              
+              gdalwarp(sds[rel_sds_pos[j]], 
+                       dstfile = paste0(MODLSTpath,"warp_", namsdsi,"_", tools::file_path_sans_ext(basename(f[i])), ".tif"),
+                       tps=T, # Force use of thin plate spline transformer based on available GCPs.
+                       verbose=TRUE,
+                       s_srs = wgsproj,
+                       t_srs = wgsproj,
+                       overwrite = T,
+                       tr = c(0.0441,0.0096), # target resolution to match 1000x1000m 
+                       te = c(158.5, -78.9, 164.7, -76.0), # crop to rough extent of aoi
+                       r="near") # nearest neighbour resampling
+            }
+            
+          })
 
-          # clean out batchoutdir if something there from previous run
-          a <- character(0)
-          if(!identical(a, list.files(batchoutdir, pattern=".tif"))){
-            file.remove(list.files(batchoutdir, pattern=".tif", full.names = T))
-          }
-
-          # run HEG tool
-          try(runheg(files=filescomp, indir=batchindir, outdir=batchoutdir, tplpath=tplpath, layer = "LST|"))
-
-          # transport results to other filespath
-          dir.create(file.path(MODtifHDFoutpath)) # create MODtifHDFoutpath
-          MODtiffiles <- list.files(batchoutdir, pattern=".tif$", full.names=T)
-          MODtifHEG <- paste0(MODtifHDFoutpath, basename(MODtiffiles))
-          file.copy(from=MODtiffiles, to=MODtifHEG,
-                    overwrite = TRUE)
-
-          print("batch translating hdf to tif done")
-
+  
+          
 ######## GO ON PROCESSING LST IN R ########################################################################################
 
           # get tif files
-          lst <- lapply(seq(list.files(MODtifHDFoutpath, pattern=".tif$")), function(i){
-            raster(list.files(MODtifHDFoutpath, pattern=".tif$", full.names=T)[i])
-          })
+          lst <- stack(list.files(MODLSTpath, pattern="^warp_LST", full.names=T))
+          err <- stack(list.files(MODLSTpath, pattern="^warp_Error", full.names=T))
+
+          print("prepping and writing LST error")
           
-          # cut to & mask by aoi
+          # conversion of error 
+          errcnv <- err*0.04
+          errc <- crop(errcnv, aoiwgs)
+          errcm <- mask(errc, aoiwgs)
+          err_proj <- projectRaster(errcm, crs = antaproj)
+          writeRaster(err_proj, paste0(MODLSTpath, "proj_", names(err), ".tif"), format="GTiff",
+                      overwrite=T,  bylayer=T)
+          
+          
+          # mask by aoi, convert values to valid range and degree C
+          print("converting LST DN to valid range and degree Celsius")
+          
+          lstc <- crop(lst,aoiwgs)
+          lstcm <- mask(lstc, aoiwgs)
+          
+          # Valid Range = 7500-65535
+          lstcm[lstcm == 0 ] <- NA
+          lstcm[lstcm < 7500 & lstcm > 65535] <- NA
+          
+          # scale factor = 0.02
+          lst_1_conv <- lstcm*0.02
+          
+          # convert to degree C
+          lstc <- lst_1_conv - 273.15
+          #spplot(lstc)
         
-            
-          # convert values to valid range and degree C
-          print("converting values to valid range and degree Celsius")
-          dir.create(MODLSTpath)
-          lst_c <- lapply(seq(lst), function(i){
-            lstc <- crop(lst[[i]],aoiwgs)
-            lstcm <- mask(lstc, aoiwgs)
-            
-            # Valid Range = 7500-65535
-            lstcm[lstcm == 0 ] <- NA
-            #lst[[i]][lst[[i]] < 7500 & lst[[1]] > 65535] <- NA
-
-            # scale factor = 0.02
-            lst_1_conv <- lstcm*0.02
-
-            # convert to degree C
-            lstc <- lst_1_conv - 273.15
-
-            writeRaster(lstc, paste0(MODLSTpath, "cels_", names(lst[[i]]), ".tif"), format="GTiff",
-                        overwrite=T)
-
-            print(i)
-            return(lstc)
-          })
-
-          # save projected and resampled rasters
-          dir.create(file.path(MODLSTpath)) # create MODtifHDFoutpath
-
-
           # project rasters
           print("projecting rasters - will take quite a while")
-          lapply(seq(lst_c), function(i){
-            print(i)
-            x <- projectRaster(lst_c[[i]], crs = antaproj)
-            writeRaster(x, paste0(MODLSTpath, "proj_", names(lst[[i]]), ".tif"), format="GTiff",
-                        overwrite=T)
-            x
-          })
+          lst_proj <- projectRaster(lstc, crs = antaproj)
+          writeRaster(lst_proj, paste0(MODLSTpath, "proj_c_", names(lst), ".tif"), format="GTiff",
+                      overwrite=T,  bylayer=T)
 
 
-          rm(lst_c)
+          rm(lstc)
           gc()
 
-          projfiles <- list.files(MODLSTpath, pattern="proj", full.names = T)
-          projfiles <- projfiles[  sapply(seq(projfiles), function(i){
-            !grepl("small", projfiles[i])
-          })]
-
-          lst_cp <- lapply(seq(projfiles), function(i){
-            raster(projfiles[i])
-          })
-          tmplras <- template
-
-          if(length(lst_cp)>1){
-            # get extent of files
-            MODext <- lapply(seq(lst_cp), function(i){
-              p <- as(extent(aoianta), 'SpatialPolygons')
-              crs(p) <- antaproj
-              p
-            })
-            me <- do.call(bind, MODext)
-
-            # make a template to force 1x1km pixels
-            extent(tmplras) <- extent(aoianta)
-          }
-
-          res(tmplras) <- c(1000, 1000)
-          tmplras[] <- 1
-
-
-          # resample all rasters to 1km x 1km resolution
-          lst_res <- lapply(seq(lst_cp), function(i){
-            print(i)
-            x <- resample(lst_cp[[i]], tmplras)
-            writeRaster(x, paste0(MODLSTpath, names(lst[[i]]), ".tif"), format="GTiff",
-                        overwrite=T)
-            x
-          })
-
-          print("rasters resampled to 1x1km resolution")
-
-          print("values, resolution and projection adapted")
-
-############# PATCH IMAGES ####################################################################################
-
-          # if(length(lst_res) > 1){
-          #   # write mosaic command
-          #   mrg <- character()
-          #   for(i in seq(lst_res)){
-          #     mrg[i] <- paste0("lst_res[[", i, "]]")
-          #   }
-          #   #mrg[length(mrg)] <- paste0("lst_res[[", length(mrg), "]]")
-          #   mrg <- paste(mrg, sep="", collapse=",")
-          #   cm <- paste("raster::mosaic(", mrg, ", tolerance=0.9,
-          #           fun=mean, overwrite=T, overlap=T, ext=NULL)")
-          # 
-          #   mosaic <- eval(parse(text=cm))
-          #   mosaic[mosaic < -90] <- NA # correct for too low values
-          # 
-          #   writeRaster(mosaic, paste0(modisscenepath, areaname, "_MODIS_LST_Mosaic.tif"), format="GTiff",
-          #               overwrite=T, bylayer=T)
-          #   #mosaic <- raster(paste0(modisscenepath, areaname, "_MODIS_LST_Mosaic.tif"))
-          # 
-          #   # visualize mosaic
-          #   #mapview(mosaic, col.regions = viridis(500), legend = TRUE)
-          # 
-          #   print("MODIS images patched")
-          # }
-
-
-############ MAKE A RASTER WHICH GIVES INFO ON INPUT RASTER ##########################################################
-
-
-          # find max bounding box
-          newextent <- extent(tmplras)
-
-          # bring them all to new extent
-          lst_ex <- lapply(seq(lst_res), function(i){
-            x <- crop(lst_res[[i]], newextent)
-            names(x) <- names(lst_res[[i]])
-            x
-          })
-
-          lst_ex <- stack(lst_ex)
-
-          # put in correct names if any got missing during processing
-          testnam <- which(grepl("layer",names(lst_ex)))
-          for(i in seq(testnam)){
-            names(lst_ex[[testnam[i]]]) <- names(lst[[testnam[i]]])
-          }
-
-
-          # crop everything to aoi - perhaps here?
-          lst_s <- crop(lst_ex, aoianta)
-
-          # write
-          for(i in seq(nlayers(lst_s))){
-            print(i)
-            writeRaster(lst_s[[i]], paste0(MODLSTpath, "small_", names(lst_res[[i]]), ".tif"), format="GTiff",
-                        overwrite=T)
-          }
 
           print("indidvidual MODIS images stacked and cut to aoi")
+          
+          # remove stuff that is not needed any more
+          lstrm <- list.files(MODLSTpath, pattern="^warp_LST", full.names=T)
+          errrm <- list.files(MODLSTpath, pattern="^warp_Error", full.names=T)
+          
+          file.remove(lstrm, errrm)
 
-          ################ MAKE DATE RASTERS #################################
+          # ################ MAKE DATE RASTERS #################################
+          # 
+          # #lst_s <- stack(list.files(MODLSTpath, pattern="small", full.names=T))
+          # 
+          # fnams <- sapply(seq(lst), function(i){
+          #   names(lst[[i]])
+          # })
+          # 
+          # utcdates <- lapply(seq(fnams), function(i) {
+          #   fnam <- fnams[i]
+          #   # get UTC date from fnam
+          #   su <- strsplit(fnam, "A")
+          #   su <- su[[1]][length(su[[1]])]
+          #   org <- paste0(substring(su, 1,4), "-01-01")
+          #   utcday <- as.Date((as.numeric(substring(su, 5,7))-1), origin=org)
+          # 
+          #   if(grepl("v", su)){
+          #     utctime <- NULL
+          #     utcdate <- utcday
+          #   } else {
+          #     utctime <- paste0(substring(su, 9, 10), ":", substring(su, 11, 12))
+          #     utcdate <- strptime(paste0(utcday,utctime), format='%Y-%m-%d %H:%M', tz="UTC")
+          #   }
+          #   print(i)
+          #   return(utcdate)
+          # })
+          # 
+          # # test
+          # v <- NULL
+          # for(i in seq(utcdates)){
+          #   v[i] <- as.character(utcdates[[i]])
+          # }
+          # 
+          # namdate <- data.frame(fnams=fnams, utc = v)
+          # 
+          # 
+          # # MODdate contains dayofyear, minutesofday as data and as rasters as well
+          # MODdate <- datestodoymod(utcdates, fnams, lst_s)
+          # 
+          # print("MODIS time done")
+          # 
+          # ############# GOODNESS OF FIT OF ACQUISITION TIME (L8 / MODIS) ##############################
+          # 
+          # # timeex <- data.frame(extract(tstack, extent(tstack)))
+          # 
+          # 
+          # L8time <- read.csv(paste0(L8datpath, "L8_date_", areaname, time_range[[y]][[m]][[1]][1], ".csv"))
+          # L8date <- lapply(seq(nrow(L8time)), function(i){
+          #   strptime(paste(L8time$date[i], L8time$time[i]), format='%Y-%m-%d %H:%M:%S', tz="UTC")
+          # })
+          # 
+          # # convert L8 time to minute of day
+          # fnamsL8 <- list.files(paste0(L8scenepath, "bt/"), pattern="BTC")
+          # 
+          # 
+          # #L8dates <- datestodoymod(L8date, fnamsL8, lst_s)
+          # doy <- sapply(seq(L8date), function(i){
+          #   strftime(L8date[[i]], format = "%j")
+          # })
+          # 
+          # minutes <- sapply(seq(L8date), function(i){
+          #   minute(L8date[[i]])
+          # })
+          # 
+          # hours <- sapply(seq(L8date), function(i){
+          #   hour(L8date[[i]])
+          # })
+          # 
+          # 
+          # # make L8 date df
+          # minutesofday <- (hours*60)+minutes
+          # L8datedf <- L8time
+          # 
+          # #L8datedf$fnam <- fnamsL8
+          # L8datedf$doy <- doy
+          # L8datedf$min <- minutes
+          # L8datedf$hrs <- hours
+          # L8datedf$minday <- minutesofday
+          # 
+          # # make MODIS date df
+          # moddate <- character()
+          # for(i in seq(utcdates)){
+          #   moddate[i] <- as.character( utcdates[[i]][1])
+          # }
+          # 
+          # modL8datedf <- data.frame(doy=MODdate$dayofyear, minday=MODdate$minutesofday, date=moddate, fnam=fnams)
+          # 
+          # dir.create(paste0(main, "timediff/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/"))
+          # 
+          # write.csv2(L8datedf, paste0(main, "timediff/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/", "dates_L8.csv"))
+          # write.csv2(modL8datedf, paste0(main, "timediff/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/", "dates_MODIS.csv"))
+          # 
+          # 
+          # 
+          # print("timedifference to L8 written")
+        } 
 
-          #lst_s <- stack(list.files(MODLSTpath, pattern="small", full.names=T))
+      }else {
+    print("time differences too big")
+  }
 
-          fnams <- sapply(seq(lst), function(i){
-            names(lst[[i]])
-          })
-
-          utcdates <- lapply(seq(fnams), function(i) {
-            fnam <- fnams[i]
-            # get UTC date from fnam
-            su <- strsplit(fnam, "A")
-            su <- su[[1]][length(su[[1]])]
-            org <- paste0(substring(su, 1,4), "-01-01")
-            utcday <- as.Date((as.numeric(substring(su, 5,7))-1), origin=org)
-
-            if(grepl("v", su)){
-              utctime <- NULL
-              utcdate <- utcday
-            } else {
-              utctime <- paste0(substring(su, 9, 10), ":", substring(su, 11, 12))
-              utcdate <- strptime(paste0(utcday,utctime), format='%Y-%m-%d %H:%M', tz="UTC")
-            }
-            print(i)
-            return(utcdate)
-          })
-
-          # test
-          v <- NULL
-          for(i in seq(utcdates)){
-            v[i] <- as.character(utcdates[[i]])
-          }
-
-          namdate <- data.frame(fnams=fnams, utc = v)
- 
-
-          # MODdate contains dayofyear, minutesofday as data and as rasters as well
-          MODdate <- datestodoymod(utcdates, fnams, lst_s)
-
-          print("MODIS time done")
-
-          ############# GOODNESS OF FIT OF ACQUISITION TIME (L8 / MODIS) ##############################
-
-          # timeex <- data.frame(extract(tstack, extent(tstack)))
-
-
-          L8time <- read.csv(paste0(L8datpath, "L8_date_", areaname, time_range[[y]][[m]][[1]][1], ".csv"))
-          L8date <- lapply(seq(nrow(L8time)), function(i){
-            strptime(paste(L8time$date[i], L8time$time[i]), format='%Y-%m-%d %H:%M:%S', tz="UTC")
-          })
-
-          # convert L8 time to minute of day
-          fnamsL8 <- list.files(paste0(L8scenepath, "bt/"), pattern="BTC")
-
-
-          #L8dates <- datestodoymod(L8date, fnamsL8, lst_s)
-          doy <- sapply(seq(L8date), function(i){
-            strftime(L8date[[i]], format = "%j")
-          })
-
-          minutes <- sapply(seq(L8date), function(i){
-            minute(L8date[[i]])
-          })
-
-          hours <- sapply(seq(L8date), function(i){
-            hour(L8date[[i]])
-          })
-
-
-          # make L8 date df
-          minutesofday <- (hours*60)+minutes
-          L8datedf <- L8time
-
-          #L8datedf$fnam <- fnamsL8
-          L8datedf$doy <- doy
-          L8datedf$min <- minutes
-          L8datedf$hrs <- hours
-          L8datedf$minday <- minutesofday
-
-          # make MODIS date df
-          moddate <- character()
-          for(i in seq(utcdates)){
-            moddate[i] <- as.character( utcdates[[i]][1])
-          }
-
-          modL8datedf <- data.frame(doy=MODdate$dayofyear, minday=MODdate$minutesofday, date=moddate, fnam=fnams)
-
-          dir.create(paste0(main, "timediff/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/"))
-
-          write.csv2(L8datedf, paste0(main, "timediff/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/", "dates_L8.csv"))
-          write.csv2(modL8datedf, paste0(main, "timediff/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/", "dates_MODIS.csv"))
-
- 
-
-          print("timedifference to L8 written")
-
-
-      }
-
-    }
+  } 
 
          } else {print("no temporally matching scenes")
 

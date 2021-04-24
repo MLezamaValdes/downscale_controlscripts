@@ -74,7 +74,8 @@ methods <- c("rf",
              #"mlpKerasDropout", 
              #"mlpSGD" # gradient descent
 )
-withinSE <- FALSE # favour models with less variables or not?
+withinSE <- TRUE # favour models with less variables or not?
+# last time this was false, but I think it would be better to try it with T
 response <- train$Landsat
 predictors <- train[,c("Modis","ia", "hs", "dem", 
                        "slope", "aspect", "TWI", 

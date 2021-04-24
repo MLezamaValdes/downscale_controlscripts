@@ -167,7 +167,7 @@ login_USGS("MaiteLezama", "Eos300dmmmmlv")
 login_earthdata(username="Mlezama", password="Eos300dm")
     
 y=1
-m=2
+m=1
 ymid <- substring(time_range[[y]][[m]][[1]][[1]], 1, 7)
 #time_range[[y]][[m]]
 ```
@@ -263,10 +263,6 @@ ggsave(filename = paste0(figurepath, "Terra_Aqua_timediff_Landsat.png"),
 source(paste0(scriptpath_organized, "2_2a_check_for_differences.R"))
 ```
 
-Those 97 scenes are those from the 104 found in the second query, that had already been processed.
-```{r, echo=F}
-timediff_scene_plot
-```
 
 #### So, what was lost exactly in comparison to the last run, where we had > 300 scenes? 
 ```{r, echo=F}
@@ -328,13 +324,7 @@ workspace.size()
 
 ```
 
-
-```{r, eval=F}
-source(paste0(scriptpath_organized, "2a_cloudclean_Landsat_org.R"))
-file.edit(paste0(scriptpath_organized, "2a_cloudclean_Landsat_org.R"))
-
-```
-
+Landsat Output is in the respective month's LST folder with the ending "bt_band10.tif", but is actually LST. 
 
 ### Landsat and MODIS
 MODIS LST product stems from channels 31 and 32, here is a comparison of the wavelengths covered by the thermal channels in both sensors: 
@@ -355,6 +345,38 @@ ggplot(sbdfl)+
 
 
 ## 3 MODIS 
+```{r, eval=F}
+file.edit("3_MODIS.R")
+```
+
+
+```{r, eval=F, echo=T}
+# call full workflow for MODIS
+downloaded_already = TRUE
+new_download = FALSE
+
+source("2_1_selectLandsat.R")
+source("3_MODIS.R")
+rm(msel)
+rm(timediff_comp)
+
+########### TO DO: RUN FROM HERE xxx !!! ###################################
+
+for(y in c(8:length(year))){
+ for(m in c(8:length(month))){
+    #for(m in seq(month)){
+    print(paste0(" ============ starting with ", year[y], "_", month[m], " ======================"))
+    login_USGS("MaiteLezama", "Eos300dmmmmlv")
+    login_earthdata(username="Mlezama", password="Eos300dm")
+    selectLANDSAT(time_range)
+    getprocessMODIS(time_range)
+  }
+}
+
+```
+
+Output LST is called "proj_c_warp_LST_..." and Error: "proj_warp_Error"
+
 According to MODIS_LST_products_UserGuide_C5.pdf, MOD11_L2 is masked with the MODIS Cloud Mask data product (MOD35_L2). 
 
 The LST retrieval in a MODIS swath is constrained to pixels that:
@@ -364,7 +386,7 @@ The LST retrieval in a MODIS swath is constrained to pixels that:
 <= 2000m or >= 66% over land > 2000m, and at a confidence of >= 66% over lakes. 
 
 
-Taking a look at emissivity and LST error. Example scene from December 2019. Info on scene preparation [here](https://lpdaac.usgs.gov/products/mod11_l2v006/#:~:text=The%20MOD11_L2%20Version%206%20swath,the%20generalized%20split%2Dwindow%20algorithm.). 
+Taking a look at emissivity and LST error. Example scene from January 2019. Info on scene preparation [here](https://lpdaac.usgs.gov/products/mod11_l2v006/#:~:text=The%20MOD11_L2%20Version%206%20swath,the%20generalized%20split%2Dwindow%20algorithm.). 
 
 I used 0.94 as emissivity (Emissivity is defined as the amount of radiation emitted or absorbed by a body compared with that of a black body under identical conditions) for open soil and 0.97 for snow and ice based on the rock outcrop raster from Landsat (eta_res), see paper. The emissivity measured in MODIS product doesn't really look reliable, it's very patchy and there's no detectable variation with land cover type, which should really be the case. Moreover, all values are around 0.99, which seems pretty high. 
 
@@ -372,33 +394,55 @@ So it's better to stick with the literature values.
 
 
 ```{r, echo=F}
-loc <- "E:/new_downscaling/data_download_preprocessing/MODIS/2019-12/hdfs/MOD29/"
+hdfdir <- "E:/new_downscaling/data_download_preprocessing/MODIS/2019-01/hdfs/"
+f <- list.files(hdfdir, pattern="hdf$", full.names = T)
+hdffilepath <- f[which(grepl("707",  f))]
+
+sds <- get_subdatasets(hdffilepath)
+wgsproj <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+
+# use gdalwarp
+for(i in seq(4)){
+  namsds <- strsplit(sds[i], ":")
+  namsdsi <- namsds[[1]][length(namsds[[1]])]
+  gdalwarp(sds[i], 
+         dstfile = paste0(hdfdir,"e_warp_", namsdsi,"_", tools::file_path_sans_ext(basename(hdffilepath)), ".tif"),
+           tps=T, # Force use of thin plate spline transformer based on available GCPs.
+           #rpc=T, # Force use of Geolocation Arrays or RPC
+           verbose=TRUE,
+           s_srs = wgsproj,
+           t_srs = wgsproj,
+           overwrite = T,
+           tr = c(0.0441,0.0096),
+           te = c(158.5, -78.9, 164.7, -76.0), 
+           r="near")
+}
+
+
+
 eta_res <- raster(paste0("E:/new_downscaling/data_download_preprocessing/Rock_outcrop_ras_", areaname, "_res.tif"))
 
 # get emissivity, LST, error, qc
-em_err <- stack(list.files(loc, pattern=".tif$", full.names = T))
-names(em_err) <- substring(names(em_err), 52, nchar(names(em_err)))
+em_err <-stack(list.files(hdfdir, pattern="e_warp", full.names=T))
+names(em_err) <- lapply(strsplit(names(em_err), "_"), '[[', 3)
 
 # crop to aoi
-wgsproj <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
 aoiwgs <- spTransform(aoi, wgsproj)
 em_err_anta <- crop(em_err, aoiwgs)
 em_err_anta[em_err_anta==0] <- NA
 
 # emissivity (eta_res: 0.94 for rock and 0.97 for snow and ice)
-em31 <- (em_err_anta[[1]]*0.002)+0.49
+em31 <- (em_err_anta$Emis*0.002)+0.49
 em31cropped <- em31
 em31cropped[em31cropped<0.991] <- NA # some high values make it impossible to see distribution well
 mapview(em31cropped, na.color="#00000000")+
   mapview(eta_res, na.color="#00000000")
 ```
 
-The LST error lies within 0.2 to 1.8 K for this scene. I can use the error to exclude very unreliable pixels from training. 
-
-### *GATHERING LST ERROR HAS TO BE INCORPORATED IN TO MODIS WORKFLOW*
+The LST error lies within 0.2 to 1.8 K for this scene. I can use the error to exclude very unreliable pixels from training. It will be gathered here as well to add more info to the final data frame. Training can be done only on high reliability pixels then, as an experiment. 
 ```{r, echo=F}
 # LST error
-err <- (em_err_anta[[2]]*0.04)
+err <- (em_err_anta$Error*0.04)
 
 ```
 
@@ -414,23 +458,24 @@ to   <- c(2,3,11,10)
 reject <- c("01,10", "1", "1","11")
 qa_bits <- cbind(from, to, reject)
 
-qc <- rast(em_err_anta[[4]])
+qc <- rast(em_err_anta$QC)
 quality_mask <- modis_mask(qc, 16, qa_bits)
 qm <- raster(quality_mask)
 
-mapview::mapview(qm, na.color="#00000000")+mapview(err, na.color="#00000000")
-
+mapview::mapview(qm, na.color="#00000000")+
+  mapview(err, na.color="#00000000")
 
 serr <- stack(qm, err)
 exerr <- data.frame(serr[])
+head(exerr)
 
-exerr <- exerr[!is.na(exerr$Err_LST),]
-exerr$LST_qc[is.na(exerr$LST_qc)] <- 0
+exerr <- exerr[!is.na(exerr$Error),]
+exerr$QC[is.na(exerr$QC)] <- 0
 
-exerr$LST_qc <- as.factor(exerr$LST_qc)
-levels(exerr$LST_qc) <- c("not good", "good quality")
+exerr$QC <- as.factor(exerr$QC)
+levels(exerr$QC) <- c("not good", "good quality")
 
-ggplot(exerr, aes(y=Err_LST, x=LST_qc, fill=LST_qc))+
+ggplot(exerr, aes(y=Error, x=QC, fill=QC))+
   geom_boxplot()+theme_classic()+theme(legend.position = "none")+
   scale_fill_manual(values=c("#ADADAD", "#B1C70C"))+
   ggtitle("LST error by quality control")+xlab("LST Quality control")+
@@ -440,74 +485,16 @@ ggplot(exerr, aes(y=Err_LST, x=LST_qc, fill=LST_qc))+
 
 I'm asking myself, whether the algorithm for cloud, cirrus and quality determination just picks up on the open soil areas - they are cut out neatly here and the furthest 30min away scene from Landsat does not show any clouds - not sure... 
 
-### *CROP MODIS TO good quality pixels and let it complete as well to compare later*
-
-Now, MODIS LST is prepared by selecting the valid range and converting according to the factors specified in the product help page to LST in \°C. 
-```{r, echo=F}
-lst_masked <- mask(em_err_anta[[3]], qm)
-
-# convert to LST
-lst_masked[lst_masked < 7500 & lst_masked > 65535] <- NA 
-lst_maskedC <- (lst_masked*0.02)-273.15
-
-```
-### GDAL 
- 
-
-
-```{r}
-hdfdir <- "E:/new_downscaling/data_download_preprocessing/MODIS/2019-01/hdfs/"
-f <- list.files(hdfdir, pattern="hdf$", full.names = T)
-hdffilepath <- f[which(grepl("707",  f))]
-
-# get LST subdataset
-hdf4_dataset <- system.file(hdffilepath, package="gdalUtils")
-sds <- get_subdatasets(hdffilepath)
-sds[1]
-```
-
-Geolocation control points (GCPs) work better than Geolocation array, because those are 5x smaller (aggregated) in comparison to the real LST value array. The warping procedure is taylored to what the HEG-Tool does, i.e. Nearest Neighbor resampling 
-```{r}
-# use gdalwarp
-gdalwarp(sds[1], 
-         dstfile = paste0(hdfdir,"LST_warp_", tools::file_path_sans_ext(basename(hdffilepath)), ".tif"),
-           tps=T, # Force use of thin plate spline transformer based on available GCPs.
-           #rpc=T, # Force use of Geolocation Arrays or RPC
-           verbose=TRUE,
-           s_srs = wgs84,
-           t_srs = wgs84,
-           #t_srs=antaproj,# target spatial reference set
-           overwrite = T,
-           tr = c(0.062141, 0.009285),
-           te = c(158.5, -78.9, 164.7, -76.0), 
-           r="near")
-```
-
-### comparing LST from MODIS and from L8 
-
-```{r, echo=F}
-# get L8 scene
-lst_L8 <- raster("E:/new_downscaling/data_download_preprocessing/L8/2019-12/LST/LC08_L1GT_057115_20191224_20200110_01_T2_bt_band10.tif")
-mapview(lst_maskedC, na.color="#00000000")+mapview(lst_L8, na.color="#00000000")
-
-lst_maskedC_proj <- projectRaster(lst_maskedC, crs=crs(lst_L8))
-lst_l8_res <-  resample(lst_L8, lst_maskedC_proj)
-
-s <- stack(lst_l8_res,lst_maskedC_proj)
-
-ex <- s[]
-ex <- data.frame(ex)
-names(ex) <- c("L8", "MODIS")
-extr <- ex[complete.cases(ex),]
-```
-
 
 Take a look at Landsat 8 error for this scene - info on bit readout can be found [here](https://www.usgs.gov/core-science-systems/nli/landsat/landsat-collection-2-quality-assessment-bands)
 ```{r}
-sceneloc <- list.files("E:/new_downscaling/data_download_preprocessing/L8/2019-12/get_data/LANDSAT/BT/", pattern="LC08_L1GT_057115_20191224_20200110_01_T2",
+# get L8 scene
+lst_L8 <- raster("E:/new_downscaling/data_download_preprocessing/L8/2019-01/LST/LC08_L1GT_224128_20190124_20190205_01_T2_bt_band10.tif")
+lst_L8 <- mask(lst_L8, aoianta)
+
+sceneloc <- list.files("E:/new_downscaling/data_download_preprocessing/L8/2019-01/get_data/LANDSAT/BT/", pattern="LC08_L1GT_224128_20190124_20190205_01_T2",
                        full.names=T)
 scenefolder <- list.files(sceneloc, pattern="Bt$", full.names = T)
-
 pqa <- raster(list.files(scenefolder, pattern="pixel_qa", full.names=T))
 
 from <- c(6,1)
@@ -523,10 +510,87 @@ mapview(pqa, na.color="#00000000")+mapview(qm, na.color="#00000000")+mapview(lst
 
 ```
 
+It is not clear why so many well-looking values should be eliminated.. I guess, the Antarctica error issue comes into play and perhaps thus errors should not be taken into account here. 
+
+Now, MODIS LST is prepared by selecting the valid range and converting according to the factors specified in the product help page to LST in \°C. 
+
+### GDAL 
+ 
+Geolocation control points (GCPs) work better than Geolocation array, because those are 5x smaller (aggregated) in comparison to the real LST value array. The warping procedure is taylored to what the HEG-Tool does, i.e. Nearest Neighbor resampling, thin plate spline transformer based on available GCPs. 
+
+
+The target resolution was gathered from the HEG tool as well. Y pixel resolution was always about 0.0093 degrees, which is what is used here, X valied between 0.06 and sometimes even 0.02 - I chose 0.05 here, as the low value seemed to have been an outlier, most resolutions were about 0.04 to 0.06. 
+Then I played around to get closest to the 1000x1000m resolution, which was reached with a tr of c(0.0441,0.0096). 
+
+The target extent is set to the WGS84 extent of the research area (158.5, -78.9, 164.7, -76.0). 
+
+```{r}
+
+# get LST subdataset
+hdf4_dataset <- system.file(hdffilepath, package="gdalUtils")
+sds <- get_subdatasets(hdffilepath)
+sds[1]
+
+# use gdalwarp
+gdalwarp(sds[1], 
+         dstfile = paste0(hdfdir,"LST_warp_", tools::file_path_sans_ext(basename(hdffilepath)), ".tif"),
+           tps=T, # Force use of thin plate spline transformer based on available GCPs.
+           #rpc=T, # Force use of Geolocation Arrays or RPC
+           verbose=TRUE,
+           s_srs = wgsproj,
+           t_srs = wgsproj,
+           overwrite = T,
+           tr = c(0.0441,0.0096),
+           te = c(158.5, -78.9, 164.7, -76.0), 
+           r="near")
+
+LSTwarped <- raster(paste0(hdfdir,"LST_warp_", tools::file_path_sans_ext(basename(hdffilepath)), ".tif"))
+mapview(LSTwarped)
+
+# project to antaproj
+Mprojected <- projectRaster(LSTwarped, crs=antaproj)
+Mprojected
+
+# maks by aoi
+Mmasked <- mask(Mprojected, aoianta)
+
+# convert to °C
+# Valid Range = 7500-65535
+Mmasked[Mmasked == 0 ] <- NA
+Mmasked[Mmasked < 7500 & Mmasked > 65535] <- NA
+
+#Mmasked[[i]][Mmasked[[i]] < 7500 & Mmasked[[1]] > 65535] <- NA
+
+# scale factor = 0.02
+MLST <- Mmasked*0.02
+
+# convert to degree C
+MLSTC <- MLST - 273.15
+mapview(MLSTC)
+
+writeRaster(MLSTC, "D:/example_M_LST_C.tif", overwrite=T)
+
+```
+
+### comparing LST from MODIS and from L8 
+
+```{r, echo=F}
+mapview(MLSTC, na.color="#00000000")+mapview(lst_L8, na.color="#00000000")
+
+lst_l8_res <-  resample(lst_L8, MLSTC)
+
+s <- stack(lst_l8_res,MLSTC)
+
+ex <- s[]
+ex <- data.frame(ex)
+names(ex) <- c("L8", "MODIS")
+extr <- ex[complete.cases(ex),]
+```
+
 
 Landsat shows slightly lower values than MODIS at 1km resolution. 
 
-```{r, echo=F}
+```{r}
 ggplot(extr, aes(x=L8, y=MODIS))+
   geom_point()+geom_abline(intercept = 0, slope=1)+
   geom_smooth(method=lm)+theme_classic()+
@@ -536,72 +600,334 @@ ggplot(extr, aes(x=L8, y=MODIS))+
 ```
 
 
-#### compare gdal translate product with heg tool translation 
+### Available scenes
 
-###   CALL DOWNLOAD AND PREPROCESSING
-```{r, include=F, eval=F}
+```{r}
+source("2_2a_check_for_differences.R")
+timediff_scene_plot_TA
+timediff_scene_plot_A
+```
 
-if(newarea==1){
-  prepDEM()
-}
+### Checking for provenance of gaps in available scenes
+First, look at 12h apart from minimum timedifference for all MOD / L8 scene combinations. 
 
-## Login to USGS ERS
-login_USGS("MaiteLezama", "Eos300dmmmmlv")
+```{r, echo=F}
+# tdfiles <- list.files(L8datpath, pattern = "timediff_all", recursive=T, full.names = T)
+# 
+# td <- lapply(seq(tdfiles), function(j){
+#   read.csv2(tdfiles[j])
+# })
+# 
+# tdcomp <- do.call("rbind", td)
+# tdcomp$l8date <- as.POSIXct(tdcomp$l8date)
+# 
+# tdcomp$hour <- hour(tdcomp$l8date)
+# tdcomp$month <- factor(month(tdcomp$l8date), levels=c("9", "10", "11", "12", "1", "2", "3"))
+# tdcomp$monthyear <- paste0(tdcomp$month, "_", year(tdcomp$l8date))
+# tdcomp$allminutesdiff <- tdcomp$timediff*60
+# tdcomp$l8date_1 <- as.POSIXct(tdcomp$l8date)
+# 
+# 
+# tdcomp$mdate <- as.POSIXct(substring(tdcomp$modscene, 11,22), format="%Y%j_%H%M", tz="UTC")
+# 
+# 
+# tdcomp$modmydnam <- NA
+# tdcomp$modmydnam[tdcomp$MODMYD == 1] <- "Terra"
+# tdcomp$modmydnam[tdcomp$MODMYD == 2] <- "Aqua"
+# 
+# # take min difference per unique MODMYD and Landsat combination
+# un_comb <- unique(tdcomp[c("L8scene","modscene")])
+# sort_comb <- lapply(seq(nrow(un_comb)), function(i){
+#   x <- tdcomp[tdcomp$L8scene==un_comb$L8scene[i] & tdcomp$modscene==un_comb$modscene[i],]
+#   x <- x[which.min(x$allminutesdiff),]
+# })
+# sort_comb <- do.call("rbind", sort_comb)
+# write.csv2(sort_comb, paste0(tdpath,"timediff_all_sort_comb.csv"))
+
+sort_comb <- read.csv2( paste0(tdpath,"timediff_all_sort_comb.csv"))
+
+table(complete.cases(sort_comb))
+
+tdcomp <- sort_comb
+tdcomp <- tdcomp[tdcomp$allminutesdiff<720,]
+
+p <- ggplot(data=tdcomp, 
+            aes(x=as.Date(l8date_1), y=allminutesdiff, group=as.factor(modmydnam), colour=as.factor(month)))+
+  #geom_point(size=2)+
+  geom_point(size=1,aes(shape=as.factor(modmydnam)))+
+  scale_shape_manual(values=c(16,17))+
+  scale_color_manual(values=c("navy","coral3","hotpink4",
+                              "darkgoldenrod2", "olivedrab3", "lightcyan4","lightsteelblue2"))+
+  theme_bw() +
+  labs(color = "month", shape="MODIS")+
+  theme(panel.grid.major = element_blank(), 
+    plot.title = element_text(lineheight=.8, face="bold", size = 16),
+    plot.subtitle = element_text(size = 14),
+    legend.text=element_text(size=14, hjust = 0),
+    legend.title = element_text(size=16, hjust=0),
+    axis.title.x = element_text(size = 16),
+    axis.title.y = element_text(size = 16),
+    panel.grid.minor = element_blank(),
+    axis.text.y = element_text(size = 11),
+    axis.text.x = element_text(size=11, angle=90,face="bold"),
+    strip.background = element_blank(),
+    strip.text = element_text(size=14))+
+  labs(title="time difference (min) in Landsat / Modis scenes over time",
+       subtitle = paste0("n scenes = ", nrow(tdcomp), "; n unique months = ", length(unique(tdcomp$monthyear))))+
+  xlab("date")+ylab("min")
+
+timediff_scene_plot_12hdiff <- p + scale_x_date(date_labels = "%Y %m",date_breaks = "3 month")
+timediff_scene_plot_12hdiff
+```
+
+Now, look at differences < 3h:
+```{r, echo=F}
+tdcomp <- sort_comb
+tdcomp <- tdcomp[tdcomp$allminutesdiff<180,]
+
+p <- ggplot(data=tdcomp, 
+            aes(x=as.Date(l8date_1), y=allminutesdiff, group=as.factor(modmydnam), colour=as.factor(month)))+
+  #geom_point(size=2)+
+  geom_point(size=1,aes(shape=as.factor(modmydnam)))+
+  scale_shape_manual(values=c(16,17))+
+  scale_color_manual(values=c("navy","coral3","hotpink4",
+                              "darkgoldenrod2", "olivedrab3", "lightcyan4","lightsteelblue2"))+
+  theme_bw() +
+  labs(color = "month", shape="MODIS")+
+  theme(panel.grid.major = element_blank(), 
+    plot.title = element_text(lineheight=.8, face="bold", size = 16),
+    plot.subtitle = element_text(size = 14),
+    legend.text=element_text(size=14, hjust = 0),
+    legend.title = element_text(size=16, hjust=0),
+    axis.title.x = element_text(size = 16),
+    axis.title.y = element_text(size = 16),
+    panel.grid.minor = element_blank(),
+    axis.text.y = element_text(size = 11),
+    axis.text.x = element_text(size=11, angle=90,face="bold"),
+    strip.background = element_blank(),
+    strip.text = element_text(size=14))+
+  labs(title="time difference (min) in Landsat / Modis scenes over time",
+       subtitle = paste0("n scenes = ", nrow(tdcomp), "; n unique months = ", length(unique(tdcomp$monthyear))))+
+  xlab("date")+ylab("min")
+
+timediff_scene_plot_12hdiff <- p + scale_x_date(date_labels = "%Y %m",date_breaks = "3 month")
+timediff_scene_plot_12hdiff
+```
 
 
-      # y=1
-      # m=5
-      # time_range[[y]][[m]]
-      # getprocessLANDSAT(time_range)
-      # getprocessMODIS(time_range)
-      # 
+### Local time NZDT 
+Local time of all vs. selected scenes, y axis should be understood as "HH.MM". 
+```{r, echo=F}
+par(mfrow=c(1,3))
+tdcomp$mdate_NZ <- with_tz(tdcomp$mdate, tz="Pacific/Auckland")
+t <- strftime(tdcomp$mdate_NZ, format="%H:%M")
+t <- gsub(":", ".", t)
+min(t)
+max(t)
+boxplot(as.numeric(t), main=paste("MODIS time \nall scenes (NZDT) n=", length(t)))
+
+tdcomp_sel <- read.csv2(paste0(tdpath, "all_timediffs.csv")) 
+tdcomp_sel$mdate_NZ <- as.POSIXct(tdcomp_sel$mdate_NZ, tz="Pacific/Auckland")
+
+t <- strftime(tdcomp_sel$mdate_NZ, format="%H:%M")
+t <- gsub(":", ".", t)
+min(t)
+max(t)
+
+boxplot(as.numeric(t), main=paste("MODIS time \nselected scenes (NZDT) n=", length(t)))
+
+tdcomp_sel <- tdcomp_sel[tdcomp_sel$modmydnam=="Aqua",]
+t <- strftime(tdcomp_sel$mdate_NZ, format="%H:%M")
+t <- gsub(":", ".", t)
+min(t)
+max(t)
+
+boxplot(as.numeric(t), main=paste("MODIS time \nselected scenes Aqua (NZDT) n=", length(t)))
+
+```
+
+### solar position coverage for the selected scenes throughout the year
+![Azimuth and Altitude ](Az_Alt.png)
+
+[Azimuth and Altitude image source](https://en.wikipedia.org/wiki/Horizontal_coordinate_system){width=8}
+
+```{r, echo=F}
+library(oce)
+# lon <- 161.7673
+# lat <- -77.45706
+
+e <- c(162.5156, 162.7434, -77.51565, -77.46616)
+# sl <- raster(paste0(dempath, "30m_slopeMDV.tif"))
+# slwgs <- projectRaster(sl, crs=wgsproj)
+# saveRDS(slwgs, "slpe_tmpl_latlon.rds")
+
+slwgs <- readRDS( "slpe_tmpl_latlon.rds")
+slwgss <- crop(slwgs, e)
+mapview(slwgss, map.types="Esri.WorldImagery")
+
+crds <- coordinates(slwgss)
+crds <- data.frame(crds)
+names(crds) <- c("lon", "lat")
+
+loncrds <- mean(crds$lon)
+latcrds <- mean(crds$lat)
+
+# as <- raster("/scratch/tmp/llezamav/slopeaspect/30m_aspectMDV.tif")
+# slrad <-  raster("/scratch/tmp/llezamav/slopeaspect/30m_radians_slopeMDV.tif")
+# asrad <-  raster("/scratch/tmp/llezamav/slopeaspect/30m_radians_aspectMDV.tif")
+
+#time should be in UTC
+sa <- sunAngle(tdcomp_sel$mdate, lon=loncrds, lat=latcrds)
+
+par(mfrow=c(1,2))
+boxplot(sa$altitude, main="altitude mean loc")
+boxplot(sa$azimuth, main="azimuth mean loc")
+
+altmin <- min(sa$altitude)
+altmax <- max(sa$altitude)
+azmin <- min(sa$azimuth)
+azmax <- max(sa$azimuth)
+```
+
+Now for each pixel location
+```{r, echo=F}
+sa <- lapply(seq(nrow(crds)), function(i){
+  sai <- sunAngle(tdcomp_sel$mdate, lon=crds$lon[i], lat=crds$lat[i])
+  list(sai$altitude, sai$azimuth)
+})
+
+alt <- unlist(lapply(sa, '[[', 1))
+az <- unlist(lapply(sa, '[[', 2))
+
+par(mfrow=c(1,2))
+boxplot(alt, main="altitude all loc", ylim=c(-15,11))
+boxplot(az, main="azimuth all loc",ylim=c(155,180))
+```
 
 
-# from 2019-11 on 
-# should be like this when it all works:
-# for(y in seq(year)){
-#   for(m in seq(month)){
-#       getprocessLANDSAT(time_range)
-#       getprocessMODIS_new(time_range)
-#   }
-# }
+### Testing solar positions throughout a day and the year
+One day in January ("2019-01-02 00:00:00 UTC" "2019-01-02 01:00:00 UTC" ....  "2019-01-02 23:00:00 UTC")
+```{r, echo=F}
+# one day beginning of january
+library(lubridate)
 
+hourly_20190102 <- ymd_hms("2019-01-02 00:00:00") + hours(0:24)
+sa_hourly_20190102 <- sunAngle(hourly_20190102, lon=loncrds, lat=latcrds)
+par(mfrow=c(1,2))
+boxplot(sa_hourly_20190102$altitude, main="hourly altitude Jan")
+boxplot(sa_hourly_20190102$azimuth, main="hourly azimuth Jan")
 
+hourly_20190302 <- ymd_hms("2019-03-02 00:00:00") + hours(0:24)
+sa_hourly_20190302 <- sunAngle(hourly_20190302, lon=loncrds, lat=latcrds)
+par(mfrow=c(1,2))
+boxplot(sa_hourly_20190302$altitude, main="hourly altitude March")
+boxplot(sa_hourly_20190302$azimuth, main="hourly azimuth March")
+```
 
+During the year at the same time of day ("2019-01-01 14:00:00 UTC", "2019-01-02 14:00:00 UTC", ... "2019-12-31 14:00:00 UTC" )
+```{r, echo=F}
+# 
+dayly2019 <- ymd_hms("2019-01-01 14:00:00") + days(0:365)
+sa_dayly2019 <- sunAngle(dayly2019, lon=loncrds, lat=latcrds)
 
-#y=6, m=1: Empty reply from server - try later
-#y=7, m=6 error
-# check when L8 Launch
+altazdf <- data.frame(sa_dayly2019$altitude, sa_dayly2019$azimuth)
+names(altazdf) <- c("altitude", "azimuth")
+altazdf <- altazdf[altazdf$altitude>0,]
 
-# MODIS files deprecated for 2018_09
-for(y in c(7)){
-  for(m in c(8)){
-    login_USGS("MaiteLezama", "Eos300dmmmmlv")
-    login_earthdata(username="Mlezama", password="Eos300dm")
-    
-    getprocessLANDSAT(time_range)
-    getprocessMODIS_new(time_range)
-    getprocessMODIS_new_MYD(time_range)
-    #make_L8_MOD_stack(y,m,timethres)
-  }
-}
-
-# # y=7, m=8 didn't work yet
-# for(y in seq(year)){
-#   for(m in seq(month)){
-#     
-#     modisscenepath <- paste0(modispath, substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")
-#     MODLSTpath <- paste0(modisscenepath, "mydLST/")
-#     ftc <- list.files(MODLSTpath, full.names=T, pattern="small_proj")
-#     file.copy(ftc, paste0("D:/new_downscaling/data_download_preprocessing/MODIS/",
-#                           substring(time_range[[y]][[m]][[1]][[1]], 1, 7),"/LST/", basename(ftc)))
-#     
-#     
-#   }
-# }
+par(mfrow=c(1,2))
+boxplot(altazdf$altitude, main="hourly altitude full year")
+boxplot(altazdf$azimuth, main="hourly azimuth full year")
 
 
 ```
+
+--> there is not enough azimuth change throughout a full year at the same time of day as to justify that the model was able to learn all sun positions from this, but we can argue that there are many more or less shaded pixels available in the research area, so that we can still expect the model to be able to pick up all it needs.  
+
+### Overview of all available scenes
+```{r}
+csvfiles_stacks <- list.files(L8datpath, recursive = T, pattern="timediff_comp_comp.csv", full.names = T)
+
+comp_stacks <- lapply(seq(csvfiles_stacks), function(j){
+  read.csv2(csvfiles_stacks[j])
+})
+
+allscenesinstacks <- do.call("rbind", comp_stacks)
+nrow(allscenesinstacks)
+```
+
+
+# 4 make satellite data stacks
+As I copied only those Landsat 8 scenes that were matching after the new match, some scenes may be in timediff_df that are not actually in the directories.
+
+In each L8scenepath where data is available, there is a file called "timediff_df_stacks.csv", which contains the scenes that are within the satellite datastacks. 
+
+```{r,eval=F}
+file.edit("4_make_sat_stack.R")
+```
+
+
+```{r,eval=F}
+source("4_make_sat_stack.R")
+for(y in seq(year)){
+  #for(y in c(5:7)){
+  for(m in seq(month)){
+  #for(m in c(5:8)){
+    print(c(y,m))
+    rasterOptions(tmpdir="D:/downscaling_after_talk/clean_data/run/")
+    make_L8_MOD_stack(y,m,timethres)
+    gc()
+    file.remove(list.files("D:/downscaling_after_talk/clean_data/run/", 
+                           full.names = T))
+  }
+#}
+  
+}
+
+
+```
+
+This outputs Landsat and Modis stacked together as "L_MOD2019-01.tif"  into the cddir directory together with a .csv file with the satnames "satnames_2019-01.csv". 
+
+# TO DO NEXT: CHECK WHETHER 4 WORKED ALL RIGHT!
+
+```{r}
+satnamfiles <-list.files(paste0(cddir, "satstacks"), pattern="satnames", full.names = T)
+satnamfileslist <- lapply(seq(satnamfiles), function(i){
+  read.csv2(satnamfiles[i])
+})
+
+sn <- unlist(satnamfileslist)
+#table(grepl("LC08",sn))
+```
+
+All 68 scenes from the query were actually downloaded and used. 
+
+Months that are available are: 
+
+```{r}
+satfiles <-list.files(paste0(cddir, "satstacks"), pattern="L_MOD", full.names = F)
+
+sf_d <- substring(satfiles, 6,12)
+#length(sf_d)
+sf_dates <- paste0(sf_d, "-01 12:00:00")
+sf_dates <- as.Date(sf_dates)
+
+MODL8scenes <- sapply(seq(satnamfileslist), function(i){
+  sum(grepl("LC08",satnamfileslist[[i]]$x)) # sum for counting true values
+})
+
+datescene_df <- data.frame(sf_dates, MODL8scenes)
+str(datescene_df)
+ggplot(sf_dates, MODL8scenes)
+
+ggplot(datescene_df, aes(sf_dates, MODL8scenes))+
+  geom_point()+
+  ylab("amount of scenes")+xlab("")+
+  ggtitle("amount of matched Landsat and Modis scenes per month")
+
+```
+
+We've got 15 months
 
 ## Open questions: 
 - What does -1 in Landsat Land Cloud Cover mean? Missing value I assume 
@@ -619,6 +945,8 @@ $\checkmark$  MODIS: take a look at Error_LST: 0.2 to 1.8 - looks ok, not sure w
 
 $\checkmark$  use EMISSIVITY from modis product? Won't... doesn't look promising because patchy & resolution issue - assuming emissivity for the two contrasting land cover types at 30m resolution seems to be the more sensible option
 
+$\checkmark$  use Aqua and Terra for training? Only Aqua, below 15min time difference available here 
+
 - training test areas 
 
 - SWIR raus 
@@ -626,3 +954,7 @@ $\checkmark$  use EMISSIVITY from modis product? Won't... doesn't look promising
 - hs & ia predict function (neue MODIS scene, MODELL + hs / is Berechnung -> prediction)
 
 - hypercube vs. mein sampling
+
+- apply AOA to final raster
+
+

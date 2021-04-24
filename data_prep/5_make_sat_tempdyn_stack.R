@@ -10,18 +10,40 @@ make_L8_MOD_stack <- function(y, m, timethres){
   
   if(length(list.files(L8scenepath, pattern="msel.csv", full.names=T))!=0){
     #try(timediff_msel <- read.csv2(list.files(L8scenepath, pattern="msel.csv", full.names=T)))
-    try(timediff_comp <- read.csv2(list.files(L8scenepath, pattern="timediff_comp.csv", full.names=T)))
+    try(timediff_df <- read.csv2(list.files(L8scenepath, pattern="timediff_df.csv", full.names=T)))
     
     print("read timediff csvs")
     
-    if(exists("timediff_comp")){
+    if(exists("timediff_df")){
       
       # make file lists of all downloaded LST scenes for L and M
       
-      l8r <- grep(list.files(L8LSTpath, full.names=T), pattern='bt_band10', inv=T, value=T) # get those that are cloud_rm.tif
+      l8r <- list.files(L8LSTpath, full.names=T, pattern='bt_band10')
+      mr <- list.files(MODLSTpath, pattern="proj_c_warp", full.names=T)
       
-      mr <- list.files(MODLSTpath, pattern="small", full.names=T)
+
+      unique(timediff_df$L8scene)
+      unique(basename(l8r))
       
+      # check in timedf_df for matching scenes
+    
+      ############ MATCH ACUTALLY AVAILABLE SCENES FROM FILEPATH WITH TIMEDIFF-DF ######################
+      mradapted <- substring(basename(mr), 17, 42)
+      Mpostimediff <- which(timediff_df$modscene %in% gsub(pattern="\\.",replacement= "_", x=mradapted))
+      
+      Lpostimediff <- which(timediff_df$L8scene %in% substring(basename(l8r), 1, 40))
+      posl8r <- which(substring(basename(l8r), 1, 40) %in% timediff_df$L8scene)
+      
+      timediff_MandL <- intersect(Lpostimediff,Mpostimediff)
+      timediff_df_act <- timediff_df[timediff_MandL,]
+      
+      l8r <- l8r[posl8r]
+      posmr <- which(gsub(pattern="\\.",replacement= "_", x=mradapted) %in% timediff_df_act$modscene)
+      mr <- mr[posmr]
+
+      write.csv2(timediff_df_act, paste0(L8scenepath, "timediff_df_stacks.csv"))
+
+
       if(length(mr)!=0){
         mr <- mr[grep('tif$', mr)]
         
@@ -29,41 +51,15 @@ make_L8_MOD_stack <- function(y, m, timethres){
         ########## get stacks of all downloaded LST data in ############
         
         L8ras <- stack(l8r)
+        mras <- stack(mr)
         
-        mrY <- mr[grep('MYD11', mr)]
-        mrO <- mr[grep('MOD11', mr)]
-        
-        if(length(mrY)!=0){
-          mrYs <- stack(mrY)
-          mrYres <- resample(mrYs, template)
-        }
-        
-        if(length(mrO)!=0){
-          mrOs <- stack(mrO)
-          mrOres <- resample(mrOs, template)
-        }
-        
-        if(exists("mrOres") & exists("mrYres")){
-          mras <- stack(mrYres, mrOres)
-        } else if(exists("mrOres")){
-          mras <- mrOres
-        } else {
-          mras <- mrYres
-        }
-        
-        
-        names(mras) <- substring(basename(mr), 12, 51)
+        # do I need the length to match already foror easier assembly later on? 
+        names(mras) <- substring(basename(mr), 17, 42)
         names(L8ras) <- substring(basename(l8r), 1,40)
         
         print("read stacks")
-        
-        
-        ########## get timediff csvs ############
-        tdpath <- paste0(main, "timediff/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")
-        #tdf <- list.files(tdpath, full.names = T)
-        #l8dates <- read.csv2(tdf[1])
-        #mdates <- read.csv2(tdf[2])
-        timediff <- timediff_comp
+
+        timediff <- timediff_df_act
         
         ########## take only closely matching ############
         tdthres <- timediff[timediff$timediff < timethres,]
@@ -72,54 +68,61 @@ make_L8_MOD_stack <- function(y, m, timethres){
         
         
         
-        # which of timediff_comp$MODname is actually in names(mras)? only those scenes available, mark in timediff_df
-        MODavailable <- sapply(seq(nrow(tdthres)), function(i){
-          print(i)
-          pos <- which(grepl(substring(as.character(tdthres$MODname[i]), 1, 40), names(mras)))
-          r1 <- any(grepl(substring(as.character(tdthres$MODname[i]), 1, 40), names(mras))) 
-          if(r1){
-            r2 <- any(!is.na(minValue(mras[[pos]])| maxValue(mras[[pos]]))) # values not NA NA - empty raster in this area 
-            res <- r1&r2
-          }
-          r1
-        })
+        # # which of timediff_df$MODname is actually in names(mras)? only those scenes available, mark in timediff_df
+        # MODavailable <- sapply(seq(nrow(tdthres)), function(i){
+        #   print(i)
+        #   pos <- which(grepl(substring(as.character(tdthres$MODname[i]), 1, 40), names(mras)))
+        #   r1 <- any(grepl(substring(as.character(tdthres$MODname[i]), 1, 40), names(mras))) 
+        #   if(r1){
+        #     r2 <- any(!is.na(minValue(mras[[pos]])| maxValue(mras[[pos]]))) # values not NA NA - empty raster in this area 
+        #     res <- r1&r2
+        #   }
+        #   r1
+        # })
+        # 
+        # 
+        # # system.time({range(mras[[pos]][])})
+        # # system.time({min(mras[[pos]][])})
+        # # system.time({minValue(mras[[pos]])})
+        # 
+        # 
+        # L8available <- sapply(seq(nrow(tdthres)), function(i){
+        #   any(grepl(substring(tdthres$L8name[i], 1, 40), names(L8ras)))
+        # })
         
-        
-        # system.time({range(mras[[pos]][])})
-        # system.time({min(mras[[pos]][])})
-        # system.time({minValue(mras[[pos]])})
-        
-        
-        L8available <- sapply(seq(nrow(tdthres)), function(i){
-          any(grepl(substring(tdthres$L8name[i], 1, 40), names(L8ras)))
-        })
-        
-        tdthres$Mcomp <- MODavailable
-        tdthres$Lcomp <- L8available
+        tdthres$Mcomp <- TRUE
+        tdthres$Lcomp <- TRUE
         
         
         #tdthres[tdthres$Mcomp==FALSE,]
         
         tdthres <- tdthres[tdthres$Lcomp == T & tdthres$Mcomp ==T,]
         
-        modnames <- substring(as.character(tdthres$MODname), 1, nchar(as.character(tdthres$MODname))-4)
-        l8names <- as.character(tdthres$L8name)
+        modnames <- tdthres$modscene
+        l8names <- as.character(tdthres$L8scene)
         
         write.csv2(tdthres, paste0(L8scenepath, "timediff_comp_comp.csv"))
         
+        #### NOW THE MATCHING AND STACKING IS HAPPENING ####################################
         
-        if(length(tdthres$MODname) > 0){
+        
+        # to do: change sublines to points etc
+        
+        
+        
+        
+        posmr <- which(gsub(pattern="\\.",replacement= "_", x=mradapted) %in% timediff_df_act$modscene)
+        
+        if(length(tdthres$modscene) > 0){
           # mlayer and llayer stem from tdthres
           mlayer <- sapply(seq(modnames), function(i){
-            which(grepl(modnames[i], names(mras)))[1]
+            which(grepl(modnames[i], gsub(pattern="\\.",replacement= "_",names(mras))))[1]
           })
-          mlayer <- unlist(mlayer)
-          
+
           llayer <- sapply(seq(l8names), function(i){
             which(grepl(l8names[i], names(L8ras)))[1]
           })
-          llayer <- unlist(llayer)
-          
+
           # stack
           
           mstack <- mras[[mlayer]]
@@ -178,17 +181,4 @@ make_L8_MOD_stack <- function(y, m, timethres){
 
 
 
-########################### RUN #####################################
-y=2
-
-#for(y in c(5:7)){
-  #for(m in seq(month)){
-  for(m in c(5:8)){
-    print(c(y,m))
-    rasterOptions(tmpdir="D:/new_downscaling/run/")
-    make_L8_MOD_stack(y,m,timethres)
-    gc()
-    file.remove(list.files("D:/new_downscaling/run/", full.names = T))
-  }
-#}
 

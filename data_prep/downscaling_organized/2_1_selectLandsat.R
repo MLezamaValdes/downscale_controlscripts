@@ -384,7 +384,8 @@ selectLANDSAT <- function(time_range){
         timediff_df[,i] <- as.numeric(timediff_df[,i])
       }
       
-        
+      write.csv2(timediff_df, paste0(L8scenepath, "timediff_all.csv"))
+      
 
       timediff_df <- timediff_df[timediff_df$timediff<0.6,]
       #timediff_df <- timediff_df[timediff_df$timediff<2.0,]

@@ -64,6 +64,7 @@ dir.create(paste0(main, "timediff/"))
 aoi <- readOGR(aoip)
 antaproj <- crs("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m
 +no_defs +ellps=WGS84 +towgs84=0,0,0")
+wgsproj <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
 aoianta <- spTransform(aoi, antaproj)
 aoiutm <- spTransform(aoi, crs("+proj=utm +zone=57 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs "))
 
