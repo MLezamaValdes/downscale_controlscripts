@@ -12,13 +12,13 @@ output:
     toc_float:
       collapsed: false
       smooth_scroll: true
-    toc_depth: 2
+    toc_depth: 6
 link-citations: yes
 toc: yes
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = T, message=FALSE, warning=FALSE)
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
 
 only_setup <- TRUE
 
@@ -33,9 +33,9 @@ library(ggplot2)
 
 ```
 
-###   GENERAL INFO ABOUT AREA AND TIMESTEP & RUN
+#### GENERAL INFO ABOUT AREA AND TIMESTEPS & RUN
 
-```{r switches}
+```{r switches, echo=T}
 # newarea can be 0 (no) or 1 (yes). If area is not new, it is assumed that the land outline shapefile and cropped rock outcrop is already available and doesn't need to be unzipped etc.
 newarea <- 0
 areaname <- "MDV"
@@ -55,7 +55,7 @@ timethres <- 0.6
 ```
 
 
-### Set Paths
+#### Set Paths
 
 Micro IR Seagate = E
 IRONWOLF / ELEMENTS = D 
@@ -73,24 +73,27 @@ cddir <- paste0(maindir, "clean_data/")
 figurepath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/paper/paper_draft/figures/"
 
 
-######## set path to DEM, AOI, land outline
+##### set path to DEM, AOI, land outline
 
 dempath <- "E:/new_downscaling/tiles_westcoast/" # this must point to an existing directory with dem inside
 aoipath <-  "E:/new_downscaling/aoi/" # this must point to an existing directory with "Levy_MDV_actually.shp"
 aoip <- list.files(aoipath, pattern="actually.shp", full.names = T)
 clpath <- "E:/new_downscaling/coastline/Coastline_high_res_polygon/"
+
+`%notin%` <- Negate(`%in%`)
+
 ```
 
 
 ```{r, eval=F, include=F}
 ## PATH TO TOOLS CMD
 
-######## set paths for translating to SAGA
+##### set paths for translating to SAGA
 path_saga_norm <- "C:/OSGeo4W64/apps/saga-ltr/"
 sagaCmd <- paste0(path_saga_norm, "saga_cmd.exe")
 saga_outpath <- paste0(main, "SAGA_run/")
 
-######## set paths for batch processing in HEG tool
+##### set paths for batch processing in HEG tool
 # make an batchindir directory with the hdf files to batch convert and an batchoutdir directory with 
 # the prm template file, where output files will be written to
 # batchrunpath needs to be where MyHEG_batchScript.bat is located
@@ -101,7 +104,7 @@ batchoutdir <- paste0(batchrunpath, "outdir/")
 
 ```
 
-###  Call Setup
+#### Call Setup
 
 - load libraries
 - make time range list 
@@ -109,12 +112,12 @@ batchoutdir <- paste0(batchrunpath, "outdir/")
 - read AOI shape
 - define and source some functions
 
-```{r sourceSetup}
+```{r sourceSetup, echo=T}
 source(paste0(scriptpath_organized, "0a_setup.R"))
 #file.edit(paste0(scriptpath_organized, "0a_setup.R"))
 ```
 
-##### Load template
+#### Load template
 
 ```{r}
 # this is one raster with a complete coverage of the research area to use as a template 
@@ -123,11 +126,11 @@ template <- raster("E:/new_downscaling/clean_data/template_new.tif")
 ```
 
 
-##################################### SETUP until here ##################################################
+###################### SETUP until here #############################
 
 ## 1 DEM
 #### DEM 8m REMA 
-```{r, eval=F}
+```{r, eval=F, echo=T}
 file.edit(paste0(scriptpath_organized, "1_DEM.R"))
 ```
 
@@ -163,9 +166,25 @@ mapview(aoianta, alpha.regions=0.2, na.color="#00000000")+
 getprocessLANDSAT() is a function(time_range)
 
 ```{r}
-login_USGS("MaiteLezama", "Eos300dmmmmlv")
-login_earthdata(username="Mlezama", password="Eos300dm")
-    
+
+# .ERS_login <- function(username, password, n_retry = 3){
+#   x <- POST(url = paste0(getOption("gSD.api")$ee, "login"),
+#             body = list(username = username, password = password),
+#             encode = "json",
+#             user_agent("httr"))
+#   stop_for_status(x, "connect to server.")
+#   warn_for_status(x)
+#   v <- content(x)$data
+#   if(is.null(v)) out("Login failed. Please retry later or call services() to check if USGS services are currently unavailable.", type = 3)
+#   return(v)
+# }
+
+# login_USGS("MaiteLezama", "Eos300dmmmmlv")
+# login_earthdata(username="Mlezama", password="Eos300dm")
+
+#login_CopHub("maitelezama", password="Eos300dmmm")
+
+
 y=1
 m=1
 ymid <- substring(time_range[[y]][[m]][[1]][[1]], 1, 7)
@@ -187,7 +206,7 @@ To order the scenes, a text file will be generated, with all the record ids. Tho
 [espa](https://espa.cr.usgs.gov/ordering/new/), where "Brightness Temperature - Thermal band TOA processing" and "Pixel QA" will be selected. This is a workaround, as ordering takes a lot of runtime, as a maximum of one dataset per 30 min can be ordered. Finally, all is downloaded via the package espa.tools with earthexplorer_download(). 
 
 
-```{r, eval=F}
+```{r, eval=F, echo=T}
 file.edit(paste0(scriptpath_organized, "2_1_selectLandsat.R"))
 file.edit(paste0(scriptpath_organized, "2_2a_downloadLandsat.R"))
 file.edit(paste0(scriptpath_organized, "2_2b_downloadLandsat.R"))
@@ -242,7 +261,7 @@ file.edit(paste0(scriptpath_organized, "2_2b_downloadLandsat.R"))
 
 Only MODIS data from Aqua have a close match time. 
 
-```{r, echo=F}
+```{r}
 tdcomp <- read.csv2(paste0(tdpath, "all_timediffs.csv")) 
 
 t <- table(tdcomp$MODMYD)
@@ -264,18 +283,18 @@ source(paste0(scriptpath_organized, "2_2a_check_for_differences.R"))
 ```
 
 
-#### So, what was lost exactly in comparison to the last run, where we had > 300 scenes? 
-```{r, echo=F}
+#### What was lost exactly in comparison to the last run, where we had > 300 scenes? 
+```{r}
 timediffplot_old_new_query
 ATplot
 plcc
 ```
 
-#### ...mostly scenes from Terra (MOD) were lost, that reduces the overall time difference in the dataset. Also, the median land cloud cover decreased.
+...mostly scenes from Terra (MOD) were lost, that reduces the overall time difference in the dataset. Also, the median land cloud cover decreased.
 
 
 
-### Process Landsat
+#### Process Landsat
 
 In this workflow run, I'm using already downloaded images. If it would be a new download, files would be unzipped. 
 Get date, time, filename and land cloud cover from the MODIS-matched Landsat query and write that info into timediff_df. 
@@ -291,7 +310,7 @@ d1011 <- raster(paste0(L8datpath, "difference_b10_b11.tif"))
 mapview(d1011, map.types="Esri.WorldImagery", na.color="#00000000")
 ```
 
-### Brightness temperature TOA 
+#### Brightness temperature TOA 
 ```{r}
 btc_ex <- raster(paste0(L8datpath, "BTC_LC08_L1GT_057116_20190106_20190130_01_T2_bt_band10.tif"))
 btc_ex_res <- raster(paste0(L8datpath, "BTC_res_LC08_L1GT_057116_20190106_20190130_01_T2_bt_band10.tif"))
@@ -326,9 +345,9 @@ workspace.size()
 
 Landsat Output is in the respective month's LST folder with the ending "bt_band10.tif", but is actually LST. 
 
-### Landsat and MODIS
+#### Landsat and MODIS
 MODIS LST product stems from channels 31 and 32, here is a comparison of the wavelengths covered by the thermal channels in both sensors: 
-```{r, echo=F}
+```{r}
 
 sbdf <- data.frame(sensor=c("Landsat ", "Landsat ", "MODIS ", "MODIS "),
            band = c(10,11,31,32),
@@ -360,7 +379,7 @@ source("3_MODIS.R")
 rm(msel)
 rm(timediff_comp)
 
-########### TO DO: RUN FROM HERE xxx !!! ###################################
+######## TO DO: RUN FROM HERE xxx !!! ####################
 
 for(y in c(8:length(year))){
  for(m in c(8:length(month))){
@@ -393,7 +412,7 @@ I used 0.94 as emissivity (Emissivity is defined as the amount of radiation emit
 So it's better to stick with the literature values. 
 
 
-```{r, echo=F}
+```{r}
 hdfdir <- "E:/new_downscaling/data_download_preprocessing/MODIS/2019-01/hdfs/"
 f <- list.files(hdfdir, pattern="hdf$", full.names = T)
 hdffilepath <- f[which(grepl("707",  f))]
@@ -440,7 +459,7 @@ mapview(em31cropped, na.color="#00000000")+
 ```
 
 The LST error lies within 0.2 to 1.8 K for this scene. I can use the error to exclude very unreliable pixels from training. It will be gathered here as well to add more info to the final data frame. Training can be done only on high reliability pixels then, as an experiment. 
-```{r, echo=F}
+```{r}
 # LST error
 err <- (em_err_anta$Error*0.04)
 
@@ -448,7 +467,7 @@ err <- (em_err_anta$Error*0.04)
 
 The Quality control band in MOD11_L2 needs to be converted from decimal to binary format (package luna). Check meaning of qa_bits [here](https://rspatial.org/terra/modis/4-quality.html). Value of 1 indicates a good quality pixel for cloud state, cloud shadow, cloud flag and high cirrus detected. 
 
-```{r, echo=F}
+```{r}
 # install.packages("remotes")
 # remotes::install_github("rspatial/luna")
 library(luna)
@@ -514,7 +533,7 @@ It is not clear why so many well-looking values should be eliminated.. I guess, 
 
 Now, MODIS LST is prepared by selecting the valid range and converting according to the factors specified in the product help page to LST in \°C. 
 
-### GDAL 
+#### GDAL 
  
 Geolocation control points (GCPs) work better than Geolocation array, because those are 5x smaller (aggregated) in comparison to the real LST value array. The warping procedure is taylored to what the HEG-Tool does, i.e. Nearest Neighbor resampling, thin plate spline transformer based on available GCPs. 
 
@@ -529,14 +548,13 @@ The target extent is set to the WGS84 extent of the research area (158.5, -78.9,
 # get LST subdataset
 hdf4_dataset <- system.file(hdffilepath, package="gdalUtils")
 sds <- get_subdatasets(hdffilepath)
-sds[1]
 
 # use gdalwarp
 gdalwarp(sds[1], 
          dstfile = paste0(hdfdir,"LST_warp_", tools::file_path_sans_ext(basename(hdffilepath)), ".tif"),
            tps=T, # Force use of thin plate spline transformer based on available GCPs.
            #rpc=T, # Force use of Geolocation Arrays or RPC
-           verbose=TRUE,
+           verbose=FALSE,
            s_srs = wgsproj,
            t_srs = wgsproj,
            overwrite = T,
@@ -549,7 +567,6 @@ mapview(LSTwarped)
 
 # project to antaproj
 Mprojected <- projectRaster(LSTwarped, crs=antaproj)
-Mprojected
 
 # maks by aoi
 Mmasked <- mask(Mprojected, aoianta)
@@ -566,15 +583,14 @@ MLST <- Mmasked*0.02
 
 # convert to degree C
 MLSTC <- MLST - 273.15
-mapview(MLSTC)
 
 writeRaster(MLSTC, "D:/example_M_LST_C.tif", overwrite=T)
 
 ```
 
-### comparing LST from MODIS and from L8 
+#### comparing LST from MODIS and from L8 
 
-```{r, echo=F}
+```{r}
 mapview(MLSTC, na.color="#00000000")+mapview(lst_L8, na.color="#00000000")
 
 lst_l8_res <-  resample(lst_L8, MLSTC)
@@ -600,7 +616,7 @@ ggplot(extr, aes(x=L8, y=MODIS))+
 ```
 
 
-### Available scenes
+#### Available scenes
 
 ```{r}
 source("2_2a_check_for_differences.R")
@@ -608,10 +624,10 @@ timediff_scene_plot_TA
 timediff_scene_plot_A
 ```
 
-### Checking for provenance of gaps in available scenes
+#### Checking for provenance of gaps in available scenes
 First, look at 12h apart from minimum timedifference for all MOD / L8 scene combinations. 
 
-```{r, echo=F}
+```{r, eval=F}
 # tdfiles <- list.files(L8datpath, pattern = "timediff_all", recursive=T, full.names = T)
 # 
 # td <- lapply(seq(tdfiles), function(j){
@@ -643,7 +659,10 @@ First, look at 12h apart from minimum timedifference for all MOD / L8 scene comb
 # })
 # sort_comb <- do.call("rbind", sort_comb)
 # write.csv2(sort_comb, paste0(tdpath,"timediff_all_sort_comb.csv"))
+```
 
+
+```{r}
 sort_comb <- read.csv2( paste0(tdpath,"timediff_all_sort_comb.csv"))
 
 table(complete.cases(sort_comb))
@@ -681,7 +700,7 @@ timediff_scene_plot_12hdiff
 ```
 
 Now, look at differences < 3h:
-```{r, echo=F}
+```{r}
 tdcomp <- sort_comb
 tdcomp <- tdcomp[tdcomp$allminutesdiff<180,]
 
@@ -715,15 +734,15 @@ timediff_scene_plot_12hdiff
 ```
 
 
-### Local time NZDT 
+#### Local time NZDT 
 Local time of all vs. selected scenes, y axis should be understood as "HH.MM". 
-```{r, echo=F}
+```{r}
 par(mfrow=c(1,3))
 tdcomp$mdate_NZ <- with_tz(tdcomp$mdate, tz="Pacific/Auckland")
 t <- strftime(tdcomp$mdate_NZ, format="%H:%M")
 t <- gsub(":", ".", t)
-min(t)
-max(t)
+# min(t)
+# max(t)
 boxplot(as.numeric(t), main=paste("MODIS time \nall scenes (NZDT) n=", length(t)))
 
 tdcomp_sel <- read.csv2(paste0(tdpath, "all_timediffs.csv")) 
@@ -731,27 +750,27 @@ tdcomp_sel$mdate_NZ <- as.POSIXct(tdcomp_sel$mdate_NZ, tz="Pacific/Auckland")
 
 t <- strftime(tdcomp_sel$mdate_NZ, format="%H:%M")
 t <- gsub(":", ".", t)
-min(t)
-max(t)
+# min(t)
+# max(t)
 
 boxplot(as.numeric(t), main=paste("MODIS time \nselected scenes (NZDT) n=", length(t)))
 
 tdcomp_sel <- tdcomp_sel[tdcomp_sel$modmydnam=="Aqua",]
 t <- strftime(tdcomp_sel$mdate_NZ, format="%H:%M")
 t <- gsub(":", ".", t)
-min(t)
-max(t)
+# min(t)
+# max(t)
 
 boxplot(as.numeric(t), main=paste("MODIS time \nselected scenes Aqua (NZDT) n=", length(t)))
 
 ```
 
-### solar position coverage for the selected scenes throughout the year
-![Azimuth and Altitude ](Az_Alt.png)
+#### solar position coverage for the selected scenes throughout the year
+![Azimuth and Altitude ](Az_Alt.png){width=30%}
 
-[Azimuth and Altitude image source](https://en.wikipedia.org/wiki/Horizontal_coordinate_system){width=8}
+[Azimuth and Altitude](https://en.wikipedia.org/wiki/Horizontal_coordinate_system)
 
-```{r, echo=F}
+```{r, fig.width=5}
 library(oce)
 # lon <- 161.7673
 # lat <- -77.45706
@@ -759,11 +778,11 @@ library(oce)
 e <- c(162.5156, 162.7434, -77.51565, -77.46616)
 # sl <- raster(paste0(dempath, "30m_slopeMDV.tif"))
 # slwgs <- projectRaster(sl, crs=wgsproj)
-# saveRDS(slwgs, "slpe_tmpl_latlon.rds")
+# writeRaster(slwgs, "slpe_tmpl_latlon.tif")
 
-slwgs <- readRDS( "slpe_tmpl_latlon.rds")
+slwgs <- raster("slpe_tmpl_latlon.tif")
 slwgss <- crop(slwgs, e)
-mapview(slwgss, map.types="Esri.WorldImagery")
+#mapview(slwgss, map.types="Esri.WorldImagery")
 
 crds <- coordinates(slwgss)
 crds <- data.frame(crds)
@@ -790,7 +809,7 @@ azmax <- max(sa$azimuth)
 ```
 
 Now for each pixel location
-```{r, echo=F}
+```{r, fig.width=5}
 sa <- lapply(seq(nrow(crds)), function(i){
   sai <- sunAngle(tdcomp_sel$mdate, lon=crds$lon[i], lat=crds$lat[i])
   list(sai$altitude, sai$azimuth)
@@ -805,9 +824,9 @@ boxplot(az, main="azimuth all loc",ylim=c(155,180))
 ```
 
 
-### Testing solar positions throughout a day and the year
+#### Testing solar positions throughout a day and the year
 One day in January ("2019-01-02 00:00:00 UTC" "2019-01-02 01:00:00 UTC" ....  "2019-01-02 23:00:00 UTC")
-```{r, echo=F}
+```{r, fig.width=5}
 # one day beginning of january
 library(lubridate)
 
@@ -825,8 +844,9 @@ boxplot(sa_hourly_20190302$azimuth, main="hourly azimuth March")
 ```
 
 During the year at the same time of day ("2019-01-01 14:00:00 UTC", "2019-01-02 14:00:00 UTC", ... "2019-12-31 14:00:00 UTC" )
-```{r, echo=F}
-# 
+
+```{r, fig.width=5}
+
 dayly2019 <- ymd_hms("2019-01-01 14:00:00") + days(0:365)
 sa_dayly2019 <- sunAngle(dayly2019, lon=loncrds, lat=latcrds)
 
@@ -843,7 +863,7 @@ boxplot(altazdf$azimuth, main="hourly azimuth full year")
 
 --> there is not enough azimuth change throughout a full year at the same time of day as to justify that the model was able to learn all sun positions from this, but we can argue that there are many more or less shaded pixels available in the research area, so that we can still expect the model to be able to pick up all it needs.  
 
-### Overview of all available scenes
+#### Overview of all available scenes
 ```{r}
 csvfiles_stacks <- list.files(L8datpath, recursive = T, pattern="timediff_comp_comp.csv", full.names = T)
 
@@ -886,9 +906,8 @@ for(y in seq(year)){
 
 ```
 
-This outputs Landsat and Modis stacked together as "L_MOD2019-01.tif"  into the cddir directory together with a .csv file with the satnames "satnames_2019-01.csv". 
+This outputs Landsat and Modis stacked together as "L_MOD2019-01.tif"  into the cddir directory together with a .csv file with the satnames "satnames_2019-01.csv". All 68 scenes from the query were actually downloaded and used. 
 
-# TO DO NEXT: CHECK WHETHER 4 WORKED ALL RIGHT!
 
 ```{r}
 satnamfiles <-list.files(paste0(cddir, "satstacks"), pattern="satnames", full.names = T)
@@ -898,14 +917,8 @@ satnamfileslist <- lapply(seq(satnamfiles), function(i){
 
 sn <- unlist(satnamfileslist)
 #table(grepl("LC08",sn))
-```
 
-All 68 scenes from the query were actually downloaded and used. 
-
-Months that are available are: 
-
-```{r}
-satfiles <-list.files(paste0(cddir, "satstacks"), pattern="L_MOD", full.names = F)
+satfiles <-list.files(paste0(cddir, "satstacks"), pattern="L_MOD2", full.names = F)
 
 sf_d <- substring(satfiles, 6,12)
 #length(sf_d)
@@ -917,24 +930,612 @@ MODL8scenes <- sapply(seq(satnamfileslist), function(i){
 })
 
 datescene_df <- data.frame(sf_dates, MODL8scenes)
-str(datescene_df)
-ggplot(sf_dates, MODL8scenes)
 
 ggplot(datescene_df, aes(sf_dates, MODL8scenes))+
-  geom_point()+
+  geom_point(shape = 15, size=3, color="olivedrab3")+
   ylab("amount of scenes")+xlab("")+
-  ggtitle("amount of matched Landsat and Modis scenes per month")
+  scale_y_continuous(breaks=seq(1,12,by=2))+
+  scale_x_date(date_labels = "%Y %m",date_breaks = "6 month")+
+  theme(axis.text.y = element_text(size = 11),
+        axis.text.x = element_text(size=11, angle=90,face="bold"))+
+  ggtitle("Amount of matched Landsat and Modis scenes per month")
 
 ```
 
+```{r, eval=F}
+sf_fullnam <-list.files(paste0(cddir, "satstacks"), pattern="L_MOD", full.names = T)
+
+# satstacks and naes
+sat <- stack(sf_fullnam[grepl("2014-11", sf_fullnam)])
+satnames <- read.csv2(list.files(paste0(cddir, "satstacks"), pattern="satnames_2014-11", full.names = T))
+names(sat) <- satnames$x
+
+
+```
+
+```{r, eval=F}
+# Summarize all _comp_comp files for hs and ia generation in a folder in clean data dir. 
+
+dir.create(paste0(cddir, "comp_comp_files"))
+
+ccfiles <- list.files(L8datpath, recursive=T, pattern="comp_comp", full.names = T)
+ccfileendname <- substring(ccfiles, 59,nchar(ccfiles))
+ccfe <- gsub("/", "_", ccfileendname)
+ccto <- paste0(cddir, "comp_comp_files/", basename(ccfe))
+
+file.copy(ccfiles, ccto)
+```
+
+
+```{r, eval=F}
+
+# making a modis date rds 
+ccf <- list.files(paste0(cddir, "comp_comp_files"), full.names = T)
+
+ccfl <- lapply(seq(ccf), function(i){
+  read.csv2(ccf[i])
+})
+
+cc <- do.call("rbind", ccfl)
+
+moddate <- as.POSIXct(substring(cc$modscene, 11,22), format="%Y%j_%H%M", tz="UTC")
+saveRDS(moddate, paste0(cddir, "moddates.RDS") )
+
+```
+
+# 5 make solar insolation tifs
+This will be done on Palma with "5_ia_hs_Palma.R"
+```{r}
+source("5_ia_hs_loc.R")
+# file.edit("5_ia_hs_loc.R")
+moddates <- readRDS(paste0(cddir, "moddates.RDS"))
+uniqueMODscenes <- unique(moddates)
+
+# sl <- raster(list.files(dempath, pattern="30m_slopeMDV.tif", full.names=T))
+# as <- raster(list.files(dempath, pattern="30m_aspectMDV.tif", full.names=T))
+# 
+# slrad <- raster(list.files(dempath, pattern="30m_radians_slopeMDV.tif", full.names=T))
+# asrad <- raster(list.files(dempath, pattern="30m_radians_slopeMDV.tif", full.names=T))
+
+lon <- 161.7673
+lat <- -77.45706
+
+# make_hs_ia(uniqueMODscenes[i])
+
+
+```
+
+#### make graphic sun location and small extent of ia and hs 
+The sun angle: altitude, in degrees above the horizon, ranging from -90 to 90 and azimuth, in degrees eastward of north, from 0 to 360 is picked up by hillShading and incidence angle 
+
+```{r}
+iahsrespath <-  paste0(cddir, "ia_hs_res/")
+iahs <- stack(list.files(iahsrespath, pattern="2018-11-12_13_50", full.names=T))
+
+e <- c(381834.5, 400672.3, -1300278, -1284383)
+iahs_s <- crop(iahs,e)
+
+names(iahs_s) <- c("ia", "hs")
+
+comp <- read.csv2(list.files(paste0(cddir, "comp_comp_files/"), pattern="2018-11", full.names=T))
+
+scenesday <- comp[grepl("2018/11/12", comp$moddate),]
+scenesday <- scenesday[grep("_1350_", scenesday$modscene),]
+
+sa <- read.csv2(list.files(paste0(iahsrespath, "sa/"), pattern="2018-11-12_13_50", full.names = T))
+
+
+# sa$azimuth
+# sa$altitude
+
+filesNov18 <- list.files(paste0(cddir, "satstacks_ngb/"), pattern="ia_hs_2018-11", full.names = T)
+namnov18 <- read.csv2(filesNov18)
+
+filenov18 <- list.files(paste0(cddir, "satstacks_ngb/"), pattern="L_MOD_hs_ia_2018-11.tif", full.names = T)
+satnov18 <- stack(filenov18)
+
+
+names(satnov18) <- namnov18$x
+
+matchmod <- satnov18[[grep("A2018316.1350",names(satnov18))[1]]]
+matchL <- satnov18[[grep("LC08_L1GT_225128_20181112_20181127",names(satnov18))[1]]]
+matchsat <- stack(matchmod, matchL)
+names(matchsat) <- c("MOD", "L")
+
+matchsatc <- crop(matchsat, e)
+
+pal = function (n, alpha = 1, begin = 0, end = 1, direction) {
+    viridis(n, alpha, begin, end, direction=-1, option = "inferno")
+}
+```
+
+To compare MODIS, Landsat LST with incidence angle and hillshading - this is what is finally used - the ngb resampling of MODIS to 30m to maintain the original pixel info. 
+
+```{r}
+mapview(iahs_s$ia, map.types="Esri.WorldImagery", na.color="#00000000")+mapview(iahs_s$hs, col.regions = pal, na.color="#00000000")+
+  mapview(matchsatc$MOD, na.color="#00000000")+
+  mapview(matchsatc$L, na.color="#00000000")
+
+# par(mfrow=c(1,2))
+# plot(iahs_s$hs, col=rev(pal(100)))
+# plot(matchsatc$L,col=pal(100))
+
+filesNov18_bilinres <- list.files(paste0(cddir, "satstacks/"), pattern="2018-11", full.names = T)
+satnov18_bilinres <- stack(filesNov18_bilinres[1])
+
+
+neednam <- rep(c(TRUE, TRUE, FALSE, FALSE), ( nlayers(satnov18_bilinres) / 4))
+
+names(satnov18_bilinres)<- namnov18$x[neednam]
+
+
+matchmod_bilin <- satnov18_bilinres[[grep("A2018316.1350",names(satnov18_bilinres))[1]]]
+matchL_bilin <- satnov18_bilinres[[grep("LC08_L1GT_225128_20181112_20181127",names(satnov18_bilinres))[1]]]
+matchsat_bilin <- stack(matchmod_bilin, matchL_bilin)
+names(matchsat_bilin) <- c("MOD", "L")
+
+
+matchsat_bilinc <- crop(matchsat_bilin, e)
+```
+
+Compare bilinearly resampled and ngb resampled MODIS
+
+```{r}
+mapview(iahs_s$ia, map.types="Esri.WorldImagery", na.color="#00000000")+mapview(iahs_s$hs, col.regions = pal, na.color="#00000000")+
+  mapview(matchsat_bilinc$MOD, na.color="#00000000")+
+  mapview(matchsat_bilinc$L, na.color="#00000000")
+```
+
+Checking for differences in bilinear and ngb resampling of MODIS
+```{r}
+mapview(matchsat_bilinc$MOD, na.color="#00000000")+mapview(matchsatc$MOD, na.color="#00000000")
+```
+Let's stick with the ngb resampling - looks better 
+
+```{r}
+files <- list.files(paste0(cddir, "satstacks_ngb/"), pattern="2019-01", full.names = T)
+sat1901 <- stack(files[1])
+
+```
+
+#### the sun's position in this scene
+![Sun position in this scene ](sunpos_clip.png)
+
+
+![Comparison terrain, ia, hs and LST](overview_ia_hs.png)
+
+```{r}
+
+hours <- as.character(seq(1,23))
+hours <- sapply(seq(hours), function(i){
+  if(nchar(hours[i])<2){
+    hours[i] <- paste0("0", hours[i])
+  }
+  hours[i]
+})
+
+uniquescenes <- as.POSIXct(paste0("2013-11-12 ", hours, ":00:00"), tz="UTC")
+  
+tNZ <- with_tz(uniquescenes, tzone="Pacific/Auckland")
+
+f_ia_hs_dayex <- list.files(paste0(cddir, "ia_hs_dayex/"), full.names = T, pattern=".tif")
+
+ia_hs_dayex <- lapply(seq(f_ia_hs_dayex), function(i){ stack(f_ia_hs_dayex[i])})
+hs_dayex <- lapply(ia_hs_dayex, '[[', 2)
+ia_dayex <- lapply(ia_hs_dayex, '[[', 1)
+
+hs_dayex <- stack(hs_dayex)
+ia_dayex <- stack(ia_dayex)
+names(hs_dayex) <- paste0("p",seq(1,nlayers(hs_dayex)),
+                          "hU",substring(names(hs_dayex),22,23), "hNZ", hour(tNZ), 
+                          gsub("_", "", substring(names(hs_dayex),27,39)))
+
+hs_dayexsubs <- hs_dayex[[seq(1,23,by=3)]]
+hs_dayexsubs <- crop(hs_dayexsubs, e)
+
+# animate(hs_dayexsubs, main=names(hs_dayexsubs), col = gray.colors(20, start = 0.3, end = 0.9, gamma = 2.2, alpha = NULL), n=1, pause=0.3)
+
+spplot(hs_dayexsubs, col.regions=gray.colors(20, gamma=0.5))
+
+```
+
+Plot naming: p1 = plot 1, U01 = UTC hour 01, hNZ14 = 2pm NZ, az359 = azimuth 359° degrees from north over east, al30 = altitude (sun elevation angle) 30°. 
+Those plots are south oriented, i.e. north is located to the center of the lower plotlength. 
+
+The hillshading color scale needs to be inversed so that it makes sense visually. 
+
 We've got 15 months
+```{r}
+# train and test months graphic
+```
 
-## Open questions: 
-- What does -1 in Landsat Land Cloud Cover mean? Missing value I assume 
-- Is it problematic that we only get T2 datasets? 
+# 6 stack satellite and hs, ia images
+```{r, eval=F}
+
+#file.edit("6_match_MOD_L_ia_hs.R")
+source("6_match_MOD_L_ia_hs.R")
+
+# # ia hs res 
+# iahsrespath <- paste0(cddir, "ia_hs_res")
+# list.files(iahsrespath, pattern=".tif")
+# 
+# # satstacks
+# list.files(paste0(cddir, "satstacks_ngb"))
+# 
+# # info files
+# list.files(paste0(cddir, "comp_comp_files"))
 
 
-#to do for final run: 
+yearmonthsatpaths <- list.files(paste0(cddir, "satstacks_ngb"), pattern=".tif", full.names = T)
+
+for(i in seq(length(yearmonthsatpaths))){
+  print(basename(yearmonthsatpaths[i]))
+  match_sat_ia_hs(yearmonthsatpaths[i])
+}
+```
+
+making 1000m satstacks by resampling the 30m ones
+```{r,eval=F}
+
+temp1000m <- raster(paste0(modispath, "2018-11/LST/proj_c_warp_LST_MYD11_L2.A2018323.1355.006.2018337213536.tif"))
+stacks30 <- list.files(paste0(cddir, "satstacks_ngb"), pattern="L_MOD_hs_ia_", full.names = T)
+
+```
+
+Compare_L_M pngs of satellite stacks Landsat and MODIS 30m for all stacks, written into "compare_L_M" folder in cddir. 
+```{r, eval=F}
+lapply(seq(stacks30), function(i){
+    ym <- substring(basename(stacks30[i]), 13,19)
+    ymf <- list.files(paste0(cddir, "satstacks_ngb"), pattern=ym, full.names = T)
+    satnames <- read.csv2(ymf[grepl("names_sat_ia_hs", ymf)])
+    
+    st30 <- stack(stacks30[i])
+    names(st30) <- satnames$x
+
+    # get always MOD and L (1 and 2 of a pack of 4), crop the (?) and plot them on the same scale side by side and write to a folder to compare visually 
+    scenebatches <- nlayers(st30)/4
+    scenebatchend <- seq(scenebatches)*4
+    scenebatchstart <- scenebatchend-3
+    
+    s <- sort(c(scenebatchstart, scenebatchstart+1))
+    
+    for(j in seq(length(scenebatchstart))){
+        print(c(i,j))
+      
+        LM30 <- st30[[scenebatchstart[j]:(scenebatchstart[j]+1)]]
+          
+          
+        nam <- paste0("L_", substring(names(LM30)[1], 11,25), 
+             "__", "M_", substring(names(LM30)[2], 11,22))
+            
+            
+        png(paste0(cddir, "compare_L_M/", nam, "_", j,".png"),
+          width=1200, height=1000)
+    
+        p <- spplot(LM30)
+        print(p)
+        dev.off()
+    }
+})
+```
+
+![L_226129_20150111__M_2015011.1335](L_226129_20150111__M_2015011.1335_3.png)
+
+
+
+```{r, eval=F}
+
+
+# Slideview for the same scene: 
+
+
+
+library(slideview)
+
+# * 226129_20141210 1335
+# 
+# * 226128_20141108 1335
+# pat <- c("226129_20150111", "226129_20141210", "226128_20141108")
+
+stacks30 <- list.files(paste0(cddir, "satstacks_ngb"), pattern="L_MOD_hs_ia_", full.names = T)
+selstacks30 <- stacks30[grepl("2015-01",stacks30)]
+pat <- "226129_20150111"
+
+# 
+# lapply(seq(selstacks30), function(i){
+    #ym <- substring(basename(selstacks30[i]), 13,19)
+
+    ym <- substring(basename(selstacks30), 13,19)
+    ymf <- list.files(paste0(cddir, "satstacks_ngb"), pattern=ym, full.names = T)
+    satnames <- read.csv2(ymf[grepl("names_sat_ia_hs", ymf)])
+    
+    #st30 <- stack(selstacks30[i])
+    st30 <- stack(selstacks30)
+    names(st30) <- satnames$x
+    
+    
+    
+    scenebatches <- nlayers(st30)/4
+    scenebatchend <- seq(scenebatches)*4
+    scenebatchstart <- scenebatchend-3
+    
+    s <- sort(c(scenebatchstart, scenebatchstart+1))
+    
+    Landsloc <- unlist(sapply(seq(pat), function(x){
+          which(grepl(pat[x],names(st30)))
+    }))
+    
+    usesceneloc <- Landsloc[grepl("1335", names(st30)[Landsloc+1])]
+
+    LMstack <- st30[[usesceneloc[1]:(usesceneloc[1]+1)]]
+    slideView(LMstack[[1]], LMstack[[2]],
+              label1 = "Landsat", label2 = "Modis",
+              maxpixels =  150000)
+
+    
+```
+
+#### making MODIS / Landsat plots for small extents to check whether there is mismatch in the patterns of LST
+```{r, eval=F}
+f1000 <- list.files(paste0(cddir, "satstacks_1000m/"), full.names = T)
+
+
+stacks1000 <- lapply(seq(f1000), function(i){
+    x <- stack(f1000[i])
+
+    ym <- substring(basename(f1000[i]), 13,19)
+    ymf <- list.files(paste0(cddir, "satstacks_ngb"), pattern=ym, full.names = T)
+    satnames <- read.csv2(ymf[grepl("names_sat_ia_hs", ymf)])
+    
+    names(x) <- satnames$x
+    x
+    
+    #### TO DO xxxxxxxxxxxxxxxxxxxx ########
+    # get always MOD and L (1 and 2 of a pack of 4), crop the (?) and plot them on the same scale side by side and write to a folder to compare visually 
+    scenebatches <- nlayers(x)/4
+    scenebatchend <- seq(scenebatches)*4
+    scenebatchstart <- scenebatchend-3
+    
+    s <- sort(c(scenebatchstart, scenebatchstart+1))
+    
+    for(j in seq(length(scenebatchstart))){
+        print(c(i,j))
+      
+        LM1000 <- x[[scenebatchstart[j]:(scenebatchstart[j]+1)]]
+          
+          
+        nam <- paste0("L_", substring(names(LM1000)[1], 11,25), 
+             "__", "M_", substring(names(LM1000)[2], 11,22))
+            
+            
+        png(paste0(cddir, "compare_L_M/LM1000_", nam, "_", j,".png"),
+          width=1200, height=1000)
+    
+        p <- spplot(LM1000)
+        print(p)
+        dev.off()
+    }
+})   
+
+```
+
+
+#### Crop to intersection before extraction? 
+Will that be faster for the extraction process? 
+
+
+# 7 Extraction on Palma
+Every value over 30°C and under -100°C is set NA - that should happen with all prediction data sets as well, then. 
+
+```{r}
+# file.edit("7_stack_extraction_Palma.R")
+```
+
+# 8 prep train and test datasets
+
+##### train and test
+**Spatial**
+There are 65 blocks of dimension 20000x20000m, i.e. 20km². I will select 60% for training and 40% for testing, which means 25 blocks for testing. The test and train blocks are sampled randomly. 
+```{r,eval=F}
+blockmask <- raster(paste0(dempath, "blockmask_aoi.tif"))
+mapview(blockmask, na.color="#00000000",map.types="Esri.WorldImagery")
+
+blockunique <- unique(blockmask[])
+blocktestn <- length(blockunique)*0.4
+
+blocktestsample <- sample(blockunique, size=blocktestn, replace=F)
+blocktestsample <- blocktestsample[!is.na(blocktestsample)]
+write.csv2(blocktestsample, paste0(cddir, "blocktest_samples_test.csv"))
+testblock <- blockmask
+testblock[testblock %in% blocktestsample & !is.na(testblock)] <- 200
+testblock[testblock !=200 & !is.na(testblock)] <- 0
+
+tbt <- table(testblock[])
+
+writeRaster(testblock, paste0(dempath, "updated_spatial_test_blocks.tif"), overwrite=T)
+
+```
+
+
+```{r}
+testblock <- raster(paste0(dempath, "updated_spatial_test_blocks.tif"))
+mapview(testblock, na.color="#00000000",map.types="Esri.WorldImagery",
+        alpha.regions=0.3)
+
+
+```
+
+Make Train and Test Polygons for graphic
+```{r, eval=F}
+library(stars)
+x <- st_as_stars(testblock) %>% 
+  st_as_sf(merge = TRUE) 
+mapview(x)
+
+write_sf(x, paste0(cddir, "train_test_polygons.shp"))
+# %>% # this is the raster to polygons part
+#   st_cast("MULTILINESTRING") # cast the polygons to polylines
+
+test <- x[x$updated_spatial_test_blocks == 200,]
+train <- x[x$updated_spatial_test_blocks == 0,]
+
+mapview(test)+mapview(train)
+
+st_as_sf(test)
+writeOGR(test, paste0(cddir, "train_test_polygons.shp"), driver="ESRI Shapefile")
+
+#file.edit("../paper_map.R")
+
+```
+
+```{r}
+test_shapes <- readOGR(paste0(cddir, "train_test_polygons.shp"))
+names(test_shapes) <- "tt"
+test_shapes$ttw <- NA
+test_shapes$ttw[test_shapes$tt == 200] <- "test"
+test_shapes$ttw[test_shapes$tt == 0] <- "training"
+
+
+pal = mapviewPalette("mapviewRasterColors")
+
+pal <- function (n, alpha = 1, begin = 0, end = 1, direction = 1) {
+    viridis(n, alpha, begin, end, direction, option = "viridis")
+}
+
+
+pal <- function(n, alpha, start, end, gamma){
+  gray.colors(n, start=0, end = 1, gamma = 1.9, alpha, rev = FALSE)
+
+}
+
+
+trainex <- stack(stacks30[1])
+testex <- stack(stacks30[3])
+
+mapview(trainex[[2]], col.regions=pal,na.color="#00000000")+
+  mapview(test_shapes[test_shapes$ttw=="training",], 
+          na.color="#00000000", col.regions='chartreuse3',
+          alpha.regions=0.3)
+
+
+mapview(testex[[2]], col.regions=pal,na.color="#00000000")+
+  mapview(test_shapes[test_shapes$ttw=="test",], 
+          na.color="#00000000", col.regions="#1b1ff5",
+          alpha.regions=0.3)
+
+```
+
+**Temporal**
+I take roughly 60% of the data for training and 40% for testing (6 of 15 months for time blocking). For testing I take two January scenes and one scene each from November and December, as these months are covered by 4 years each. Also, I take the only march dataset to take a look at the performance outside of the  summer months this model was mostly trained on and one of the february scenes. 
+
+```{r}
+library(plyr)
+(avyearmonths <- substring(list.files(paste0(cddir, "satstacks_ngb/"), pattern="L_MOD_hs_ia"),
+                    13,19))
+avdates <- as.Date(paste0(avyearmonths, "-01"))
+
+avym <- data.frame(date=avdates, y=year(avdates), m=month(avdates))
+pos <- match(avym$date,datescene_df$sf_dates)
+avym$nscenes <- datescene_df$MODL8scenes[pos]
+sum(avym$nscenes )
+
+print(paste0(sum(avym$nscenes[avym$m==1]), " scenes from January"))
+print(paste0(sum(avym$nscenes[avym$m==12]), " scenes from December"))
+print(paste0(sum(avym$nscenes[avym$m==11]), " scenes from November"))
+
+avym$test <- 0
+avym$test[avym$m==1 & avym$y==2015] <- 1
+avym$test[avym$m==2 & avym$y==2017] <- 1
+avym$test[avym$m==3 & avym$y==2019] <- 1
+avym$test[avym$m==11 & avym$y==2014] <- 1
+avym$test[avym$m==12 & avym$y==2018] <- 1
+avym$test <- as.factor(avym$test)
+
+# write.csv2(avym, paste0(cddir, "available_months_scenes_test.csv"))
+
+avym$mtext <-factor( month(avym$date, abbr=T, label=T), ordered=F)
+avym$mtext <- revalue(avym$mtext, c("Mrz"="Mar", "Dez"="Dec"))
+
+avym$mtext <- ordered(avym$mtext, levels=c("Nov", "Dec","Jan", "Feb", "Mar"))
+
+
+my_breaks <- c(1,2,3,4,6,9,12)
+
+png(paste0(figurepath, "new/scenes_test.png"),
+    units="in", width=8, height=5, res=300)
+        
+ggplot(avym, aes(x=y, y=mtext, group=test, color=nscenes))+
+  geom_point(aes(shape=test),size=5)+ 
+  scale_y_discrete()+
+  scale_shape_manual(values=c(16,17),
+                     labels=c("training","test"),
+                     name="")+
+  theme_minimal()+labs(group = " ", color="n scenes")+
+  scale_color_viridis_c(option = "viridis",trans="log",
+                        breaks = my_breaks, labels = my_breaks)+
+  ylab("")+xlab("")+
+  scale_x_continuous(breaks=unique(avym$y))+
+  theme(legend.title = element_text("n scenes", size = 12),
+        legend.text = element_text(size=10),
+        axis.text.x = element_text(size=12),
+        axis.text.y = element_text(size=12),
+        #panel.grid.minor  = element_blank(),
+        panel.grid.major  = element_blank())
+# +
+#   ggtitle("Available scenes and time block external testing",
+#                           subtitle = "Test months as triangles")
+
+dev.off()
+
+
+print(paste0(sum(avym$nscenes[avym$test==0]), " scenes for training"))
+print(paste0(sum(avym$nscenes[avym$test==1]), " scenes for testing"))
+
+print(paste0(round(
+  sum(avym$nscenes[avym$test==1])/68, digits = 2),
+             " percent of scenes for temporal testing"))
+```
+
+
+Choosing of training samples by the Dissimilarity Index is performed only for the months that are taken into the training. 
+
+```{r}
+# file.edit("Palma/8_DI_log_choosing_Palma_3m.R")
+# file.edit("Palma/8a_gather_train_test.R)
+# file.edit("Palma/8a_gather_train_test.R)
+
+```
+
+
+Make 3 types of test datasets: 
+
+* 1 Unknown areas (all months) i.e. test areas of all months
+* 2 Unknown time step for known areas (test months), i.e. training areas from testing months
+* 3 Unknown areas and unknown months, i.e. test areas from testing months 
+
+```{r}
+file.edit("train_tests_LST_pred_fig.R")
+```
+
+# 9 run all algorithms FFS
+
+# 9a run all algorithms FFS on 1000m 
+
+
+# 10 evaluate FFS models 
+
+# 11 tune final models 
+
+# 12 external testing
+
+# 13 run AOA 
+
+# 14 time series generation
+
+
+
+
+# TO DO 
   
 \newcommand{\boxedcheckmark}
   {{\ooalign{$\Box$\cr\hidewidth$\checkmark$\hidewidth}}}
@@ -947,14 +1548,23 @@ $\checkmark$  use EMISSIVITY from modis product? Won't... doesn't look promising
 
 $\checkmark$  use Aqua and Terra for training? Only Aqua, below 15min time difference available here 
 
-- training test areas 
+$\checkmark$ training test areas 
 
-- SWIR raus 
+$\checkmark$ SWIR raus 
 
 - hs & ia predict function (neue MODIS scene, MODELL + hs / is Berechnung -> prediction)
 
-- hypercube vs. mein sampling
+$\checkmark$  hypercube vs. mein sampling
+
+- run models with SE = TRUE (?)
 
 - apply AOA to final raster
 
+- 1000m training
+
+- does Modis and Landsat coincide well or is there an issue in either timing or projecting of swath data? 
+
+#### Open questions: 
+- What does -1 in Landsat Land Cloud Cover mean? Missing value I assume 
+- Is it problematic that we only get T2 datasets? 
 

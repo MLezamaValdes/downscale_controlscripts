@@ -3,45 +3,50 @@
 rm(list=ls())
 
 #location <- "Laptop"
-location <- "Palma"
+# location <- "Palma"
 
-if(location == "Laptop"){
-  library(doParallel)
-  library(parallel)
-  library(CAST)
-  library(caret)
-  
-  datpath <- "C:/Users/mleza/OneDrive/Desktop/pott3/"
-  
-  year <- c(2019:2013)
-  month <- c("01","02","03","04", "09", "10","11", "12")
-  
-  time_range <- readRDS(paste0(datpath, "time_range.rds"))
-  
+# if(location == "Laptop"){
+#   library(doParallel)
+#   library(parallel)
+#   library(CAST)
+#   library(caret)
+#   
+#   datpath <- "C:/Users/mleza/OneDrive/Desktop/pott3/"
+#   
+#   year <- c(2019:2013)
+#   month <- c("01","02","03","04", "09", "10","11", "12")
+#   
+#   time_range <- readRDS(paste0(datpath, "time_range.rds"))
+#   
+# 
+# } else {
+library(doParallel)
+library(parallel)
+library(CAST,lib.loc="/home/l/llezamav/R/")
+library(caret,lib.loc="/home/l/llezamav/R/")
 
-} else {
-  library(doParallel)
-  library(parallel)
-  library(CAST,lib.loc="/home/l/llezamav/R/")
-  library(caret,lib.loc="/home/l/llezamav/R/")
-  
-  datpath <- "/scratch/tmp/llezamav/satstacks/extraction_result_new/"
-  #datpath <- "D:/new_downscaling/extraction/"
-  
-  
-  year <- c(2019:2013)
-  month <- c("01","02","03","04", "09", "10","11", "12")
-  
-  
-  # set month to look at
-  time_range <- readRDS("/scratch/tmp/llezamav/time_range.rds")
-  }
+datpath <- "/scratch/tmp/llezamav/satstacks/extraction/"
+#datpath <- "D:/new_downscaling/extraction/"
 
 
+# year <- c(2019:2013)
+# month <- c("01","02","03","04", "09", "10","11", "12")
 
-###################### START WITH POTT3 ALREADY FROM SERVER ###########################################
 
-di_log_choosing <- function(y,m){
+# set month to look at
+# time_range <- readRDS("/scratch/tmp/llezamav/time_range.rds")
+  # }
+
+
+
+###################### START WITH complete cases extraction ALREADY FROM SERVER ###########################################
+
+
+ex_files <- list.files(datpath, pattern="extr_complete_cases", full.names = T)
+
+
+
+di_log_choosing <- function(){
   
   ym <- substring(time_range[[y]][[m]][[1]][[1]], 1, 7)
   `%notin%` <- Negate(`%in%`)
@@ -172,42 +177,24 @@ di_log_choosing <- function(y,m){
 ########################### RUN ###########################################
 
 no_cores <- 8
-if(location=="Laptop"){
-  cl <- makeCluster(2, outfile="C:/Users/mleza/test_cl.txt")
 
-  registerDoParallel(cl)
-  jnk = clusterEvalQ(cl, {
-    library(doParallel);
-    library(parallel);
-    library(CAST);
-    library(caret)})
-  clusterExport(cl, list("cl","di_log_choosing", "time_range","month", "year", "datpath","location"))
+cl <- makeCluster(no_cores, outfile="/home/l/llezamav/scripts_new/par_log_choosing_out.txt")
 
+registerDoParallel(cl)
+jnk = clusterEvalQ(cl, {
+  library(doParallel);
+  library(parallel);
+  library(CAST,lib.loc="/home/l/llezamav/R/");
+  library(caret,lib.loc="/home/l/llezamav/R/")})
+clusterExport(cl, list("cl","di_log_choosing", "datpath", "location"))
 
-} else {
-  cl <- makeCluster(no_cores, outfile="/home/l/llezamav/par_month_out_72.txt")
-
-  registerDoParallel(cl)
-  jnk = clusterEvalQ(cl, {
-    library(doParallel);
-    library(parallel);
-    library(CAST,lib.loc="/home/l/llezamav/R/");
-    library(caret,lib.loc="/home/l/llezamav/R/")})
-  clusterExport(cl, list("cl","di_log_choosing", "time_range","month", "year", "datpath", "location"))
-
-}
-
-
-lapply(c(2:7), function(y){
-    parLapply(cl, seq(month), function(m){
-  
-  #lapply( seq(length(month)), function(m){
-        print(paste0("starting yearindex ", y, "month: ", m))
-        print(c(y,m))
-        di_log_choosing(y,m)
-  })
-
+parLapply(cl, seq(ex_files), function(m){
+      print(paste0("starting with ", basename(ex_files[m])))
+      extr <- read.csv2(ex_files[i])
+      di_log_choosing(extr)
 })
+
+
 
 stopCluster(cl)
 

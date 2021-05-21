@@ -8,11 +8,7 @@ if(loc=="Palma"){
   library(rgdal)
   datpath <- "/scratch/tmp/llezamav/satstacks/"
   aoipath <- "/scratch/tmp/llezamav/aoi/"
-  time_range <- readRDS("/scratch/tmp/llezamav/time_range.rds")
-  cddir <- "/scratch/tmp/llezamav/satstacks/"
-  iahsrespath <- "/scratch/tmp/llezamav/ia_hs_res/"
-  swiroutpath <- paste0(datpath, "swir/")
-  
+
 } else if(loc=="Laptop"){
   library(raster)
   library(rgdal)
@@ -20,7 +16,6 @@ if(loc=="Palma"){
   aoipath <- "D:/new_downscaling/aoi/"
   auxpath <-  "D:/new_downscaling/auxiliary/"
   datpath <- "D:/new_downscaling/clean_data/satstacks/"
-  swiroutpath <- "D:/new_downscaling/SWIR/composites/" # TO DO!!!!!!!!!!!!!!!!!!!
 } else {
   print("something's off")
 }
@@ -55,9 +50,9 @@ extract_train_test <- function(y,m){
   
   print(paste0("~~~~~~STARTING WITH ", ym, " NOW~~~~~~~~"))
   
-  # add SWIR to aux
-  swirfile <- paste0(swiroutpath, "swir_tc_67", ym, ".tif")
-  
+  # # add SWIR to aux
+  # swirfile <- paste0(swiroutpath, "swir_tc_67", ym, ".tif")
+  # 
   if(loc=="Laptop"){
     datpath <- "D:/new_downscaling/clean_data/satstacks/"
   }
@@ -70,17 +65,11 @@ extract_train_test <- function(y,m){
   not_split <- allf[!grepl(allf, pattern="_..tif$")] # original unsplit file
   
   if(file.exists(allf[1])){
-    tdnam <- read.csv(paste0(datpath, "names_sat_ia_hs_", ym, ".csv")) # names for tempdyn
-    
-    ################## if there's a swir file: extract aux ####################################
-    print(paste0("SWIR file = ", paste0(swiroutpath, "swir_tc_67", ym, ".tif")))
-    
-    if(file.exists(paste0(swiroutpath, "swir_tc_67", ym, ".tif"))){ # if there is a SWIR file
-      print(paste0("SWIR file available for", ym))
-      swir <- stack(swirfile)
-      aux <- stack(aux, swir)
+      tdnam <- read.csv(paste0(datpath, "names_sat_ia_hs_", ym, ".csv")) # names for tempdyn
+
+      aux <- stack(aux)
       names(aux) <- c("dem", "slope", "aspect", "TWI", "soilraster", "landcoverres", "spatialblocks",
-                      "x", "y", "swir6", "swir7")
+                      "x", "y")
       
       
       # extract aux
@@ -410,9 +399,7 @@ extract_train_test <- function(y,m){
         com <- "not enough complete cases for this month"
         write.csv2(com, paste0(datpath, "extraction_result_new/few_samples_",ym, ".csv"))
       }
-    } else {
-      print("no SWIR file available for this month")
-    }
+
   } else {
     print("no satellite data for this month available")
   }

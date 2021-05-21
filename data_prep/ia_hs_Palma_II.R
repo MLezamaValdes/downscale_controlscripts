@@ -71,35 +71,18 @@ saveRDS(timediff_comp, paste0(ccpath, "timediff_comp_from_script.rds"))
 
 ########################### FUNCTION #####################################
 
+moddates <- readRDS(paste0(cddir, "moddates.RDS"))
+uniqueMODscenes <-unique(moddates)
+
 ########## make hillshading and incidence angle raster ############
-make_hs_ia <- function(y,m){
+make_hs_ia <- function(scene){
   
-  # timediff_comp <- try(read.csv2(list.files(ccpath, pattern=substring(time_range[[y]][[m]][[1]][[1]], 1, 7), full.names=T)))
-  # print(timediff_comp)
-  # print("got timediff")
-  
-  if(class(timediff_comp[[y]][[m]])!="try-error"){
-    
-    #L8scenepath <- paste0(main, "L8/", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), "/")
-    #timediff_comp <- read.csv2(paste0(L8scenepath, "timediff_comp_comp.csv"))
-    
-    # for d in seq(nrow(timediff))
-    uniqueMODscenes <- unique(timediff_comp[[y]][[m]]$MODname)
-    
-    MD <- substring(uniqueMODscenes,11,22)
-    MODDate <- as.POSIXct(MD, tz="UTC",format = "%Y%j.%H%M")
-    
-    #lapply(c(1:8), function(d){
-    lapply(seq(uniqueMODscenes), function(d){
       # get time from MODIS (all times are UTC https://modis-images.gsfc.nasa.gov/products_filename.html)
-      print(paste0("starting d=",d))
-      
-      MD <- substring(uniqueMODscenes[d],11,22)
-      MODDate <- as.POSIXct(MD, tz="UTC",format = "%Y%j.%H%M")
-      
-      doy <- substring(MD, 5,7)
-      h <- hour(MODDate)
-      min <- minute(MODDate)
+      print(paste0("starting with ",scene))
+
+      doy <- yday(scene)
+      h <- hour(scene)
+      min <- minute(scene)
       
       doymin <- as.numeric(doy)+((h+min/60)/24)
       

@@ -133,7 +133,7 @@ make_L8_MOD_stack <- function(y, m, timethres){
           ########## resample MODIS to L8 resolution ############
           print("starting resampling of MODIS")
           
-          mstackres <- resample(mstack, template)
+          mstackres <- resample(mstack, template, method="ngb")
           
           print("starting resampling of landsat")
           
@@ -156,11 +156,11 @@ make_L8_MOD_stack <- function(y, m, timethres){
           
           print("matched scenes")
           
-          write.csv2(names(satstack), paste0(cddir, "satstacks/satnames_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), ".csv"),
+          write.csv2(names(satstack), paste0(cddir, "satstacks_ngb/satnames_", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), ".csv"),
                      row.names = F)
           
           print("starting to write sat stack")
-          writeRaster(satstack, paste0(cddir, "satstacks/L_MOD", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), ".tif"), overwrite=T)
+          writeRaster(satstack, paste0(cddir, "satstacks_ngb/L_MOD", substring(time_range[[y]][[m]][[1]][[1]], 1, 7), ".tif"), overwrite=T)
         } else {
           print("MODIS scenes empty")
         }
