@@ -1496,28 +1496,44 @@ print(paste0(round(
              " percent of scenes for temporal testing"))
 ```
 
+```{r}
+#file.edit("../paper_map.R")
+```
+
+
 
 Choosing of training samples by the Dissimilarity Index is performed only for the months that are taken into the training. 
 
 ```{r}
 # file.edit("Palma/8_DI_log_choosing_Palma_3m.R")
 # file.edit("Palma/8a_gather_train_test.R)
-# file.edit("Palma/8a_gather_train_test.R)
 
 ```
 
 
-Make 3 types of test datasets: 
+Make 3 types of test datasets from what comes out of 8_DI_log_choosing_Palma_3m:  
 
-* 1 Unknown areas (all months) i.e. test areas of all months
-* 2 Unknown time step for known areas (test months), i.e. training areas from testing months
-* 3 Unknown areas and unknown months, i.e. test areas from testing months 
+* 1 validation areas of all months
+
+Test areas for all months as "test_all_samples_....csv".
+
+* 2 training areas from validation months
+
+Take "train_DI_2015-01.csv" for the 5 validation months, i.e.  "2014-11", "2015-01", "2017-02", "2018-12" and "2019-03" 
+
+* 3 validation areas from validation months
+
+Take "test_all_samples_....csv" from  "2014-11", "2015-01", "2017-02", "2018-12" and "2019-03" 
 
 ```{r}
-file.edit("train_tests_LST_pred_fig.R")
+#file.edit("train_tests_LST_pred_fig.R")
 ```
 
 # 9 run all algorithms FFS
+```{r}
+#file.edit("9_FFS_models.R")
+```
+
 
 # 9a run all algorithms FFS on 1000m 
 

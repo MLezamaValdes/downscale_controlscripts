@@ -29,9 +29,11 @@ ex_files_use <- substring(list.files(inputpath, pattern="extr_complete_cases", f
 testdates <- avym$date[avym$test==1]
 
 `%notin%` <- Negate(`%in%`)
-ex_files <- ex_files[ex_files_use %notin% testdates]
 
+## LAST MISSING FILE 
+# ex_files <- ex_files[ex_files_use %notin% testdates]
 
+ex_files <- ex_files[grepl("2019-03", ex_files)]
 ############################################################################################
 ###################### put away spatial testing ###########################################
 ############################################################################################
