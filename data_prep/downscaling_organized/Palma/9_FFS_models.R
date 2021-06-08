@@ -8,9 +8,20 @@ trainpath <- "/scratch/tmp/llezamav/train_valid/"
 # outpath <- paste0(trainpath, "modeling_after_talk/")
 
 
-install.packages("/home/l/llezamav/R/kernlab_0.9-29.tar.gz", 
-                      repos = NULL, lib="/home/l/llezamav/R/")
-                
+# install.packages("/home/l/llezamav/R/kernlab_0.9-29.tar.gz", 
+#                       repos = NULL, lib="/home/l/llezamav/R/")
+# install.packages("/home/l/llezamav/R/CAST_0.4.3.tar.gz", 
+#                  repos = NULL, lib="/home/l/llezamav/R/")
+# install.packages("/home/l/llezamav/R/caret_6.0-85.tar.gz", 
+#                  repos = NULL, lib="/home/l/llezamav/R/")
+# install.packages("/home/l/llezamav/R/gbm_2.1.5.tar.gz", 
+#                  repos = NULL, lib="/home/l/llezamav/R/")
+install.packages("/home/l/llezamav/R/Cubist_0.3.0.tar.gz", 
+                 repos = NULL, lib="/home/l/llezamav/R/")
+# install.packages("/home/l/llezamav/R/pls_2.7-3.tar.gz", 
+#                  repos = NULL, lib="/home/l/llezamav/R/")
+
+
 # library(parallel)
 # library(doParallel)
 # library(CAST)
@@ -37,7 +48,7 @@ print("loading datasets")
 
 
 # train <- read.csv2(list.files(trainpath, pattern="train", full.names=T), nrow=3000000)
-train <- read.csv2(paste0(trainpath, "training_complete_150000_clhs.csv"))
+train <- read.csv2(paste0(trainpath, "train_LHS_150000.csv"))
 
 print("loaded train dataset")
 
@@ -76,7 +87,7 @@ train$ymo <- as.factor(train$ymo)
 #   foldids <- CreateSpacetimeFolds(train, timevar = "ymo",
 #                                   k=kval,seed=100)
 # } else {
-  foldids <- CreateSpacetimeFolds(train, spacevar="spatialblocks", timevar = "ymo",
+foldids <- CreateSpacetimeFolds(train, spacevar="spatialblocks", timevar = "ymo",
                                   k=kval,seed=100)
 # }
 
@@ -101,7 +112,7 @@ length(predictors)
 cores <- detectCores()
 print(paste("cores = ", cores))
 
-cl <- makeCluster(cores-3, outfile=paste0(outpath, "par_algorithms.txt"))
+cl <- makeCluster(cores-3, outfile="/home/l/llezamav/scripts_new/par_algorithms.txt")
 
 #cl <- makeCluster(cores-3, outfile="/home/l/llezamav/par_algorithms.txt")
 registerDoParallel(cl)

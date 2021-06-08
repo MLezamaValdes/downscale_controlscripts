@@ -1531,14 +1531,39 @@ Take "test_all_samples_....csv" from  "2014-11", "2015-01", "2017-02", "2018-12"
 
 # 9 run all algorithms FFS
 ```{r}
-#file.edit("9_FFS_models.R")
+#file.edit("Palma/9_FFS_models.R")
 ```
 
 
-# 9a run all algorithms FFS on 1000m 
-
+### 9a run all algorithms FFS on 1000m - not in this run
 
 # 10 evaluate FFS models 
+```{r}
+# file.edit("10_evaluate_FFS.R")
+```
+
+Checking whether slope and aspect could be interfering with ia and hs:
+```{r, eval=F}
+tvdir <- paste0(cddir, "train_valid/")
+train <- read.csv2(list.files(tvdir, pattern="train",full.names=T))
+
+
+predictors <- train[,c("Modis","ia", "hs", "dem", 
+                       "slope", "aspect", "TWI", 
+                       "soilraster", "landcoverres")]
+
+cm <- cor(predictors)
+par(mfrow=c(1,1), mar= c(5, 4, 4, 2) + 0.1)
+corrplot::corrplot(cm, method=c("number"), type="upper", diag=F,tl.col="black")
+```
+
+```{r}
+lmod <- lm(predictors$Modis~predictors$ia+predictors$hs+
+     predictors$dem+predictors$slope+predictors$aspect+predictors$TWI+predictors$soilraster+predictors$landcoverres)
+
+summary(lmod)
+
+```
 
 # 11 tune final models 
 

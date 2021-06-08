@@ -66,9 +66,10 @@ geom_split_violin_1 <- function(mapping = NULL, data = NULL, stat = "ydensity", 
 custom_theme = theme(
   text = element_text(size = 10),
   axis.title.x = element_text(size = 14),
-  axis.title.y = element_text(size = 16),
+  axis.title.y = element_text(size = 14,face="bold", vjust=1.5),
   axis.text = element_text(size = 14),
   axis.text.x = element_text(vjust = 0.5),
+  #axis.text.y = element_text(hjust = 1.2),
   legend.title=element_text(size=16),
   legend.text=element_text(size=16, hjust = 0),
   legend.direction = "vertical",
@@ -79,7 +80,8 @@ custom_theme = theme(
   panel.grid.major = element_blank(),
   legend.key.size = unit(1.5, "cm"),
   legend.key.width = unit(0.75,"cm"),
-  legend.position = "right",
+  plot.margin = unit(c(0,0,0,10), "lines"),
+  legend.position = c(-.3,.2),
   axis.line.x = element_blank(),
   axis.ticks.x = element_blank(),
   axis.line.y = element_line(colour = 'black', size=0.3, linetype='solid'))
@@ -87,12 +89,13 @@ custom_theme = theme(
 
 custom_theme_no_legend = theme(
   text = element_text(size = 10),
-  axis.title.x = element_text(size = 16),
-  axis.title.y = element_text(size = 14),
+  axis.title.x = element_blank(),
+  #axis.text.y = element_text(hjust = 1.2),
+  axis.title.y = element_text(size = 14, vjust=1.5,face="bold"),
   axis.text = element_text(size = 14),
-  axis.text.x = element_text(vjust = 0.5),
+  axis.text.x = element_blank(),
   plot.title = element_text(lineheight=.8, face="bold", size = 16),
-  plot.subtitle = element_text(size = 12, face="bold"),
+  plot.subtitle = element_blank(),
   panel.border = element_blank(),
   panel.grid.minor = element_blank(),
   panel.grid.major = element_blank(),
@@ -102,3 +105,19 @@ custom_theme_no_legend = theme(
   axis.line.y = element_line(colour = 'black', size=0.3, linetype='solid'))
 
 
+custom_theme_barchart = theme(
+  text = element_text(size = 10),
+  axis.title.x = element_blank(),
+  #axis.text.y = element_text(hjust = 1.2),
+  axis.title.y = element_text(size = 14, face="bold",vjust=1.5),
+  axis.text = element_text(size = 14),
+  axis.text.x = element_text(vjust = 0.5, size=10),
+  plot.title = element_text(lineheight=.8, face="bold", size = 16),
+  plot.subtitle = element_blank(),
+  panel.border = element_blank(),
+  panel.grid.minor = element_blank(),
+  panel.grid.major = element_blank(),
+  legend.position = "",
+  axis.line.x = element_blank(),
+  axis.ticks.x = element_blank(),
+  axis.line.y = element_line(colour = 'black', size=0.3, linetype='solid'))

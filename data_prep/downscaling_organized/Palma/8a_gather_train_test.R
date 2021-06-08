@@ -30,11 +30,11 @@ myLHSfun <- function(ds, desiredsize, outnam){
   subs_vars <- clhs(vars, size=desiredsize,progress=T,simple=TRUE) 
   ds_lhs <- ds[subs_vars,]
   
-  testlines <- all(rownames(ds_lhs) %in% subs_vars)
-  
-  if (testlines == FALSE){ 
-    stop("something went wrong here")
-  }
+  # testlines <- all(rownames(ds_lhs) %in% subs_vars)
+  # 
+  # if (testlines == FALSE){ 
+  #   stop("something went wrong here")
+  # }
   
   write.csv2(ds_lhs, paste0(outdir, outnam, "_LHS_", format(n, scientific = F), ".csv"))
 }
@@ -56,131 +56,140 @@ myLHSfun <- function(ds, desiredsize, outnam){
   }))
 }))
 
-f_trainmonth <- f[!isvalmonth]
+# f_trainmonth <- f[!isvalmonth]
+# 
+# print(f_trainmonth)
+# 
+# alltrain <- lapply(seq(f_trainmonth), function(i){
+# 
+#      read.csv2(f_trainmonth[i])
+# })
+# 
+# length(alltrain)
+# for(i in seq(length(alltrain))){
+#   print(head(alltrain[[i]]))
+# }
+# 
+# 
+# print("starting rbind of train")
+# alltrainall <- do.call("rbind", alltrain)
+# 
+# print("alltrainall looking like this: ")
+# print(head(alltrainall))
+# 
+# write.csv2(alltrainall, paste0(outdir, "train_DI_full_pre_LHS.csv"),dec=".",sep=";")
+# 
+# alltrainall <- read.csv2( paste0(outdir, "train_DI_full_pre_LHS.csv"),dec=".",sep=";")
+# print(paste0("nrow (alltrainall) = ", nrow(alltrainall)))
+# 
+# if(nrow(alltrainall)<n){
+#   n <- nrow(alltrainall)
+# }
+# # LHS
+# print("starting LHSfun of train")
+# myLHSfun(alltrainall, desiredsize = n, outnam="train")
+# print(paste0("LHS train done"))
 
-print(f_trainmonth)
-
-alltrain <- lapply(seq(f_trainmonth), function(i){
-
-     read.csv2(f_trainmonth[i])
-})
-
-length(alltrain)
-for(i in seq(length(alltrain))){
-  print(head(alltrain[[i]]))
-}
+################################ VALIDATION ##########################################
+################################ VALIDATION ##########################################
+################################ VALIDATION ##########################################
 
 
-print("starting rbind of train")
-alltrainall <- do.call("rbind", alltrain)
+############################### VALIDATION 1 ##########################################
 
-print("alltrainall looking like this: ")
-print(head(alltrainall))
 
-write.csv2(alltrainall, paste0(outdir, "train_DI_full_pre_LHS.csv"),dec=".",sep=";")
+#############################################################
+# reading all month's test datasets
+#############################################################
+# alltest <- lapply(seq(fv), function(i){
+#     read.csv2(fv[i])
+# })
+# print("starting rbind of validation 1")
+# alltestall <- do.call("rbind", alltest)
+# 
+# write.csv2(alltestall, paste0(DIdir, "val_1_full_pre_LHS.csv"))
 
-alltrainall <- read.csv2( paste0(outdir, "train_DI_full_pre_LHS.csv"),dec=".",sep=";")
-print(paste0("nrow (alltrainall) = ", nrow(alltrainall)))
+alltestall <- read.csv2(paste0(DIdir, "val_1_full_pre_LHS.csv"))
 
-if(nrow(alltrainall)<n){
-  n <- nrow(alltrainall)
-}
+rnds <- sample(rownames(alltestall), 5000000)
+alltestall_samp <- alltestall[rnds,]
+
+rm(alltestall)
+
 # LHS
-print("starting LHSfun of train")
-myLHSfun(alltrainall, desiredsize = n, outnam="train")
-print(paste0("LHS train done"))
-
-################################ VALIDATION ##########################################
-################################ VALIDATION ##########################################
-################################ VALIDATION ##########################################
-
-
-################################ VALIDATION 1 ##########################################
-
-
-#############################################################
-# reading all month's test datasets 
-#############################################################
-alltest <- lapply(seq(fv), function(i){
-    read.csv2(fv[i])
-})
-print("starting rbind of validation 1")
-alltestall <- do.call("rbind", alltest)
-
-write.csv2(alltestall, paste0(DIdir, "val_1_full_pre_LHS.csv"))
-
-# LHS 
 print("starting LHSfun of validation 1")
-myLHSfun(alltestall, desiredsize = n, outnam="validation_1")
+myLHSfun(alltestall_samp, desiredsize = n, outnam="validation_1")
 print("LHS validation 1 done")
 
 
 
-# ################################ VALIDATION 2 ##########################################
-
-#############################################################
-# reading training datasets only for validation months
-#############################################################
-
-f_valmonth <- f[isvalmonth]
-
-print(f_valmonth)
-
-val2 <- lapply(seq(f_valmonth), function(i){
-
-    read.csv2(f_valmonth[i])
-
-})
-
-print("starting rbind of validation 2")
-val2all <- do.call("rbind", val2)
-
-print("this is val2:")
-head(val2all)
-
-write.csv2(val2all, paste0(outdir, "val_2_full_pre_LHS.csv"))
-
-# LHS
-print("starting LHSfun of validation 2")
-myLHSfun(val2all, desiredsize = n, outnam="validation_2")
-print("LHS validation 2 done")
-
-
-################################ VALIDATION 3 ##########################################
-
-#############################################################
-# reading test datasets only for validation months 
-#############################################################
-
-# can any of the valmonths patterns be found in fv[i]? 
-(isvalmonth_validation <- sapply(seq(fv), function(i){
-  any(sapply(seq(valmonths), function(j){
-    grepl(valmonths[j],basename(fv[i]))
-  }))
-}))
-
-
-fv_valmonth <- fv[isvalmonth_validation]
-
-print(fv_valmonth) 
-
-
-val3 <- lapply(seq(fv_valmonth), function(i){
-
-
-    read.csv2(fv_valmonth[i])
- 
-})
-
-print("starting rbind of validation 3")
-val3all <- do.call("rbind", val3)
-
-write.csv2(val3all, paste0(outdir, "val_3_full_pre_LHS.csv"))
-
-# LHS 
-print("starting LHSfun of validation 3")
-myLHSfun(val3all, desiredsize = n, outnam="validation_3")
-print("LHS validation 3 done")
-
-
-
+# # ################################ VALIDATION 2 ##########################################
+# 
+# #############################################################
+# # reading training datasets only for validation months
+# #############################################################
+# 
+# f_valmonth <- f[isvalmonth]
+# 
+# print(f_valmonth)
+# 
+# val2 <- lapply(seq(f_valmonth), function(i){
+# 
+#     read.csv2(f_valmonth[i])
+# 
+# })
+# 
+# print("starting rbind of validation 2")
+# val2all <- do.call("rbind", val2)
+# 
+# print("this is val2:")
+# head(val2all)
+# 
+# write.csv2(val2all, paste0(outdir, "val_2_full_pre_LHS.csv"))
+# 
+# # LHS
+# print("starting LHSfun of validation 2")
+# myLHSfun(val2all, desiredsize = n, outnam="validation_2")
+# print("LHS validation 2 done")
+# 
+# rm(val2)
+# rm(val2all)
+# gc()
+# ################################ VALIDATION 3 ##########################################
+# 
+# #############################################################
+# # reading test datasets only for validation months 
+# #############################################################
+# 
+# # can any of the valmonths patterns be found in fv[i]? 
+# (isvalmonth_validation <- sapply(seq(fv), function(i){
+#   any(sapply(seq(valmonths), function(j){
+#     grepl(valmonths[j],basename(fv[i]))
+#   }))
+# }))
+# 
+# 
+# fv_valmonth <- fv[isvalmonth_validation]
+# 
+# print(fv_valmonth) 
+# 
+# 
+# val3 <- lapply(seq(fv_valmonth), function(i){
+# 
+# 
+#     read.csv2(fv_valmonth[i])
+#  
+# })
+# 
+# print("starting rbind of validation 3")
+# val3all <- do.call("rbind", val3)
+# 
+# write.csv2(val3all, paste0(outdir, "val_3_full_pre_LHS.csv"))
+# 
+# # LHS 
+# print("starting LHSfun of validation 3")
+# myLHSfun(val3all, desiredsize = n, outnam="validation_3")
+# print("LHS validation 3 done")
+# 
+# 
+# 
