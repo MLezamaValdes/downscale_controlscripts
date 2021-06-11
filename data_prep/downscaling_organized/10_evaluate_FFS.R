@@ -51,9 +51,8 @@ if(loc=="Palma"){
 n <- 150000
 methods <- c("rf",
            "gbm",
-           "nnet"
-           
-           #"svmLinear"
+           "nnet",
+           "svmLinear"
            )
 
 par(mfrow=c(2,2), mar=c(5,3,2,2)+2)
@@ -188,19 +187,21 @@ library(gridExtra)
 library(grid)
 
 # plot scatter
-eg <- grid.arrange(plots[[1]], plots[[2]], plots[[3]], nrow = 2)
-
+eg <- grid.arrange(plots[[1]], plots[[2]], plots[[3]], plots[[4]], nrow = 2)
 ggsave(paste0(figurepath, "internal_ffs_eval.png"), plot = eg)
 
 
 # plot tuning
-cv_p <- grid.arrange(cv_plots[[1]], cv_plots[[2]], cv_plots[[3]], nrow = 2)
+cv_p <- grid.arrange(cv_plots[[1]], cv_plots[[2]], cv_plots[[3]], cv_plots[[4]],nrow = 2)
 ggsave(paste0(figurepath, "tuning_ffs_eval.png"), plot = cv_p)
 
 
 # plot rmse
-ffsplots <- grid.arrange(ffsp[[1]], ffsp[[2]], ffsp[[3]], nrow = 2)
+ffsplots <- grid.arrange(ffsp[[1]], ffsp[[2]], ffsp[[3]], ffsp[[4]],nrow = 2)
 
 ggsave(paste0(figurepath, "rmse_ffs_eval.png"), plot = ffsplots)
 
+
+saveRDS(perf, "add_files/selected_predictors_FFS.Rds")
+saveRDS(stats, "add_files/stats_FFS.Rds")
 

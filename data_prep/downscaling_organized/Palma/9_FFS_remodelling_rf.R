@@ -36,7 +36,7 @@ print("loading datasets")
 train <- read.csv2(paste0(trainpath, "train_LHS_150000.csv"))
 
 print("loaded train dataset")
-
+n <- 150000
 ############## ADD MOD/MYD info as predictor ##################################
 train$TeAq <- as.factor(substring(train$Mscene,1,3))
 train$TeAqNum <- as.numeric(train$TeAq)

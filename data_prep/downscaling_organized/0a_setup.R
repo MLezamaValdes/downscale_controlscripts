@@ -121,10 +121,10 @@ substrRight <- function(x, n){
 # until function incorporated in downscaleRS
 source("C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/downscaleRS/R/datestodoymod.R")
 #source(paste0(scriptpath, "1_DEM.R"))
-source(paste0(scriptpath, "2_Landsat.R"))
-source(paste0(scriptpath, "3_MODIS_new.R"))
-source(paste0(scriptpath, "4a_get_MYD_patch.R"))
-
+# source(paste0(scriptpath, "2_Landsat.R"))
+# source(paste0(scriptpath, "3_MODIS_new.R"))
+# source(paste0(scriptpath, "4a_get_MYD_patch.R"))
+# 
 
 #### to be updated in package
 

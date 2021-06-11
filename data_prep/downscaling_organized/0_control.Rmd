@@ -1175,7 +1175,7 @@ for(i in seq(length(yearmonthsatpaths))){
 ```
 
 making 1000m satstacks by resampling the 30m ones
-```{r,eval=F}
+```{r}
 
 temp1000m <- raster(paste0(modispath, "2018-11/LST/proj_c_warp_LST_MYD11_L2.A2018323.1355.006.2018337213536.tif"))
 stacks30 <- list.files(paste0(cddir, "satstacks_ngb"), pattern="L_MOD_hs_ia_", full.names = T)
@@ -1540,10 +1540,24 @@ Take "test_all_samples_....csv" from  "2014-11", "2015-01", "2017-02", "2018-12"
 # 10 evaluate FFS models 
 ```{r}
 # file.edit("10_evaluate_FFS.R")
+
+FFS_predictors <- readRDS("add_files/selected_predictors_FFS.Rds")
+FFS_predictors
+
+stats <- readRDS("add_files/stats_FFS.Rds")
+stats
+```
+
+![sfd](add_files/figures/internal_ffs_eval.png)
+![sfd](add_files/figures/rmse_ffs_eval.png)
+![sfd](add_files/figures/tuning_ffs_eval.png)
+
+```{r}
+
 ```
 
 Checking whether slope and aspect could be interfering with ia and hs:
-```{r, eval=F}
+```{r}
 tvdir <- paste0(cddir, "train_valid/")
 train <- read.csv2(list.files(tvdir, pattern="train",full.names=T))
 
@@ -1557,7 +1571,7 @@ par(mfrow=c(1,1), mar= c(5, 4, 4, 2) + 0.1)
 corrplot::corrplot(cm, method=c("number"), type="upper", diag=F,tl.col="black")
 ```
 
-```{r}
+```{r, eval=F}
 lmod <- lm(predictors$Modis~predictors$ia+predictors$hs+
      predictors$dem+predictors$slope+predictors$aspect+predictors$TWI+predictors$soilraster+predictors$landcoverres)
 
@@ -1566,6 +1580,27 @@ summary(lmod)
 ```
 
 # 11 tune final models 
+
+**rf** tune mtry 2:length(selected predictors)
+
+When you train a neural network (nnet) using Caret you need to specify two hyper-parameters: size and decay. Size is the number of units in hidden layer (nnet fit a single hidden layer neural network) and decay is the regularization parameter to avoid over-fitting. 
+
+
+**nnet** tune size: 2:length(selected predictors), learning rate decay
+Trying expand.grid(decay = c(0.5, 0.1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7),
+                size = c(3, 5, 10, 20)) as recommended here https://stackoverflow.com/questions/42417948/how-to-use-size-and-decay-in-nnet 
+                
+**svmLinear** C controls how large the support vectors, i.e. margins are
+
+**gbm** expand.grid(interaction.depth = seq(3,14,2), 
+                             n.trees = c(100,200,300,400,500),
+                             shrinkage = c(0.01,0.05,0.1),
+                             n.minobsinnode = 10) 
+     
+```{r}
+
+```
+
 
 # 12 external testing
 
