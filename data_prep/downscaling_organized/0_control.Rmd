@@ -1529,15 +1529,94 @@ Take "test_all_samples_....csv" from  "2014-11", "2015-01", "2017-02", "2018-12"
 #file.edit("train_tests_LST_pred_fig.R")
 ```
 
+##### 8b scale metric and make dummys
+
+Min and Max values for the scaled predictor variables.
+```{r}
+# file.edit("8b_scale_metric_add_dummys.R")
+
+trainvalidpath <- paste0(cddir, "train_valid/")
+
+train <- read.csv2(paste0(trainvalidpath, "train_LHS_150000.csv"))
+(mmv <- readRDS("add_files/overall_minmaxvals_train_valid.Rds"))
+
+sort(table(train$soilraster))
+
+```
+
+\begin{table}[]
+\begin{tabular}{ll}
+1  & Gat+Gao         \\
+3  & Ght+Gho         \\
+4  & Ice             \\
+5  & Lat+Lao         \\
+7  & Lat+Tat+Lao+Tao \\
+9  & Lht+Lho         \\
+10 & Lht+tht+lho+tho \\
+12 & Snow            \\
+13 & Tao             \\
+19 & Tat+Ght         \\
+20 & Tat+Lat         \\
+21 & Tat+Tao         \\
+24 & Tht+tho        
+\end{tabular}
+\end{table}
+
+I'm leaving 12 (Snow) out as the reference category for the soilraster. 
+For landcover the same, snow and ice goes out, that is XXX in this 1 and 2 code system. 
+For MOD MYD I'm using Terra (MOD) as reference, MYD will be in the model. 
+
+Thus *in the model goes*: TeAqNum.2 (MYD),  landcoverres.1 (for soil), and soilraster.1, .4, .5, .7, .9, .10, .13, .20, .21, .24
+
+*Reference categories* are: TeAqNum.1 (MOD),  landcoverres.2 (for snow and ice), and soilraster.12
+
+
+```{r}
+trainvalidpath <- "D:/downscaling_after_talk/clean_data/train_valid/"
+
+train <- read.csv2(paste0(trainvalidpath, "train_LHS_150000.csv"))
+
+test1 <- read.csv2(paste0(trainvalidpath, "validation_1_LHS_150000.csv"))
+test2 <- read.csv2(paste0(trainvalidpath, "validation_2_LHS_150000.csv"))
+test3 <- read.csv2(paste0(trainvalidpath, "validation_3_LHS_150000.csv"))
+
+
+head(train)
+head(test3)
+```
+
+
 # 9 run all algorithms FFS
+## First run through 
+
 ```{r}
 #file.edit("Palma/9_FFS_models.R")
 ```
 
+## Second run through 
 
-### 9a run all algorithms FFS on 1000m - not in this run
+Trying out SE=FALSE, more trees and leaving out slope only for RF.
+```{r}
+#file.edit("Palma/9_FFS_remodelling_rf.R")
+```
+
+## Third run through 
+
+After scaling to the margins of train and all validation sets, from 0 to 1 and implementing dummys in the way described above. Running separately to make it quicker and not having to parallelize. 
+```{r}
+#file.edit("Palma/9_FFS_models_rf_SE_F.R")
+#file.edit("Palma/9_FFS_models_nnet_SE_F.R")
+#file.edit("Palma/9_FFS_models_gbm_SE_F.R")
+#file.edit("Palma/9_FFS_models_svmLinear_SE_F.R")
+
+```
+
+
+#### 9a run all algorithms FFS on 1000m - not in this run
 
 # 10 evaluate FFS models 
+
+## First run through 
 ```{r}
 # file.edit("10_evaluate_FFS.R")
 
@@ -1552,14 +1631,11 @@ stats
 ![sfd](add_files/figures/rmse_ffs_eval.png)
 ![sfd](add_files/figures/tuning_ffs_eval.png)
 
-```{r}
-
-```
 
 Checking whether slope and aspect could be interfering with ia and hs:
 ```{r}
 tvdir <- paste0(cddir, "train_valid/")
-train <- read.csv2(list.files(tvdir, pattern="train",full.names=T))
+train <- read.csv2(list.files(tvdir, pattern="train_LHS_150000.csv",full.names=T))
 
 
 predictors <- train[,c("Modis","ia", "hs", "dem", 
@@ -1579,14 +1655,49 @@ summary(lmod)
 
 ```
 
+## Second run through (remodeling RF)
+
+```{r}
+# file.edit("10_evaluate_FFS_remodelling.R")
+
+FFS_predictors_remod <- readRDS("add_files/selected_predictors_FFS_remodeling.Rds")
+FFS_predictors_remod
+
+stats_remod <- readRDS("add_files/stats_FFS_remodeling.Rds")
+names(stats_remod) <- c("no slope", "SE=F")
+stats_remod
+```
+
+![sfd](add_files/figures/internal_ffs_eval_remodeling.png)
+
+![sfd](add_files/figures/rmse_ffs_eval_remodeling.png)
+
+## Third run through (dummyrun all)
+
+```{r}
+
+# file.edit("10_evaluate_FFS_dummyrun.R")
+readRDS(paste0("add_files/selected_predictors_FFS_dummyrun", "gbm", ".Rds"))
+readRDS(paste0("add_files/stats_FFS_dummyrun", "gbm", ".Rds"))
+
+readRDS(paste0("add_files/selected_predictors_FFS_dummyrun", "nnet", ".Rds"))
+readRDS(paste0("add_files/stats_FFS_dummyrun", "nnet", ".Rds"))
+
+
+```
+
+
+
+
+
 # 11 tune final models 
 
 **rf** tune mtry 2:length(selected predictors)
 
+**nnet** 
 When you train a neural network (nnet) using Caret you need to specify two hyper-parameters: size and decay. Size is the number of units in hidden layer (nnet fit a single hidden layer neural network) and decay is the regularization parameter to avoid over-fitting. 
 
-
-**nnet** tune size: 2:length(selected predictors), learning rate decay
+tune size: 2:length(selected predictors), learning rate decay
 Trying expand.grid(decay = c(0.5, 0.1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7),
                 size = c(3, 5, 10, 20)) as recommended here https://stackoverflow.com/questions/42417948/how-to-use-size-and-decay-in-nnet 
                 
@@ -1597,14 +1708,70 @@ Trying expand.grid(decay = c(0.5, 0.1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7),
                              shrinkage = c(0.01,0.05,0.1),
                              n.minobsinnode = 10) 
      
+     
 ```{r}
+#file.edit("Palma/11_tune_final_models_dummyrun.R")
 
 ```
 
 
 # 12 external testing
+var imp & pred obs plots are generated for all algorithms and validation sets, 
 
-# 13 run AOA 
+```{r}
+# file.edit("12_external_testing_dummyrun.R")
+```
+
+#### Second run through (remodeling RF)
+
+
+
+![no slope](add_files/figures/external_eval_new_rf_no_slope_remodeling.png)
+
+### RF
+
+![withinSE = F setting](add_files/figures/external_eval_new_rf_SE_F_remodeling.png)
+
+
+So it looks like it might be useful to have the setting to withinSE=F. 
+
+#### Third run through (dummyrun all)
+
+### GBM
+![ ](add_files/figures/external_eval_new_gbmdummyrun.png)
+
+### NNET
+
+![](add_files/figures/external_eval_new_nnetdummyrun.png)
+
+
+Random Forest is only slightly better than the neural net, gbm is out due to weird patterns in the external testing. 
+
+# 13 make predictor stacks
+```{r}
+
+```
+
+# 14 run AOA 
+
+```{r, eval=F}
+modelpath <- "D:/downscaling_after_talk/models/"
+trainvalidpath <- "D:/downscaling_after_talk/clean_data/train_valid/"
+
+
+test1_sc <- read.csv2(paste0(trainvalidpath, "validation_1_LHS_150000_scaled.csv"))
+test2_sc <- read.csv2(paste0(trainvalidpath, "validation_2_LHS_150000_scaled.csv"))
+test3_sc <- read.csv2(paste0(trainvalidpath, "validation_3_LHS_150000_scaled.csv"))
+
+
+load(paste0(modelpath, "final_model_gbm_150000dummyrun.RData"))
+
+# aoa_gbm <- aoa(newdata=test3_sc[1:10,], 
+#     model=model_final)
+
+#file.edit("Palma/13_AOA.R")
+```
+
 
 # 14 time series generation
 

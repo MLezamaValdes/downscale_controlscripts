@@ -20,7 +20,7 @@ DIdir <- paste0(cddir, "train_valid/")
 
 train <- read.csv2(paste0(DIdir, "train_LHS_150000.csv"))
 #val1 <- read.csv2(paste0(DIdir, "validation_1_LHS_150000.csv"))
-val1 <- train
+val1 <- read.csv2(paste0(DIdir, "validation_1_LHS_150000.csv"))
 val2 <- read.csv2(paste0(DIdir, "validation_2_LHS_150000.csv"))
 val3 <- read.csv2(paste0(DIdir, "validation_3_LHS_150000.csv"))
 
@@ -243,7 +243,7 @@ plotlist <- lapply(seq(plotstodo), function(i){
   }
 })
 
-png(paste0(figurepath, "new/train_val1_val2_val3.png"),
+png(paste0(figurepath, "new/train_val1_val2_val3_final.png"),
     units="in", width=14, height=12, res=300)
 grid.arrange(
   grobs = plotlist,

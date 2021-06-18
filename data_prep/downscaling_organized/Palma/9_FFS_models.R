@@ -48,8 +48,8 @@ print("loading datasets")
 
 
 # train <- read.csv2(list.files(trainpath, pattern="train", full.names=T), nrow=3000000)
-train <- read.csv2(paste0(trainpath, "train_LHS_150000.csv"))
-
+train <- read.csv2(paste0(trainpath, "train_LHS_150000_scaled.csv"))
+n <- 150000
 print("loaded train dataset")
 
 if(testing){
@@ -69,18 +69,12 @@ if(testing){
 }
 
 
-############## ADD MOD/MYD info as predictor ##################################
-train$TeAq <- as.factor(substring(train$Mscene,1,3))
-train$TeAqNum <- as.numeric(train$TeAq)
-
-#################
 
 # kval <- min(length(unique(train$time_num)), length(unique(train$spatialblocks)))
 
 kval <- 3 # for faster ffs, then in final model more k
 print(paste("k crossvalidation folds:", kval))
 
-train$ymo <- as.factor(train$ymo)
 
 # split training cuarter into various blocks for cv during training
 # if(cvmode=="time_only"){
@@ -102,11 +96,16 @@ metric <- "RMSE" # Selection of variables made by either Rsquared or RMSE
 #              "gbm",
 #              "nnet",
 #              "svmLinear")
-methods <- c("rf", "gbm", "nnet", "svmLinear")
+methods <- c("rf","gbm", "nnet", "svmLinear")
 response <- train$Landsat
-predictors <- train[,c("Modis","ia", "hs", "dem", 
-                       "slope", "aspect", "TWI", 
-                       "soilraster", "landcoverres", "TeAqNum")]
+
+
+# in goes:  TeAqNum.2 (MYD),  landcoverres.1 (for soil) and all soil categories apart from 12 (snow)
+predictors <- train[,c("Modis_sc","ia_sc", "hs_sc", "dem_sc", 
+                       "slope_sc", "aspect_sc", "TWI_sc", 
+                       "soilraster.4",  "soilraster.5" ,  "soilraster.7" ,  "soilraster.9" ,  "soilraster.10" ,
+                       "soilraster.13","soilraster.20","soilraster.21","soilraster.24",
+                       "landcoverres.1" ,"TeAqNum.2")]
 length(predictors)
 
 cores <- detectCores()
@@ -140,10 +139,13 @@ for (i in 1:length(methods)){
   }
   if (method=="gbm"){
     #tuneLength <- 10
-    predictors <- data.frame(scale(train[,c("Modis","ia", "hs", "dem",
-                                            "slope", "aspect", "TWI",
-                                            "soilraster","landcoverres",
-                                            "TeAqNum")]))
+    # predictors <- data.frame(scale(train[,c("Modis","ia", "hs", "dem",
+    #                                         "slope", "aspect", "TWI",
+    #                                         "soilraster","landcoverres",
+    #                                         "TeAqNum")]))
+    
+    #####
+    
     length(predictors)
     
     tctrl <- trainControl(method="repeatedcv",
@@ -204,7 +206,7 @@ for (i in 1:length(methods)){
     
   }
   
-  save(ffs_model,file=paste0(outpath,"ffs_model_",method,"_", n, ".RData"))
+  save(ffs_model,file=paste0(outpath,"ffs_model_",method,"_", n, "dummys.RData"))
 }
 
 stopCluster(cl)

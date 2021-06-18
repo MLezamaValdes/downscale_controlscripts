@@ -1,6 +1,6 @@
 ########## tune final models ###############################
 
-rm(list=ls())
+
 print("loading Palma libs and paths")
 
 
@@ -73,14 +73,6 @@ cores <- detectCores()-3
 kval <- 3
 print(paste("k crossvalidation folds:", kval))
 
-train$ymo <- as.factor(train$ymo)
-
-
-############## ADD MOD/MYD info as predictor ##################################
-train$TeAq <- as.factor(substring(train$Mscene,1,3))
-train$TeAqNum <- as.numeric(train$TeAq)
-
-
 # split training cuarter into various blocks for cv during training
 foldids <- CreateSpacetimeFolds(train, spacevar="spatialblocks", timevar = "ymo",
                                 k=kval,seed=100)
@@ -93,13 +85,14 @@ foldids <- CreateSpacetimeFolds(train, spacevar="spatialblocks", timevar = "ymo"
 set.seed(100)
 
 metric <- "RMSE" # Selection of variables made by either Rsquared or RMSE
-methods <- c("rf",
-             "nnet",
-             "svmLinear",
-             "gbm")
+# methods <- c(#"rf",
+#              "nnet",
+#              #"svmLinear",
+#              "gbm")
 # methods <- c("rf",
 #              "nnet")
 # methods <- c("gbm")
+methods <- c("svmLinear")
 withinSE <- FALSE # favour models with less variables or not?
 response <- train$Landsat
 n <- 150000
@@ -173,7 +166,7 @@ for (i in 1:length(methods)){
     #                         decay = seq(0,0.1,0.01))
     
     tuneGrid <- expand.grid(decay = c(0.5, 0.1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7),
-                size = c(3, 5, 10, 20))
+                size = c(1, 2, 3, 5, 10, 20))
     
     
   }
@@ -200,7 +193,7 @@ for (i in 1:length(methods)){
 
   }  else if(method=="gbm"){
     
-    model_final <- train(predictors[-6],
+    model_final <- train(predictors,
                          response, 
                          method=method, 
                          trControl=tctrl,
@@ -214,11 +207,14 @@ for (i in 1:length(methods)){
   
     model_final <- train(predictors,
                          response,
+                         metric=metric,
                          method = method,
+                         importance =TRUE,
                          tuneGrid = tuneGrid,
                          trControl = tctrl,
                          trace = FALSE, #relevant for nnet
                          linout = TRUE)	
+  
 
   }
   

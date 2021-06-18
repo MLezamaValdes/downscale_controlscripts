@@ -1,4 +1,3 @@
-# TO DO: INCLUDE SVM THAT IS STILL RUNNING # 
 
 library(CAST)
 
@@ -34,7 +33,6 @@ if(loc=="Palma"){
 } else {
   print("something's off")
 }
-
 
 
 # year <- c(2019:2013)
