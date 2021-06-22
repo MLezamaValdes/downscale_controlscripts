@@ -70,7 +70,7 @@ testing=FALSE
 seed <- 100
 cores <- detectCores()-3
 
-kval <- 3
+kval <- 10
 print(paste("k crossvalidation folds:", kval))
 
 # split training cuarter into various blocks for cv during training

@@ -112,7 +112,7 @@ predictors <- train[,c("Modis_sc","ia_sc", "hs_sc", "dem_sc",
                        "landcoverres.1" ,"TeAqNum.2")]
 length(predictors)
 
-cores <- detectCores()
+cores <- 15
 print(paste("cores = ", cores))
 
 cl <- makeCluster(cores-3, outfile="/home/l/llezamav/scripts_new/par_algorithms.txt")
@@ -121,7 +121,6 @@ print(cores-3)
 
 #cl <- makeCluster(cores-3, outfile="/home/l/llezamav/par_algorithms.txt")
 registerDoParallel(cl)
-getDoParWorkers()
 
 for (i in 1:length(methods)){
   

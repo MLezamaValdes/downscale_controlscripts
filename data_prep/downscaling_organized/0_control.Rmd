@@ -1768,8 +1768,11 @@ load(paste0(modelpath, "final_model_gbm_150000dummyrun.RData"))
 
 # aoa_gbm <- aoa(newdata=test3_sc[1:10,], 
 #     model=model_final)
+```
 
-#file.edit("Palma/13_AOA.R")
+
+```{r, eval=F}
+#file.edit("Palma/14_AOA.R")
 ```
 
 
