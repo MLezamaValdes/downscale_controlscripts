@@ -81,7 +81,7 @@ custom_theme = theme(
   legend.key.size = unit(1.5, "cm"),
   legend.key.width = unit(0.75,"cm"),
   plot.margin = unit(c(0,0,0,10), "lines"),
-  legend.position = c(-.3,.2),
+  legend.position = c(-.25,.2),
   axis.line.x = element_blank(),
   axis.ticks.x = element_blank(),
   axis.line.y = element_line(colour = 'black', size=0.3, linetype='solid'))

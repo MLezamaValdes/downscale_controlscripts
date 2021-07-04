@@ -199,14 +199,16 @@ for (i in 1:length(methods)){
   aux <- aux[[predictornames_model_final]]
   
   # get MOD, L, hs, ia stacks
-  raspos <- which(grepl("2019-01" ,list.files(rasterpath, pattern="L_MOD_hs_ia")))
+  raspos <- which(grepl("2014-11" ,list.files(rasterpath, pattern="L_MOD_hs_ia")))
   ras <- stack(list.files(rasterpath, pattern="L_MOD_hs_ia", full.names = T)[raspos][1])
   
-  rasnampos <- which(grepl("2019-01" ,list.files(rasterpath, pattern="names_sat_ia_hs")))
+  rasnampos <- which(grepl("2014-11" ,list.files(rasterpath, pattern="names_sat_ia_hs")))
   rasnam <- read.csv(list.files(rasterpath, pattern="names_sat_ia_hs", full.names = T)[rasnampos])
   
   length(rasnam$x) == nlayers(ras)
   names(ras) <- rasnam$x
+  
+  names(ras)
   
   lo <- seq(1,(length(names(ras))-1),by=4)
   hi <- lo+3
@@ -224,8 +226,10 @@ for (i in 1:length(methods)){
   
   # sliced raster stack list for prediction
   rasslice <- lapply(seq(hi), function(x){
-    stack(ras[[lo[x]:hi[x]]], aux)
+    stack(ras[[(lo[x]+1):hi[x]]], aux)
   })
+  
+  
   
   # sliced raster stack list with landsat for comparison of prediction and original values
   lo <- seq(1,(length(names(ras))-1),by=4)
@@ -249,6 +253,7 @@ for (i in 1:length(methods)){
   # SPATIAL PREDICTION 
   
   # take only MODIS scene blocks that are not duplicates!
+  k=2
   lapply(seq(hi), function(k){
       print(k)
       rm(prednam)
@@ -256,10 +261,24 @@ for (i in 1:length(methods)){
       if(length(prednam)<1){
         prednam <- names(rasslice[[k]])[grepl("MYD", names(rasslice[[k]]))]
       }
-      names(rasslice[[k]])
-      
-      
+      modname <- prednam
       names(rasslice[[k]])[1:3] <- c("Modis", "ia", "hs")
+      
+      TeAqNum <- rasslice[[k]][[1]]
+      #names(TeAqNum) <- "TeAqNum.1"
+      names(TeAqNum) <- "TeAqNum"
+      
+      if(grepl("MYD",modname)){
+        TeAqNum[] <- 1
+      } else {
+        TeAqNum[] <- 0
+      }
+      
+      
+      rasslice[[k]] <- stack(rasslice[[k]], TeAqNum)
+      names(rasslice[[k]])
+      model_final$finalModel$xNames
+      
       sp <- predict(rasslice[[k]],model_final)
       writeRaster(sp, paste0(predoutpath, "pred_", method, "_", prednam, ".tif"), overwrite=T)
   })
@@ -297,17 +316,17 @@ prediction_response <- lapply(seq(pos_pot), function(i){
   plotstack <- stack(rasslice[[pos_pot[i]]][[1]], sp, rasslice_landsat[[pos_pot[i]]][[1]])
   names(plotstack) <- c(paste0("MODIS", pat[i]), "prediction", "Landsat")
 
-  
-  # library(rasterVis)
-  # exp <- gplot(plotstack)+
-  #   geom_tile(aes(fill = value)) +
-  #   facet_wrap(~ variable) +
-  #   scale_fill_gradientn(colours = viridis(100)) +
-  #   coord_equal()
-  # 
-  # ggsave(paste0(figurepath, "spatial_improvement.png"), 
-  #        plot = exp, dpi=500)
-  
+
+  library(rasterVis)
+  exp <- gplot(plotstack)+
+    geom_tile(aes(fill = value)) +
+    facet_wrap(~ variable) +
+    scale_fill_gradientn(colours = viridis(100)) +
+    coord_equal()
+
+  ggsave(paste0(figurepath, "spatial_improvement.png"),
+         plot = exp, dpi=500)
+
   return(plotstack)
   
 })

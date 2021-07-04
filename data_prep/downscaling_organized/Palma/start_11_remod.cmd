@@ -16,7 +16,7 @@
 #SBATCH --time=100:00:00
 
 # set name of job
-#SBATCH --job-name=tune_final
+#SBATCH --job-name=tune_final_fast
 
 # mail alert at start, end and abortion of execution
 #SBATCH --mail-type=ALL
@@ -30,4 +30,4 @@
 # run the application
 module add palma/2020b
 module add foss R GDAL
-R CMD BATCH --vanilla 11_tune_final_models_remod.R
+R CMD BATCH --vanilla 11_tune_final_models_remod_fast.R

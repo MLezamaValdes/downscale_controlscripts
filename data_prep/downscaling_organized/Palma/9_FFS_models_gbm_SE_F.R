@@ -146,11 +146,17 @@ for (i in 1:length(methods)){
     
     #####
     
+    tuneGrid <-  expand.grid(interaction.depth = seq(3,14,2), 
+                             n.trees = c(100,200,300,400,500),
+                             shrinkage = c(0.01,0.05,0.1),
+                             n.minobsinnode = 10)
+    
     length(predictors)
     
     tctrl <- trainControl(method="repeatedcv",
                           number=kval,
                           repeats=kval,
+                          tuneGrid=tuneGrid,
                           savePredictions = TRUE,
                           returnResamp = "all",
                           verboseIter=TRUE,

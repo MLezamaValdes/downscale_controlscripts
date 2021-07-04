@@ -97,7 +97,8 @@ comp$tt <- as.factor(comp$tt)
 # 
 # 
 # ##################### AUX VARIABLES #########################################################
-
+labs <- c("train","spatial validation", "temporal validation", "spatiotemporal validation")
+vallabs <- c("spatial", "temporal", "spatio-temporal")
 make_ggplot_per_variable <- function(variable, makelegend=FALSE,yl,a=0.15,av=0.15,bar,index){
   
     if(variable %in% c("landcoverres", "soilraster")){
@@ -131,10 +132,10 @@ make_ggplot_per_variable <- function(variable, makelegend=FALSE,yl,a=0.15,av=0.1
           custom_theme_barchart+
           geom_bar(position="dodge", size=1)+
           scale_fill_manual(values=c("#e8f8d9","#edf8fc", "#dddefe", "#dbe5ee"),
-                            labels=c("train","validation 1", "validation 2", "validation 3"),
+                            labels=labs,
                             drop=F, name="")+ylab(paste0("n ", variablename, " observations"))+
           scale_color_manual(values=c("chartreuse3","skyblue", "#1b1ff5","dodgerblue4"),
-                             labels=c("train","validation 1", "validation 2", "validation 3"),
+                             labels=labs,
                              drop=F, name="")+
           theme(legend.position = "none")+ggtitle(letters[index])
         
@@ -154,12 +155,11 @@ make_ggplot_per_variable <- function(variable, makelegend=FALSE,yl,a=0.15,av=0.1
           
           # old 
           #values=c("#e8f8d9","#93d3ed", "#3135f6","#124b95"),
-          
           scale_fill_manual(values=c("#e8f8d9","#edf8fc", "#dddefe", "#dbe5ee"),
-                            labels=c("train","validation 1", "validation 2", "validation 3"),
+                            labels=labs,
                             drop=F, name="")+
           scale_color_manual(values=c("chartreuse3","skyblue", "#1b1ff5","dodgerblue4"),
-                            labels=c("train","validation 1", "validation 2", "validation 3"),
+                            labels=labs,
                             drop=F, name="")+
           ylab(paste0("n ", variablename, " observations"))+
           
@@ -179,11 +179,11 @@ make_ggplot_per_variable <- function(variable, makelegend=FALSE,yl,a=0.15,av=0.1
                                       alpha=av,size = 1)+
                     xlab("")+ylab(yl)+ggtitle(letters[index])+
                     scale_fill_manual(values=c("skyblue", "#1b1ff5","dodgerblue4"),
-                                      labels=c("validation 1", "validation 2", "validation 3"),
-                                      drop=F, name="")+
+                                      labels=vallabs,
+                                      drop=F, name="validation")+
                     scale_color_manual(values=c("skyblue", "#1b1ff5","dodgerblue4"),
-                                    labels=c("validation 1", "validation 2", "validation 3"),
-                                    drop=F, name="")+
+                                    labels=vallabs,
+                                    drop=F, name="validation")+
                     #scale_linetype_manual(values=c("dotted", "dashed","solid"))
                     new_scale_fill() +
                     new_scale_color() +

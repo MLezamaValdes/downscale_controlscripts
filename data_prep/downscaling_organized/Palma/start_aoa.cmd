@@ -1,19 +1,19 @@
 #!/bin/bash
 
-# set the number of nodes
-#SBATCH --nodes=1
+#SBATCH --cpus-per-task=1 # Number of cores per MPI rank 
 
 # set the number of CPU cores per node
-#SBATCH --ntasks-per-node 72
+#SBATCH --nodes=3 # Number of nodes
+#SBATCH --ntasks=69 # Number of MPI ranks
 
 # How much memory is needed (per node)
-#SBATCH --mem=160GB
+#SBATCH --mem=90GB
 
 # set a partition
 #SBATCH --partition normal
 
 # set max wallclock time
-#SBATCH --time=100:00:00
+#SBATCH --time=72:00:00
 
 # set name of job
 #SBATCH --job-name=aoa
@@ -31,3 +31,6 @@
 module add palma/2020b
 module add foss R GDAL
 R CMD BATCH --vanilla 14_AOA.R
+
+echo "Running example Rmpi script. Using $SLURM_JOB_NUM_NODES nodes with $SLURM_NTASKS tasks, each with $SLURM_CPUS_PER_TASK cores."
+date

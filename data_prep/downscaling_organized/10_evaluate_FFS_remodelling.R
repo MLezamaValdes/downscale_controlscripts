@@ -28,7 +28,7 @@ figurepath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscal
 # amount of training samples
 n <- 150000
 methods <- c("rf")
-rf_remodelling <- c("no_slope", "SE_F")
+rf_remodelling <- c("SE_F")
 par(mfrow=c(2,2), mar=c(5,3,2,2)+2)
 
 

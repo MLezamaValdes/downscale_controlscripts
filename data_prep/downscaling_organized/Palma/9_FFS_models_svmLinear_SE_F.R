@@ -46,10 +46,6 @@ testing=FALSE
 print("libraries loaded")
 print("loading datasets")
 
-ncores <- 50
-taskID <- as.numeric(Sys.getenv('SLURM_PROCID'))
-print(taskID)
-
 
 # train <- read.csv2(list.files(trainpath, pattern="train", full.names=T), nrow=3000000)
 train <- read.csv2(paste0(trainpath, "train_LHS_150000_scaled.csv"))
@@ -112,7 +108,9 @@ predictors <- train[,c("Modis_sc","ia_sc", "hs_sc", "dem_sc",
                        "landcoverres.1" ,"TeAqNum.2")]
 length(predictors)
 
-cores <- detectCores()
+try(stopCluster(), silent = T)
+
+cores <- 140
 print(paste("cores = ", cores))
 
 cl <- makeCluster(cores-3, outfile="/home/l/llezamav/scripts_new/par_algorithms.txt")

@@ -49,6 +49,12 @@ print("loading datasets")
 
 # train <- read.csv2(list.files(trainpath, pattern="train", full.names=T), nrow=3000000)
 train <- read.csv2(paste0(trainpath, "train_LHS_150000_scaled.csv"))
+
+str(train)
+
+### make factors out of categorical data ##################
+
+
 n <- 150000
 print("loaded train dataset")
 

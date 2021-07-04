@@ -45,7 +45,7 @@ testlist <- list(test1, test2, test3)
 # methods <- c("rf",
 #              "nnet",
 #              "svmLinear")
-methods <- c("nnet")
+methods <- c("rf")
 
 testtitle <- c("spatial validation", "temporal validation",
                "spatiotemporal validation")
@@ -61,7 +61,7 @@ i=1
 # 
 
 
-
+validname <- c("spatial", "temporal", "spatio-temporal")
 
 
 for (i in 1:length(methods)){
@@ -137,10 +137,10 @@ for (i in 1:length(methods)){
     p <- ggplot(df, aes(obs,pred))+
       #xlab(paste("observed LST in test", j))+ylab(paste("predicted LST in test", j))+
       #ggtitle(testtitle[j])+
-      labs(x=paste("observed LST in test", j), 
+      labs(x=paste("observed LST", validname[j], "validation data"), 
              y=paste("predicted LST in test", j),
              title=paste0(testtitle[j], " n=", sizetests[j]),
-             subtitle=paste0("RÂ²=",sround$Rsq, " RMSE=",sround$RMSE))+
+             subtitle=paste0("R²=",sround$Rsq, " RMSE=",sround$RMSE))+
       stat_binhex(bins=600)+
       geom_abline(slope=1,intercept=0)+
       scale_x_continuous(expand=c(0,0))+

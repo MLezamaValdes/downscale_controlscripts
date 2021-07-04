@@ -227,3 +227,61 @@ names(dynauxstack)
 
 
 ############ FOR rf unscaled non-dummy ######################################
+df <- list.files(stackpath, pattern="hs_ia", full.names = T)
+
+
+months <- substring(list.files(stackpath, pattern="hs_ia"), 13, 19)
+
+TeAqNum <- aux_sc[[1]]
+names(TeAqNum) <- "TeAqNum.1"
+
+lapply(seq(months), function(m){
+  
+  print(paste0("~~~~~~~~~~~ starting with ", months[m], " ~~~~~~~~~~~~~~~~~~~~~~"))
+  
+  sf <- list.files(stackpath, pattern=months[m], full.names = T)
+  dyn <- stack(sf[grepl("hs_ia", sf)])
+  snam <- read.csv2(sf[grepl("names_sat_ia", sf)])
+  names(dyn) <-snam$x
+  
+  ### cut into scenes #####
+  nsceneblocks <- nlayers(dyn)/4
+  
+  sceneblockid <- unlist(lapply(seq(nsceneblocks), function(i){
+    rep(i,4)}))
+  
+  scenelist <- lapply(seq(nsceneblocks), function(i){
+    
+    x <- dyn[[which(sceneblockid==i)]]
+    modname <- names(x)[2]
+    
+    names(x) <- c("Landsat", "Modis", "ia", "hs")
+    
+    if(grepl("MYD",modname)){
+      TeAqNum[] <- 1
+    } else {
+      TeAqNum[] <- 0
+    }
+    
+    allras <- stack(x, TeAqNum)
+    
+    l <- setNames(list(allras),modname)
+  
+    return(l)
+  })
+  
+  
+  print(paste0("~~~~~~~~~~~ starting to write ", months[m], " n = ", length(scenelist), " ~~~~~~~~~~~~~~~~~~~~~~"))
+  
+  # & write out
+  lapply(seq(scenelist), function(j){
+    print(paste0("~~~~~~~~~~~ writing ", j, " ~~~~~~~~~~~~~~~~~~~~~~"))
+    
+    nam <- substring(names(scenelist[[j]]), 11, 22)
+    s <- stack(scenelist[[j]][[1]], aux)
+    writeRaster(s, 
+                paste0(predstackdir, "predictors_", months[m], "_", nam, ".tif"),
+                overwrite=T)
+  })
+  
+})

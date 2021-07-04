@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # set the number of nodes
-#SBATCH --nodes=3
+#SBATCH --nodes=4
 
 # set the number of CPU cores per node
-#SBATCH --ntasks-per-node 50
+#SBATCH --ntasks-per-node 40
 
 # How much memory is needed (per node)
-#SBATCH --mem=100GB
+#SBATCH --mem=30GB
 
 # set a partition
 #SBATCH --partition normal

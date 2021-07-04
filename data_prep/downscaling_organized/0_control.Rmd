@@ -125,6 +125,9 @@ template <- raster("E:/new_downscaling/clean_data/template_new.tif")
 
 ```
 
+#### Palma Info
+https://confluence.uni-muenster.de/pages/viewpage.action?pageId=27755336 
+
 
 ###################### SETUP until here #############################
 
@@ -1175,7 +1178,7 @@ for(i in seq(length(yearmonthsatpaths))){
 ```
 
 making 1000m satstacks by resampling the 30m ones
-```{r}
+```{r, eval=T}
 
 temp1000m <- raster(paste0(modispath, "2018-11/LST/proj_c_warp_LST_MYD11_L2.A2018323.1355.006.2018337213536.tif"))
 stacks30 <- list.files(paste0(cddir, "satstacks_ngb"), pattern="L_MOD_hs_ia_", full.names = T)
@@ -1388,7 +1391,7 @@ writeOGR(test, paste0(cddir, "train_test_polygons.shp"), driver="ESRI Shapefile"
 
 ```
 
-```{r}
+```{r, eval=F}
 test_shapes <- readOGR(paste0(cddir, "train_test_polygons.shp"))
 names(test_shapes) <- "tt"
 test_shapes$ttw <- NA
@@ -1452,23 +1455,25 @@ avym$test[avym$m==12 & avym$y==2018] <- 1
 avym$test <- as.factor(avym$test)
 
 # write.csv2(avym, paste0(cddir, "available_months_scenes_test.csv"))
+library(lubridate)
 
+avym <- read.csv2(paste0(cddir, "available_months_scenes_test.csv"))
 avym$mtext <-factor( month(avym$date, abbr=T, label=T), ordered=F)
 avym$mtext <- revalue(avym$mtext, c("Mrz"="Mar", "Dez"="Dec"))
 
 avym$mtext <- ordered(avym$mtext, levels=c("Nov", "Dec","Jan", "Feb", "Mar"))
-
+avym$test <- factor(avym$test)
 
 my_breaks <- c(1,2,3,4,6,9,12)
 
 png(paste0(figurepath, "new/scenes_test.png"),
     units="in", width=8, height=5, res=300)
         
-ggplot(avym, aes(x=y, y=mtext, group=test, color=nscenes))+
+ggp <- ggplot(avym, aes(x=y, y=mtext, group=test, color=nscenes))+
   geom_point(aes(shape=test),size=5)+ 
   scale_y_discrete()+
   scale_shape_manual(values=c(16,17),
-                     labels=c("training","test"),
+                     labels=c("training","validation"),
                      name="")+
   theme_minimal()+labs(group = " ", color="n scenes")+
   scale_color_viridis_c(option = "viridis",trans="log",
@@ -1484,7 +1489,7 @@ ggplot(avym, aes(x=y, y=mtext, group=test, color=nscenes))+
 # +
 #   ggtitle("Available scenes and time block external testing",
 #                           subtitle = "Test months as triangles")
-
+plot(ggp)
 dev.off()
 
 
@@ -1710,8 +1715,29 @@ Trying expand.grid(decay = c(0.5, 0.1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7),
      
      
 ```{r}
-#file.edit("Palma/11_tune_final_models_dummyrun.R")
+#file.edit("Palma/11_tune_final_models_remod.R")
 
+```
+
+
+How to prepare the final final RF model's factor variables: 
+```{r, eval=F}
+train <- read.csv2(paste0(trainpath, "train_LHS_150000.csv"))
+
+train$ymo <- as.factor(train$ymo)
+
+
+train$TeAq <- as.factor(substring(train$Mscene,1,3))
+train$TeAqNum <- as.numeric(train$TeAq)
+
+train$soilraster <- factor(train$soilraster)
+train$TeAqNum <- factor(train$TeAqNum)
+train$landcoverres <- factor(train$landcoverres)
+
+```
+
+```{r}
+file.edit("11_looking_at_final_models.R")
 ```
 
 
@@ -1723,6 +1749,10 @@ var imp & pred obs plots are generated for all algorithms and validation sets,
 ```
 
 #### Second run through (remodeling RF)
+```{r}
+# file.edit("12_external_testing_remodelling.R")
+
+```
 
 
 
@@ -1749,35 +1779,36 @@ Random Forest is only slightly better than the neural net, gbm is out due to wei
 
 # 13 make predictor stacks
 ```{r}
-
+file.edit("13_make_predictor_stacks.R")
 ```
 
 # 14 run AOA 
 
 ```{r, eval=F}
-modelpath <- "D:/downscaling_after_talk/models/"
-trainvalidpath <- "D:/downscaling_after_talk/clean_data/train_valid/"
-
-
-test1_sc <- read.csv2(paste0(trainvalidpath, "validation_1_LHS_150000_scaled.csv"))
-test2_sc <- read.csv2(paste0(trainvalidpath, "validation_2_LHS_150000_scaled.csv"))
-test3_sc <- read.csv2(paste0(trainvalidpath, "validation_3_LHS_150000_scaled.csv"))
-
-
-load(paste0(modelpath, "final_model_gbm_150000dummyrun.RData"))
-
-# aoa_gbm <- aoa(newdata=test3_sc[1:10,], 
-#     model=model_final)
-```
-
-
-```{r, eval=F}
 #file.edit("Palma/14_AOA.R")
 ```
 
+Evaluate results
+```{r, eval=F}
+aoapath <- "D:/downscaling_after_talk/aoa/"
+aoatab <- readRDS(list.files(aoapath, full.names=T, pattern="table"))
+
+aoatab
+
+sapply(aoatab, '[[', 1)/(sapply(aoatab, '[[', 1)+sapply(aoatab, '[[', 2))
+
+
+```
+
+7.8% of samples in spatial validation are out of AOA, in temporal and spatiotemporal 13% are out. 
 
 # 14 time series generation
 
+
+# 15 predict chosen model to evaluate performance over months and land cover type
+```{r}
+# file.edit("15_performance_by_month_lc.R")
+```
 
 
 
@@ -1802,11 +1833,11 @@ $\checkmark$ SWIR raus
 
 $\checkmark$  hypercube vs. mein sampling
 
-- run models with SE = TRUE (?)
+$\checkmark$  run models with SE = TRUE (?)
 
-- apply AOA to final raster
+$\checkmark$  apply AOA to final raster
 
-- 1000m training
+[- postponed] 1000m training
 
 - does Modis and Landsat coincide well or is there an issue in either timing or projecting of swath data? 
 

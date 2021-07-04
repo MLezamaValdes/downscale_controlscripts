@@ -1,6 +1,37 @@
 ########## tune final models ###############################
 
-rm(list=ls())
+library(Rmpi)  # R implementation of MPI interface
+library(doMPI,lib.loc="/home/l/llezamav/R/") # interface for foreach construct to run in MPI parallel mode
+
+# 
+# # Load the R MPI package if it is not already loaded.
+# if (!is.loaded("mpi_initialize")) {
+#   library("Rmpi")
+# }
+# 
+# ns <- mpi.universe.size()
+# print(ns)
+# mpi.spawn.Rslaves(nslaves=ns)
+# #
+# # In case R exits unexpectedly, have it automatically clean up
+# # resources taken up by Rmpi (slaves, memory, etc...)
+# .Last <- function(){
+#   if (is.loaded("mpi_initialize")){
+#     if (mpi.comm.size(1) > 0){
+#       print("Please use mpi.close.Rslaves() to close slaves.")
+#       mpi.close.Rslaves()
+#     }
+#     print("Please use mpi.quit() to quit R")
+#     .Call("mpi_finalize")
+#   }
+# }
+# # Tell all slaves to return a message identifying themselves
+# mpi.bcast.cmd( id <- mpi.comm.rank() )
+# mpi.bcast.cmd( ns <- mpi.comm.size() )
+# mpi.bcast.cmd( host <- mpi.get.processor.name() )
+# mpi.remote.exec(paste("I am",mpi.comm.rank(),"of",mpi.comm.size()))
+
+# rm(list=ls())
 print("loading Palma libs and paths")
 
 
@@ -66,23 +97,29 @@ testing=FALSE
 ################################################################################
 # Settings
 ################################################################################
-seed <- 100
-cores <- detectCores()-3
+seed <- 50
+# cores <- detectCores()-3
 
-kval <- 3
+kval <- 10
 print(paste("k crossvalidation folds:", kval))
 
-train$ymo <- as.factor(train$ymo)
 
 
 ############## ADD MOD/MYD info as predictor ##################################
+train$ymo <- as.factor(train$ymo)
+
 train$TeAq <- as.factor(substring(train$Mscene,1,3))
 train$TeAqNum <- as.numeric(train$TeAq)
 
+train$soilraster <- factor(train$soilraster)
+train$TeAqNum <- factor(train$TeAqNum)
+train$landcoverres <- factor(train$landcoverres)
+
+  
 
 # split training cuarter into various blocks for cv during training
 foldids <- CreateSpacetimeFolds(train, spacevar="spatialblocks", timevar = "ymo",
-                                k=kval,seed=100)
+                                k=kval,seed=50)
 
 
 (trainlength <- sapply(seq(foldids$indexOut), function(i){
@@ -101,14 +138,23 @@ methods <- c("rf")
 response <- train$Landsat
 n <- 150000
 
-cl <- makeCluster(cores)
-registerDoParallel(cl)
+# cl <- makeCluster(cores)
+# registerDoParallel(cl)
 ################################################################################
 # Train models
 ################################################################################
-rf_remodelling <- c("no_slope", "SE_F")
+rf_remodelling <- c("factor")
 
-for (i in 1:length(rf_remodelling)){
+i=1
+
+
+
+cores <- detectCores()-3
+
+cl <- makeCluster(cores)
+registerDoParallel(cl)
+
+# for (i in 1:length(rf_remodelling)){
   
   method <- "rf"
   print(method)
@@ -118,14 +164,18 @@ for (i in 1:length(rf_remodelling)){
   #load(paste0(modelpath, "ffs_model_",method,"time_only_", n, ".RData"))
   load(mp)
   
-  
+  ffs_model$finalModel
   tuneLength <- 2
   tuneGrid <- NULL
   
   print(paste0("model name = ", "ffs_model_",method,"_", n, ".RData"))
   predictornames <- ffs_model$selectedvars
   print(predictornames)
+  print(varImp(ffs_model))
   predictors <- train[,which(names(train)%in%predictornames)]
+  
+  str(predictors)
+
   print(paste0("amount predictors for ", method, " = ", ncol(predictors)))
   pv <- ncol(predictors)
   
@@ -227,9 +277,10 @@ for (i in 1:length(rf_remodelling)){
   }
   
   save(model_final,file=paste0(modelpath,"final_model_",method,"_", 
-                               n, rf_remodelling[i], ".RData"))
-}
+                               n, rf_remodelling[i], "fast.RData"))
+# }
 
-stopCluster(cl)
-
+  
+  ## MPI-save version of R quit
+  mpi.quit()
 

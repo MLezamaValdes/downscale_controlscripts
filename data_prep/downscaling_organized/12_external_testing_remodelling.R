@@ -66,13 +66,14 @@ i=1
 
 
 
+validname <- c("spatial", "temporal", "spatio-temporal")
 
 
 
 
 # to do: scale predictors
 
-opts <- c("SE_F", "no_slope")
+opts <- c("SE_F")
 
 
 for (j in 1:length(methods)){
@@ -156,16 +157,25 @@ for (i in 1:length(opts)){
     p <- ggplot(df, aes(obs,pred))+
       #xlab(paste("observed LST in test", j))+ylab(paste("predicted LST in test", j))+
       #ggtitle(testtitle[j])+
-      labs(x=paste("observed LST in test", j), 
-             y=paste("predicted LST in test", j),
-             title=paste0(testtitle[j], " n=", sizetests[j]),
-             subtitle=paste0("R²=",sround$Rsq, " RMSE=",sround$RMSE))+
-      stat_binhex(bins=600)+
+      theme_minimal()+
+      labs(x=paste("observed LST"), 
+             y=paste("predicted LST"),
+             title= paste0("(", letters[j], ")  ", paste0(testtitle[j], " n=", sizetests[j])),
+             subtitle=paste0("R?=",sround$Rsq, " RMSE=",sround$RMSE))+
+      stat_binhex(bins=300)+
       geom_abline(slope=1,intercept=0)+
       scale_x_continuous(expand=c(0,0))+
       scale_y_continuous(expand=c(0,0))+
-      scale_fill_gradientn(name="datapoints", trans="log", colours=viridis(10), 
-                           breaks=10^(0:4))
+      scale_fill_gradientn(name="count \nper bin", 
+                           trans="log", 
+                           colours=viridis(10), 
+                           breaks=5^(0:4)
+                           
+                           )+
+      theme(axis.text=element_text(size=10),
+             axis.title=element_text(size=10),
+            legend.title = element_text(size=10),
+            panel.grid.minor = element_blank())
     
     return(list(p, df, s))
     
@@ -174,7 +184,8 @@ for (i in 1:length(opts)){
   plots <- lapply(ex_test_1to3, '[[', 1)
 
   eg <- grid.arrange(plots[[1]], plots[[2]], plots[[3]], nrow = 2)
-  ggsave(paste0(figurepath, "external_eval_new_", method, "_",opts[i], "_remodeling.png"), plot = eg)
+  ggsave(paste0(figurepath, "external_eval_new_", method, "_",opts[i], "_remodeling.png"), 
+         plot = eg, width=20, height=14, units="cm", dpi=300)
   
   
   dfs <- lapply(ex_test_1to3, '[[', 2)
@@ -411,3 +422,45 @@ for (i in 1:length(opts)){
 # 
 # 
 # 
+
+
+
+vi <- varImp(model_final)
+
+str(vi)
+class(vi$importance)
+
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+
+vi <- vi$importance
+vi$var <- rownames(vi)
+names(vi) <- c("Importance", "Predictor")
+vi <- vi[order(vi$Importance),]
+
+
+
+vi$Predictor <- as.factor(vi$Predictor)
+vi$Predictornames <- c("Terra/Aqua", "TWI", "aspect", "soil type", "slope", "hillshading",
+                       "landcover type", "DEM", "MODIS LST")
+vi
+
+viplot <- vi %>% 
+  ggplot(aes(reorder(Predictornames, Importance), Importance)) + 
+  geom_col(aes(fill = Importance)) + 
+  scale_fill_viridis()+
+  # scale_fill_gradient2(low = "white", 
+  #                      high = "skyblue") + 
+  coord_flip() + theme_minimal()+
+  labs(y = "Scaled variable importance",
+       x = "")+
+  theme(legend.title = element_blank(),
+        panel.grid.minor = element_blank())
+
+
+ggsave(paste0(figurepath, "VI_plot.png"), 
+       plot = viplot, 
+       # width=10, height=7, 
+       # units="cm", 
+       dpi=300)

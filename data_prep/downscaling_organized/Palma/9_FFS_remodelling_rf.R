@@ -35,11 +35,19 @@ print("loading datasets")
 # train <- read.csv2(list.files(trainpath, pattern="train", full.names=T), nrow=3000000)
 train <- read.csv2(paste0(trainpath, "train_LHS_150000.csv"))
 
+str(train)
+
 print("loaded train dataset")
 n <- 150000
 ############## ADD MOD/MYD info as predictor ##################################
 train$TeAq <- as.factor(substring(train$Mscene,1,3))
 train$TeAqNum <- as.numeric(train$TeAq)
+
+
+train$soilraster <- factor(train$soilraster)
+train$TeAqNum <- factor(train$TeAqNum)
+train$landcoverres <- factor(train$landcoverres)
+
 
 #################
 
@@ -110,82 +118,83 @@ for (i in 1:length(methods)){
                      tuneLength=tuneLength,           
                      metric=metric)
   
-    save(ffs_model,file=paste0(outpath,"ffs_model_",method,"_", n, "SE_F.RData"))
+    save(ffs_model,file=paste0(outpath,"ffs_model_",method,"_", n, "SE_F_factor.RData"))
 }
-
-print("~~~~~~~~~~~~~~~~~~~~~~~~~~~ DONE WITH SE=F MODEL, PROCEEDING TO EXCLUDING SLOPE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-
-predictors <- train[,c("Modis","ia", "hs", "dem", 
-                       "aspect", "TWI", 
-                       "soilraster", "landcoverres", "TeAqNum")]
-for (i in 1:length(methods)){
-  
-  tctrl <- trainControl(method="cv", 
-                        savePredictions = TRUE,
-                        returnResamp = "all",
-                        verboseIter=TRUE,
-                        index=foldids$index,
-                        indexOut=foldids$indexOut)
-  
-  
-  method <- methods[i]
-  print(method)
-  tuneLength <- 2
-  tuneGrid <- NULL
-  
-  #   tuneLength <- 1
-  tuneGrid <- expand.grid(mtry=seq(2,3))
-  # Create A Data Frame From All Combinations Of Factor Variables, 
-  # mtry: Number of variables randomly sampled as2-10 candidates at each split
-  
-  ffs_model <- ffs(predictors,response, 
-                   method=method, 
-                   ntree=100,
-                   trControl=tctrl,
-                   tuneGrid=tuneGrid,
-                   withinSE = TRUE,
-                   tuneLength=tuneLength,           
-                   metric=metric)
-  
-  save(ffs_model,file=paste0(outpath,"ffs_model_",method,"_", n, "no_slope.RData"))
-}
-
-print("~~~~~~~~~~~~~~~~~~~~~~~~~~~ DONE WITH SE=F MODEL & EXCLUDING SLOPE, TRYING MORE TREES NOW ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-
-predictors <- train[,c("Modis","ia", "hs", "dem", 
-                       "slope", "aspect", "TWI", 
-                       "soilraster", "landcoverres", "TeAqNum")]
-for (i in 1:length(methods)){
-  
-  tctrl <- trainControl(method="cv", 
-                        savePredictions = TRUE,
-                        returnResamp = "all",
-                        verboseIter=TRUE,
-                        index=foldids$index,
-                        indexOut=foldids$indexOut)
-  
-  
-  method <- methods[i]
-  print(method)
-  tuneLength <- 2
-  tuneGrid <- NULL
-  
-  #   tuneLength <- 1
-  tuneGrid <- expand.grid(mtry=seq(2,3))
-  # Create A Data Frame From All Combinations Of Factor Variables, 
-  # mtry: Number of variables randomly sampled as2-10 candidates at each split
-  
-  ffs_model <- ffs(predictors,response, 
-                   method=method, 
-                   ntree=500,
-                   trControl=tctrl,
-                   tuneGrid=tuneGrid,
-                   withinSE = TRUE,
-                   tuneLength=tuneLength,           
-                   metric=metric)
-  
-  save(ffs_model,file=paste0(outpath,"ffs_model_",method,"_", n, "no_slope.RData"))
-}
+# 
+# print("~~~~~~~~~~~~~~~~~~~~~~~~~~~ DONE WITH SE=F MODEL, PROCEEDING TO EXCLUDING SLOPE ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+# 
+# predictors <- train[,c("Modis","ia", "hs", "dem", 
+#                        "aspect", "TWI", 
+#                        "soilraster", "landcoverres", "TeAqNum")]
+# for (i in 1:length(methods)){
+#   
+#   tctrl <- trainControl(method="cv", 
+#                         savePredictions = TRUE,
+#                         returnResamp = "all",
+#                         verboseIter=TRUE,
+#                         index=foldids$index,
+#                         indexOut=foldids$indexOut)
+#   
+#   
+#   method <- methods[i]
+#   print(method)
+#   tuneLength <- 2
+#   tuneGrid <- NULL
+#   
+#   #   tuneLength <- 1
+#   tuneGrid <- expand.grid(mtry=seq(2,3))
+#   # Create A Data Frame From All Combinations Of Factor Variables, 
+#   # mtry: Number of variables randomly sampled as2-10 candidates at each split
+#   
+#   ffs_model <- ffs(predictors,response, 
+#                    method=method, 
+#                    ntree=100,
+#                    trControl=tctrl,
+#                    tuneGrid=tuneGrid,
+#                    withinSE = TRUE,
+#                    tuneLength=tuneLength,           
+#                    metric=metric)
+#   
+#   save(ffs_model,file=paste0(outpath,"ffs_model_",method,"_", n, "no_slope.RData"))
+# }
+# 
+# print("~~~~~~~~~~~~~~~~~~~~~~~~~~~ DONE WITH SE=F MODEL & EXCLUDING SLOPE, TRYING MORE TREES NOW ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+# 
+# 
+# predictors <- train[,c("Modis","ia", "hs", "dem", 
+#                        "slope", "aspect", "TWI", 
+#                        "soilraster", "landcoverres", "TeAqNum")]
+# for (i in 1:length(methods)){
+#   
+#   tctrl <- trainControl(method="cv", 
+#                         savePredictions = TRUE,
+#                         returnResamp = "all",
+#                         verboseIter=TRUE,
+#                         index=foldids$index,
+#                         indexOut=foldids$indexOut)
+#   
+#   
+#   method <- methods[i]
+#   print(method)
+#   tuneLength <- 2
+#   tuneGrid <- NULL
+#   
+#   #   tuneLength <- 1
+#   tuneGrid <- expand.grid(mtry=seq(2,3))
+#   # Create A Data Frame From All Combinations Of Factor Variables, 
+#   # mtry: Number of variables randomly sampled as2-10 candidates at each split
+#   
+#   ffs_model <- ffs(predictors,response, 
+#                    method=method, 
+#                    ntree=500,
+#                    trControl=tctrl,
+#                    tuneGrid=tuneGrid,
+#                    withinSE = TRUE,
+#                    tuneLength=tuneLength,           
+#                    metric=metric)
+#   
+#   save(ffs_model,file=paste0(outpath,"ffs_model_",method,"_", n, "no_slope.RData"))
+# }
 
 stopCluster(cl)
 
