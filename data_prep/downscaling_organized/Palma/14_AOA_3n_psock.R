@@ -1,7 +1,7 @@
-modelpath <- "D:/downscaling_after_talk/models/"
-trainpath <- "D:/downscaling_after_talk/clean_data/train_valid/"
-stackpath <- "D:/downscaling_after_talk/clean_data/satstacks_ngb/"
-predstackdir <- "D:/downscaling_after_talk/spatial_predictions_rf/predstacks/"
+# modelpath <- "D:/downscaling_after_talk/models/"
+# trainpath <- "D:/downscaling_after_talk/clean_data/train_valid/"
+# stackpath <- "D:/downscaling_after_talk/clean_data/satstacks_ngb/"
+# 
 # library(raster)
 # library(CAST)
 # 
@@ -53,11 +53,11 @@ predstackdir <- "D:/downscaling_after_talk/spatial_predictions_rf/predstacks/"
 # registerDoMPI(cl) # tells foreach to use MPI parallel mode
 # print(paste("Running in parallel mode on",num.cluster,"worker nodes."))
 
-
+library(slurmR,lib.loc="/home/l/llezamav/R/") # This also loads the parallel package
 library(raster)
 library(caret,lib.loc="/home/l/llezamav/R/")
 library(CAST,lib.loc="/home/l/llezamav/RCast/")
-library(parallel)
+# library(parallel)
 library(doParallel)
 
 
@@ -125,16 +125,21 @@ if(method=="nnet"){
   predictrs <- model_final$finalModel$xNames
 }
 
-f <- Sys.getenv('SLURM_NODELIST')
-nodelist <- if (nzchar(f)) readLines(f) else rep('localhost', 69) #fall back to a 3-worker setup on this machine if nodefile missing
 
-cat("Node list allocated to this job\n")
-print(nodelist)
 
-cores <- 70
-cl <- makeCluster(cores, outfile="/home/l/llezamav/scripts_new/par_aoa_df.txt")
 
-registerDoParallel(cl)
+# 
+# f <- Sys.getenv('SLURM_ARRAY_TASK_ID')
+# print(f)
+# n <- as.numeric(f)
+# print(n)
+# # nodelist <- if (nzchar(f)) f else rep('localhost', 69) #fall back to a 3-worker setup on this machine if nodefile missing
+# cat("Node list allocated to this job\n")
+# print(n)
+# 
+# cl <- makePSOCKcluster(n, outfile='aoa_nodelist.txt')
+# 
+# registerDoParallel(cl)
 
 # read predstack
 predstack <- stack(list.files(predstackdir, pattern=".tif", full.names = T))
@@ -142,18 +147,22 @@ psnams <- read.csv2(list.files(predstackdir, pattern=".csv", full.names = T))
 
 names(predstack) <- psnams$x
 
-predstack_df <- predstack[]
-predstack_df <- data.frame(predstack_df)
-predstack_df$soilraster <- factor(predstack_df$soilraster)
-predstack_df$TeAqNum <- factor(predstack_df$TeAqNum)
-predstack_df$landcoverres <- factor(predstack_df$landcoverres)
-str(predstack_df)
+# Making the cluster, and exporting the variables
+cl <- makeSlurmCluster(88, outfile="/home/l/llezamav/aoa_par.txt")
+
+# Approximation
+jnk = clusterEvalQ(cl,{library(raster); 
+  library(rgdal); library(CAST,lib.loc="/home/l/llezamav/RCast/"); 
+  library(raster)})
+clusterExport(cl, list("aoapath", "method", "model_final", "predstack"))
 
 ################### aoa on test 3 ###################################
-aoa_spat <- aoa(newdata=predstack_df, model=model_final, 
+aoa_spat <- aoa(newdata=predstack, model=model_final, 
                 cl=cl)
 saveRDS(aoa_spat, paste0(aoapath, "aoa_", method, "_", "aoa_spat_1n.RDS"))
 
+stopCluster(cl)
+
+
 ################### spatial aoa ###################################
 
-stopCluster(cl)

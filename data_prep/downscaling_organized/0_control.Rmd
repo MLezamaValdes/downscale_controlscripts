@@ -128,6 +128,8 @@ template <- raster("E:/new_downscaling/clean_data/template_new.tif")
 #### Palma Info
 https://confluence.uni-muenster.de/pages/viewpage.action?pageId=27755336 
 
+Node availability and capacity:
+https://palma2c.uni-muenster.de/ganglia/?c=PALMA%20II&m=load_one&r=hour&s=by%20name&hc=4&mc=2 
 
 ###################### SETUP until here #############################
 
@@ -1717,6 +1719,10 @@ Trying expand.grid(decay = c(0.5, 0.1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7),
 ```{r}
 #file.edit("Palma/11_tune_final_models_remod.R")
 
+#parallelization hassle: 
+#file.edit("Palma/11_tune_final_models_remod_slurmR.R")
+
+
 ```
 
 
@@ -1779,13 +1785,13 @@ Random Forest is only slightly better than the neural net, gbm is out due to wei
 
 # 13 make predictor stacks
 ```{r}
-file.edit("13_make_predictor_stacks.R")
+# file.edit("13_make_predictor_stacks.R")
 ```
 
 # 14 run AOA 
 
 ```{r, eval=F}
-#file.edit("Palma/14_AOA.R")
+#file.edit("Palma/14_AOA_df.R")
 ```
 
 Evaluate results

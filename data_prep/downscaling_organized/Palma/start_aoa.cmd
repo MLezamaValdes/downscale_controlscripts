@@ -3,6 +3,7 @@
 #SBATCH --cpus-per-task=1 # Number of cores per MPI rank 
 
 # set the number of CPU cores per node
+#SBATCH --cpus-per-task=1 # Number of cores per MPI rank
 #SBATCH --nodes=3 # Number of nodes
 #SBATCH --ntasks=69 # Number of MPI ranks
 

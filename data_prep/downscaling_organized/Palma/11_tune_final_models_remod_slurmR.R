@@ -1,7 +1,10 @@
 ########## tune final models ###############################
 
-library(Rmpi)  # R implementation of MPI interface
-library(doMPI,lib.loc="/home/l/llezamav/R/") # interface for foreach construct to run in MPI parallel mode
+# library(Rmpi)  # R implementation of MPI interface
+# library(doMPI,lib.loc="/home/l/llezamav/R/") # interface for foreach construct to run in MPI parallel mode
+
+library(slurmR,lib.loc="/home/l/llezamav/R/") # This also loads the parallel package
+
 
 # 
 # # Load the R MPI package if it is not already loaded.
@@ -148,12 +151,6 @@ i=1
 
 
 
-cores <- 20
-print(paste0("n cores = ", cores))
-cl <- makeCluster(cores)
-
-registerDoParallel(cl)
-
 # for (i in 1:length(rf_remodelling)){
   
   method <- "rf"
@@ -264,22 +261,35 @@ registerDoParallel(cl)
 
 
   } else {
+    
+    
+    # Making the cluster, and exporting the variables
+    cl <- makeSlurmCluster(42, verb=TRUE, tmp_path = "/scratch/tmp/llezamav/")
+    # cl <- makeForkCluster(nnodes = 3)
+    # Approximation
+    jnk = clusterEvalQ(cl,{library(caret,lib.loc="/home/l/llezamav/R/"); 
+      library(raster)})
+    clusterExport(cl, list("modelpath", "predictors", "response", "method", 
+                           "tuneGrid", "tctrl", "n", "rf_remodelling"))
+    
+    print("starting_model_training")
   
     model_final <- train(predictors,
                          response,
                          method = method,
                          tuneGrid = tuneGrid,
                          trControl = tctrl,
+                         ntree=400,
                          trace = FALSE, #relevant for nnet
                          linout = TRUE)	
 
   }
   
   save(model_final,file=paste0(modelpath,"final_model_",method,"_", 
-                               n, rf_remodelling[i], "fast_1n.RData"))
+                               n, rf_remodelling[i], "fast_mtry.RData"))
 # }
 
   
-  ## MPI-save version of R quit
-  mpi.quit()
-
+  # ## MPI-save version of R quit
+  # mpi.quit()
+stopCluster(cl)

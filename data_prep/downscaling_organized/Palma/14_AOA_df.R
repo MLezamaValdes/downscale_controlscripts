@@ -1,7 +1,9 @@
-modelpath <- "D:/downscaling_after_talk/models/"
-trainpath <- "D:/downscaling_after_talk/clean_data/train_valid/"
-stackpath <- "D:/downscaling_after_talk/clean_data/satstacks_ngb/"
-predstackdir <- "D:/downscaling_after_talk/spatial_predictions_rf/predstacks/"
+# modelpath <- "D:/downscaling_after_talk/models/"
+# trainpath <- "D:/downscaling_after_talk/clean_data/train_valid/"
+# stackpath <- "D:/downscaling_after_talk/clean_data/satstacks_ngb/"
+# predstackdir <- "D:/downscaling_after_talk/spatial_predictions_rf/predstacks/"
+
+
 # library(raster)
 # library(CAST)
 # 
@@ -54,11 +56,12 @@ predstackdir <- "D:/downscaling_after_talk/spatial_predictions_rf/predstacks/"
 # print(paste("Running in parallel mode on",num.cluster,"worker nodes."))
 
 
+library(slurmR)
 library(raster)
 library(caret,lib.loc="/home/l/llezamav/R/")
 library(CAST,lib.loc="/home/l/llezamav/RCast/")
-library(parallel)
-library(doParallel)
+# library(parallel)
+# library(doParallel)
 
 
 
@@ -71,7 +74,7 @@ trainpath <- "/scratch/tmp/llezamav/train_valid/"
 stackpath <- "/scratch/tmp/llezamav/satstacks_ngb/"
 aoapath <- "/scratch/tmp/llezamav/aoa/"
 predstackdir <- "/scratch/tmp/llezamav/predstacks/"
-
+tempdir()
 
 method <- "rf"
 
@@ -125,12 +128,7 @@ if(method=="nnet"){
   predictrs <- model_final$finalModel$xNames
 }
 
-f <- Sys.getenv('SLURM_NODELIST')
-nodelist <- if (nzchar(f)) readLines(f) else rep('localhost', 69) #fall back to a 3-worker setup on this machine if nodefile missing
-
-cat("Node list allocated to this job\n")
-print(nodelist)
-
+opts_slurmR$verbose_on()
 cores <- 70
 cl <- makeCluster(cores, outfile="/home/l/llezamav/scripts_new/par_aoa_df.txt")
 
@@ -142,18 +140,47 @@ psnams <- read.csv2(list.files(predstackdir, pattern=".csv", full.names = T))
 
 names(predstack) <- psnams$x
 
+
+
+
+
+print("raster to df now")
+
 predstack_df <- predstack[]
 predstack_df <- data.frame(predstack_df)
-predstack_df$soilraster <- factor(predstack_df$soilraster)
-predstack_df$TeAqNum <- factor(predstack_df$TeAqNum)
-predstack_df$landcoverres <- factor(predstack_df$landcoverres)
+
+
+# activate for last model
+# predstack_df$soilraster <- factor(predstack_df$soilraster)
+# predstack_df$TeAqNum <- factor(predstack_df$TeAqNum)
+# predstack_df$landcoverres <- factor(predstack_df$landcoverres)
+
 str(predstack_df)
 
-################### aoa on test 3 ###################################
-aoa_spat <- aoa(newdata=predstack_df, model=model_final, 
-                cl=cl)
-saveRDS(aoa_spat, paste0(aoapath, "aoa_", method, "_", "aoa_spat_1n.RDS"))
+predstack_df <- predstack_df[model_final$finalModel$xNames]
+withinextent <- !is.na(predstack_df$dem)
+predstack_df_within_ex <- predstack_df[withinextent,]
 
+print(paste0("amount of samples aoa has to be calculated for: ", nrow(predstack_df_within_ex)))
+################### aoa on test 3 ###################################
+print("starting to run aoa")
+
+aoa_spat <- aoa(newdata=predstack_df_within_ex, model=model_final, 
+                cl=cl)
+saveRDS(aoa_spat, paste0(aoapath, "aoa_", method, "_", "aoa_spat_df.RDS"))
+
+print("aoa rds saved, proceeding to generate aoa raster")
+
+aoa_ras <- predstack[[1]]
+aoa_ras[] <- NA
+fullexAOA <- withinextent
+fullexAOA[fullexAOA==TRUE] <- aoa_spat$AOA
+aoa_ras[] <- fullexAOA
+aoa_ras[] <- aoa_spat$AOA 
+
+print("writing aoa raster")
+
+writeRaster(aoa_ras, paste0(aoapath, "aoa_", method, "_", "aoa_spat_df.tif"))
 ################### spatial aoa ###################################
 
 stopCluster(cl)
