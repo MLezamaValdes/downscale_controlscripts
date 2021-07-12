@@ -7,7 +7,7 @@ library(caret)
 library(raster)
 
 modelpath <- "D:/downscaling_after_talk/models/"
-trainvalidpath <- "D:/downscaling_after_talk/clean_data/train_valid/"
+# trainvalidpath <- "D:/downscaling_after_talk/clean_data/train_valid/"
 regressionStatsRsenal <- source("C:/Users/mleza/OneDrive/Documents/PhD/ML_dist/ML_dist/regressionstats_Rsenal.R")
 
 figurepath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/paper/paper_draft/figures/new/"
@@ -15,6 +15,15 @@ figurepath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscal
 rasterpath <- "D:/downscaling_after_talk/clean_data/satstacks_ngb/"
 predoutpath <- "D:/downscaling_after_talk/predictions/"
 predstackdir <- "D:/downscaling_after_talk/spatial_predictions_rf/predstacks/"
+
+
+
+method <- "rf"
+
+fm <- list.files(modelpath, pattern="mtry", full.names=T)
+load(fm)
+
+n <- 150000
 
 
 # train <- read.csv2(paste0(trainvalidpath, "train_LHS_150000_scaled.csv"))
@@ -46,7 +55,6 @@ predstackdir <- "D:/downscaling_after_talk/spatial_predictions_rf/predstacks/"
 # methods <- c("rf",
 #              "nnet",
 #              "svmLinear")
-methods <- c("rf")
 
 # testtitle <- c("spatial validation", "temporal validation",
 #                "spatiotemporal validation")
@@ -77,18 +85,7 @@ methods <- c("rf")
 #   sizetests <- c(nrow(testlist[[1]]), nrow(testlist[[2]]), nrow(testlist[[3]]))
 #   
 
-i=1
 
-  method <- methods[i]
-  print(method)
-  
-  fm <- list.files(modelpath, pattern=method, full.names=T)
-  fm <- fm[grepl("final_", fm)]
-  fm <- fm[grepl("SE_F", fm)]
-  
-  load(fm)
-  
-  n <- 150000
 
   # #### spatial prediction ############################################################
   # ####################################################################################

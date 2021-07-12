@@ -131,6 +131,9 @@ https://confluence.uni-muenster.de/pages/viewpage.action?pageId=27755336
 Node availability and capacity:
 https://palma2c.uni-muenster.de/ganglia/?c=PALMA%20II&m=load_one&r=hour&s=by%20name&hc=4&mc=2 
 
+How to not submit a plan - try future + slurmR
+https://github.com/USCbiostats/slurmR 
+
 ###################### SETUP until here #############################
 
 ## 1 DEM
@@ -1578,6 +1581,7 @@ Thus *in the model goes*: TeAqNum.2 (MYD),  landcoverres.1 (for soil), and soilr
 *Reference categories* are: TeAqNum.1 (MOD),  landcoverres.2 (for snow and ice), and soilraster.12
 
 
+In the final model, I used factor(), soil types 3 and 19 are not represented in "train", though, because they each cover very few pixel (866 for 19 and 2886 for 3).
 ```{r}
 trainvalidpath <- "D:/downscaling_after_talk/clean_data/train_valid/"
 
@@ -1716,9 +1720,13 @@ Trying expand.grid(decay = c(0.5, 0.1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7),
                              n.minobsinnode = 10) 
      
      
+This is the final model that was actually used: 
 ```{r}
-#file.edit("Palma/11_tune_final_models_remod.R")
+#file.edit("Palma/11_tune_final_models_remod_fast_few_mtry.R")
+```
 
+
+```{r}
 #parallelization hassle: 
 #file.edit("Palma/11_tune_final_models_remod_slurmR.R")
 
@@ -1748,18 +1756,21 @@ file.edit("11_looking_at_final_models.R")
 
 
 # 12 external testing
-var imp & pred obs plots are generated for all algorithms and validation sets, 
+var imp & pred obs plots are generated for all algorithms and validation sets
 
-```{r}
-# file.edit("12_external_testing_dummyrun.R")
-```
 
-#### Second run through (remodeling RF)
+#### Second run through (remodeling RF & final runthrough)
 ```{r}
 # file.edit("12_external_testing_remodelling.R")
 
 ```
 
+
+
+
+```{r}
+# file.edit("12_external_testing_dummyrun.R")
+```
 
 
 ![no slope](add_files/figures/external_eval_new_rf_no_slope_remodeling.png)
@@ -1783,12 +1794,21 @@ So it looks like it might be useful to have the setting to withinSE=F.
 
 Random Forest is only slightly better than the neural net, gbm is out due to weird patterns in the external testing. 
 
+## Final external evaluation:
+![](add_files/figures/external_eval_new_rf_final_remodeling.png)
+
+
 # 13 make predictor stacks
 ```{r}
 # file.edit("13_make_predictor_stacks.R")
 ```
 
 # 14 run AOA 
+
+Due to memory and parallelization issues that still have to be fixed in AOA function (use parallelization only for calculating 0 or 1 AoA, not for generating xtimes the model dissimilarity matrix), the predictor stack is cut into pieces before separately being started. 
+```{r}
+#file.edit("Palma/14_AOA_split_1.R")
+```
 
 ```{r, eval=F}
 #file.edit("Palma/14_AOA_df.R")
@@ -1808,13 +1828,23 @@ sapply(aoatab, '[[', 1)/(sapply(aoatab, '[[', 1)+sapply(aoatab, '[[', 2))
 
 7.8% of samples in spatial validation are out of AOA, in temporal and spatiotemporal 13% are out. 
 
-# 14 time series generation
+
+# 15 spatial prediction & produce result figures
+
+##### spatial prediction and graphic
+```{r}
+# file.edit("15_make_spatial_predictions.R")
+# file.edit("15_make_MOD_L_predictions_plot.R")
+```
 
 
-# 15 predict chosen model to evaluate performance over months and land cover type
+
+##### predict chosen model to evaluate performance over months and land cover type
 ```{r}
 # file.edit("15_performance_by_month_lc.R")
 ```
+
+# 16 time series generation
 
 
 
