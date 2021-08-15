@@ -30,4 +30,4 @@
 # run the application
 module add palma/2020b
 module add foss R GDAL
-R CMD BATCH --vanilla 8a_gather_train_test.R
+R CMD BATCH --vanilla 8a_gather_train_LHS_valid_rand.R

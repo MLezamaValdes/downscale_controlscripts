@@ -176,7 +176,7 @@ predstack_df_within_ex <- predstack_df[withinextent,]
 ######################################################################################
 print(paste0("amount of samples aoa has to be calculated for: ", ncell(predstack)))
 
-cores <- 50
+cores <- 40
 cl <- makeCluster(cores)
 registerDoParallel(cl)
 
@@ -186,7 +186,7 @@ print("starting to run aoa")
 aoa_spat <- aoa(newdata=predstack_df_within_ex, model=model_final,
                 cl=cl)
 
-saveRDS(aoa_spat, paste0(aoapath, "aoa_spatial_", method, "_", "split_5.tif"))
+saveRDS(aoa_spat, paste0(aoapath, "aoa_spatial_", method, "_", "split_5.RDS"))
 
 print("aoa rds saved, proceeding to generate aoa raster")
 
@@ -199,4 +199,5 @@ aoa_ras[] <- aoa_spat$AOA
 
 print("writing aoa raster")
 
-writeRaster(aoa_ras, paste0(aoapath, "aoa_spatial_", method, "_", "split_5.tif"))
+writeRaster(aoa_ras, paste0(aoapath, "aoa_spatial_", method, "_", "split_5.tif"),
+            overwrite=T)

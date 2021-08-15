@@ -4,7 +4,7 @@
 #SBATCH --nodes=1 #Number of nodes
 
 # set the number of CPU cores per node
-#SBATCH --cpus-per-task=21 #How many tasks on each node
+#SBATCH --cpus-per-task=41 #How many tasks on each node
 
 # How much memory is needed (per node)
 #SBATCH --mem=160GB

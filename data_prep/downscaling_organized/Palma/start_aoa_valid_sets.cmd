@@ -13,16 +13,16 @@
 #SBATCH --partition normal
 
 # set max wallclock time
-#SBATCH --time=100:00:00
+#SBATCH --time=168:00:00
 
 # set name of job
-#SBATCH --job-name=aoa_split_4
+#SBATCH --job-name=aoa_valid
 
 # mail alert at start, end and abortion of execution
 #SBATCH --mail-type=ALL
 
 # set an output file
-#SBATCH --output output_aoa_split_4.dat
+#SBATCH --output output_aoa_valid.dat
 
 # send mail to this address
 #SBATCH --mail-user=llezamav@uni-muenster.de
@@ -30,4 +30,4 @@
 # run the application
 module add palma/2020b
 module add foss R GDAL
-R CMD BATCH --vanilla 14_AOA_split_4.R
+R CMD BATCH --vanilla 14_AOA_validation_sets.R

@@ -2,10 +2,12 @@ modelpath <- "D:/downscaling_after_talk/models/"
 dp <- "D:/downscaling_after_talk/clean_data/train_valid/"
 
 
-load(paste0(modelpath, "final_model_rf_150000SE_F.RData"))
+load(paste0(modelpath, "final_model_rf_150000factorfast_mtry.RData"))
 
 
-fl <- grep(list.files(dp, full.names = T), pattern="_scaled", invert=TRUE, value=TRUE)
+fl <- list.files(dp, full.names = T, pattern="rand")
+fl <- c(fl, paste0(dp, "train_LHS_150000.csv"))
+
 
 tv <- lapply(seq(fl), function(i){
   x <- read.csv2(fl[i])
@@ -13,7 +15,9 @@ tv <- lapply(seq(fl), function(i){
 })
 
 tv[[1]]$time_num <- NULL
+tv[[2]]$time_num <- NULL
 tv[[3]]$time_num <- NULL
+tv[[4]]$time_num <- NULL
 
 names(tv[[1]])
 names(tv[[2]])
@@ -26,6 +30,9 @@ tv$TeAqNum <- NA
 tv$TeAqNum[grepl("MOD", tv$Mscene)] <- 0
 tv$TeAqNum[grepl("MYD", tv$Mscene)] <- 1
 
+str(tv)
+
+# make factors 
 
 library(caret)
 library(CAST)

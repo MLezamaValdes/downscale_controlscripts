@@ -462,15 +462,16 @@ em_err_anta[em_err_anta==0] <- NA
 em31 <- (em_err_anta$Emis*0.002)+0.49
 em31cropped <- em31
 em31cropped[em31cropped<0.991] <- NA # some high values make it impossible to see distribution well
-mapview(em31cropped, na.color="#00000000")+
-  mapview(eta_res, na.color="#00000000")
+mapview(eta_res, na.color="#00000000")
 ```
 
 The LST error lies within 0.2 to 1.8 K for this scene. I can use the error to exclude very unreliable pixels from training. It will be gathered here as well to add more info to the final data frame. Training can be done only on high reliability pixels then, as an experiment. 
 ```{r}
 # LST error
+err <- projectRaster(em_err_anta$Error, crs(eta_res))
 err <- (em_err_anta$Error*0.04)
-
+crs(eta_res)
+crs(err)
 ```
 
 The Quality control band in MOD11_L2 needs to be converted from decimal to binary format (package luna). Check meaning of qa_bits [here](https://rspatial.org/terra/modis/4-quality.html). Value of 1 indicates a good quality pixel for cloud state, cloud shadow, cloud flag and high cirrus detected. 
@@ -489,8 +490,8 @@ qc <- rast(em_err_anta$QC)
 quality_mask <- modis_mask(qc, 16, qa_bits)
 qm <- raster(quality_mask)
 
-mapview::mapview(qm, na.color="#00000000")+
-  mapview(err, na.color="#00000000")
+mapview::mapview(qm, na.color="#00000000")
+mapview::mapview(err, na.color="#00000000")
 
 serr <- stack(qm, err)
 exerr <- data.frame(serr[])
@@ -1353,13 +1354,22 @@ blocktestn <- length(blockunique)*0.4
 
 blocktestsample <- sample(blockunique, size=blocktestn, replace=F)
 blocktestsample <- blocktestsample[!is.na(blocktestsample)]
+
 write.csv2(blocktestsample, paste0(cddir, "blocktest_samples_test.csv"))
+
+bt <- read.csv2(paste0(cddir, "blocktest_samples_test.csv"))
+blocktestsample <- bt$x 
+
 testblock <- blockmask
-testblock[testblock %in% blocktestsample & !is.na(testblock)] <- 200
-testblock[testblock !=200 & !is.na(testblock)] <- 0
+testblock[testblock %in% blocktestsample & !is.na(testblock)] <- 200 #test
+testblock[testblock !=200 & !is.na(testblock)] <- 0 #train
 
 tbt <- table(testblock[])
 
+fulln <- 13353603 + 8959209 
+8959209/fulln
+
+mapview(testblock)
 writeRaster(testblock, paste0(dempath, "updated_spatial_test_blocks.tif"), overwrite=T)
 
 ```
@@ -1510,6 +1520,28 @@ print(paste0(round(
 #file.edit("../paper_map.R")
 ```
 
+```{r}
+cf <- "D:/downscaling_after_talk/clean_data/comp_comp_files/"
+cff <- list.files(cf, full.names=T)
+
+
+td <- lapply(seq(cff), function(i){
+  read.csv2(cff[i])
+})
+
+tdc <- do.call("rbind", td)
+
+
+write.csv2(tdc, "D:/downscaling_after_talk/clean_data/comp_comp_files/all_timediff_comp.csv" )
+
+mean(tdc$timediff)*60
+
+hist(tdc$timediff, breaks=40)
+
+mean(tdc$timediff[tdc$MODMYD==1])*60
+mean(tdc$timediff[tdc$MODMYD==2])*60
+
+```
 
 
 Choosing of training samples by the Dissimilarity Index is performed only for the months that are taken into the training. 
@@ -1580,21 +1612,44 @@ Thus *in the model goes*: TeAqNum.2 (MYD),  landcoverres.1 (for soil), and soilr
 
 *Reference categories* are: TeAqNum.1 (MOD),  landcoverres.2 (for snow and ice), and soilraster.12
 
-
+## Final model - RF: 
 In the final model, I used factor(), soil types 3 and 19 are not represented in "train", though, because they each cover very few pixel (866 for 19 and 2886 for 3).
 ```{r}
 trainvalidpath <- "D:/downscaling_after_talk/clean_data/train_valid/"
 
 train <- read.csv2(paste0(trainvalidpath, "train_LHS_150000.csv"))
 
-test1 <- read.csv2(paste0(trainvalidpath, "validation_1_LHS_150000.csv"))
-test2 <- read.csv2(paste0(trainvalidpath, "validation_2_LHS_150000.csv"))
-test3 <- read.csv2(paste0(trainvalidpath, "validation_3_LHS_150000.csv"))
+test1LHS <- read.csv2(paste0(trainvalidpath, "validation_1_LHS_150000.csv"))
+test2LHS <- read.csv2(paste0(trainvalidpath, "validation_2_LHS_150000.csv"))
+test3LHS <- read.csv2(paste0(trainvalidpath, "validation_3_LHS_150000.csv"))
 
-
-head(train)
-head(test3)
 ```
+
+```{r}
+trainvalidpath <- "D:/downscaling_after_talk/clean_data/train_valid/"
+
+test1 <- read.csv2(paste0(trainvalidpath, "validation_1_rand_150000.csv"))
+test2 <- read.csv2(paste0(trainvalidpath, "validation_2_rand_150000.csv"))
+test3 <- read.csv2(paste0(trainvalidpath, "validation_3_rand_150000.csv"))
+
+```
+
+
+```{r}
+min(test1$dem) - min(test1LHS$dem)
+max(test1$dem) - max(test1LHS$dem)
+
+min(test2$dem) - min(test2LHS$dem)
+max(test2$dem) - max(test2LHS$dem)
+
+min(test3$dem) - min(test3LHS$dem)
+max(test3$dem) - max(test3LHS$dem)
+
+
+
+
+```
+
 
 
 # 9 run all algorithms FFS
@@ -1814,6 +1869,7 @@ Due to memory and parallelization issues that still have to be fixed in AOA func
 #file.edit("Palma/14_AOA_df.R")
 ```
 
+
 Evaluate results
 ```{r, eval=F}
 aoapath <- "D:/downscaling_after_talk/aoa/"
@@ -1828,6 +1884,23 @@ sapply(aoatab, '[[', 1)/(sapply(aoatab, '[[', 1)+sapply(aoatab, '[[', 2))
 
 7.8% of samples in spatial validation are out of AOA, in temporal and spatiotemporal 13% are out. 
 
+Application to one single scene: 
+
+```{r}
+aoadir <- "D:/downscaling_after_talk/aoa/results_split/"
+
+AOA <- raster(paste0(aoadir, "AOA_MYD11_L2.A2018316.1350.006_cat.grd"))
+
+AOA_m <- mask(AOA,aoi)
+mapview(AOA_m, na.color="#00000000")
+writeRaster(AOA_m, paste0(aoadir, "AOA_masked_MYD11_L2.A2018316.1350.006_cat.grd"))
+```
+
+```{r}
+s6 <- raster(list.files("D:/downscaling_after_talk/aoa/split_rasters/", pattern="split_6.tif",full.names = T))
+
+
+```
 
 # 15 spatial prediction & produce result figures
 

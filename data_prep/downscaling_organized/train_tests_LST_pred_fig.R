@@ -12,7 +12,7 @@ library(ggpubr)
 library(gtable)
 
 
-source("split_violin_gg.R")
+source("C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/downscale_controlscripts/data_prep/downscaling_organized/split_violin_gg.R")
 #file.edit("split_violin_gg.R")
 
 
@@ -20,9 +20,9 @@ DIdir <- paste0(cddir, "train_valid/")
 
 train <- read.csv2(paste0(DIdir, "train_LHS_150000.csv"))
 #val1 <- read.csv2(paste0(DIdir, "validation_1_LHS_150000.csv"))
-val1 <- read.csv2(paste0(DIdir, "validation_1_LHS_150000.csv"))
-val2 <- read.csv2(paste0(DIdir, "validation_2_LHS_150000.csv"))
-val3 <- read.csv2(paste0(DIdir, "validation_3_LHS_150000.csv"))
+val1 <- read.csv2(paste0(DIdir, "validation_1_rand_150000.csv"))
+val2 <- read.csv2(paste0(DIdir, "validation_2_rand_150000.csv"))
+val3 <- read.csv2(paste0(DIdir, "validation_3_rand_150000.csv"))
 
 ####################################################################
 
@@ -228,7 +228,7 @@ make_ggplot_per_variable <- function(variable, makelegend=FALSE,yl,a=0.15,av=0.1
 }
 
 plotstodo <- c("LST", "ia", "hs", "dem", "TWI", "landcoverres", "soilraster", "aspect", "slope")
-ylables <- c("LST Â°C", "incidence angle (degrees)", "hillshading (intensity of illumination)", "elevation (m)", "TWI (pobability of moisture accumulation)",
+ylables <- c("LST °C", "incidence angle (degrees)", "hillshading (intensity of illumination)", "elevation (m)", "TWI (pobability of moisture accumulation)",
              "snow/ice vs. open soil", "soil class", "aspect (degrees)", "slope (degrees)")
 
 plotlist <- lapply(seq(plotstodo), function(i){
@@ -243,7 +243,7 @@ plotlist <- lapply(seq(plotstodo), function(i){
   }
 })
 
-png(paste0(figurepath, "new/train_val1_val2_val3_final.png"),
+png(paste0(figurepath, "new/train_val1_val2_val3_rand.png"),
     units="in", width=14, height=12, res=300)
 grid.arrange(
   grobs = plotlist,

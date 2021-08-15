@@ -3,3 +3,8 @@
 .RData
 .Ruserdata
 data_prep/downscaling_organized/slpe_tmpl_latlon.tif
+data_prep/downscaling_organized/slope_tmpl_latlon.tif
+data_prep/downscaling_organized/slope_tmpl_latlon.tif
+data_prep/downscaling_organized/slpe_tmpl_latlon.rds
+data_prep/downscaling_organized/slpe_tmpl_latlon.rds
+*.tif

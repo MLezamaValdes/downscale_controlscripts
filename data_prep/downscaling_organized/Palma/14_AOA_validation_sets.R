@@ -37,7 +37,13 @@ test3 <- read.csv2(paste0(trainpath, "validation_3_rand_150000.csv"))
 
 testlist <- list(test1, test2, test3)
 
-aoatest1to3 <- lapply(seq(testlist), function(i){
+
+cores <- 40
+cl <- makeCluster(cores)
+registerDoParallel(cl)
+
+
+aoatest1to3 <- lapply(c(2,3), function(i){
   test <- testlist[[i]]
   test$TeAq <- as.factor(substring(test$Mscene,1,3))
   test$TeAqNum <- as.numeric(test$TeAq)
@@ -74,7 +80,7 @@ aoatest1to3 <- lapply(seq(testlist), function(i){
   
   print(paste0("starting with aoa ", i, "now"))
   
-  aoa <- aoa(newdata=test, model=model_final)
+  aoa <- aoa(newdata=test, model=model_final, cl=cl)
 
   print(paste0("saving aoa ", i, "now"))
   saveRDS(aoa, paste0(aoapath, "aoa_", method, "_rand_", i, ".RDS"))
@@ -89,3 +95,4 @@ aoatest1to3 <- lapply(seq(testlist), function(i){
 
 saveRDS(aoatest1to3, paste0(aoapath, "table_aoa_test1to3.RDS"))
 
+stopCluster(cl)
