@@ -93,6 +93,5 @@ source(paste0(scriptpath_organized, "0a_setup.R"))
 # this is one raster with a complete coverage of the research area to use as a template 
 template <- raster("E:/new_downscaling/clean_data/template_new.tif")
 
-
 ```
 
