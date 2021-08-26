@@ -76,3 +76,13 @@ vl <- lapply(seq(vallist), function(j){ # per validation set
 })
 
 
+
+# find out how many falses there are per row and copare to 0 or 1 AoA
+in_val1 <- read.csv2(paste0(main, "in_5_to_95_training_val_1.csv"))
+
+library(matrixStats)
+in_val1$fsum <- rowSums(in_val1[,2:9],na.rm = T)
+
+par(mfrow=c(1,1))
+boxplot(in_val1$fsum~in_val1$AOA)
+

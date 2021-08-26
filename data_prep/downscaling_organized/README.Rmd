@@ -1,0 +1,98 @@
+---
+title: "Downscaling Workflow"
+author: "Maite"
+date: "15 8 2021"
+
+output: 
+ rmarkdown::html_document:
+  #bookdown::html_document2:
+    theme: flatly
+    highlight: tango
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    toc_depth: 6
+link-citations: yes
+toc: yes
+---
+
+```{r setup, eval=F}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# This document 
+This document summarizes the different steps required for the downscaling approach described in XXX and links to the scripts within this repository in the adequate order. 
+
+
+## Basic settings 
+- load libraries
+- define time range 
+- create directories for Landsat and MODIS data to be downloaded
+- read Area of Interest (AOI) shape
+- define and source some functions
+
+
+```{r, include=FALSE, eval=F}
+# newarea can be 0 (no) or 1 (yes). If area is not new, it is assumed that the land outline shapefile and cropped rock outcrop is already available and doesn't need to be unzipped etc.
+newarea <- 0
+areaname <- "MDV"
+
+# L8: either "Bt" or "L1"
+L8downloadtype <- "Bt"
+
+
+## time range parameters 
+year <- c(2020:2013)
+month <- c("01","02","03","04", "09", "10","11", "12")
+
+# maximum time between satellite scenes 
+timethres <- 0.6
+
+scriptpath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/downscale_controlscripts/data_prep/"
+scriptpath_organized <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/downscale_controlscripts/data_prep/downscaling_organized/"
+
+maindir <- "D:/downscaling_after_talk/" # this must point to an existing directory, rest is generated in setup
+main <- paste0(maindir, "data_download_preprocessing/")
+L8datpath <- paste0(main, "L8/")
+modispath <- paste0(main, "MODIS/")
+tdpath <-paste0(main, "timediff/")
+cddir <- paste0(maindir, "clean_data/")
+figurepath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscaling_30m/paper/paper_draft/figures/"
+
+
+##### set path to DEM, AOI, land outline
+
+dempath <- "E:/new_downscaling/tiles_westcoast/" # this must point to an existing directory with dem inside
+aoipath <-  "E:/new_downscaling/aoi/" # this must point to an existing directory with "Levy_MDV_actually.shp"
+aoip <- list.files(aoipath, pattern="actually.shp", full.names = T)
+clpath <- "E:/new_downscaling/coastline/Coastline_high_res_polygon/"
+
+`%notin%` <- Negate(`%in%`)
+
+## PATH TO TOOLS CMD
+
+##### set paths for translating to SAGA
+path_saga_norm <- "C:/OSGeo4W64/apps/saga-ltr/"
+sagaCmd <- paste0(path_saga_norm, "saga_cmd.exe")
+saga_outpath <- paste0(main, "SAGA_run/")
+
+##### set paths for batch processing in HEG tool
+# make an batchindir directory with the hdf files to batch convert and an batchoutdir directory with 
+# the prm template file, where output files will be written to
+# batchrunpath needs to be where MyHEG_batchScript.bat is located
+batchrunpath <- "C:/Users/mleza/HEG/HEG_Win/bin/BatchRunning/BatchRunning/"
+batchindir <- paste0(batchrunpath, "indir/") 
+batchoutdir <- paste0(batchrunpath, "outdir/")
+# for stacking images per month
+
+
+source(paste0(scriptpath_organized, "0a_setup.R"))
+#file.edit(paste0(scriptpath_organized, "0a_setup.R"))
+
+# this is one raster with a complete coverage of the research area to use as a template 
+template <- raster("E:/new_downscaling/clean_data/template_new.tif")
+
+
+```
+
