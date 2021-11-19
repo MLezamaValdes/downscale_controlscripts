@@ -2,27 +2,15 @@
 title: "Downscaling Workflow"
 author: "Maite"
 date: "15 8 2021"
-
-output: 
- rmarkdown::html_document:
-  #bookdown::html_document2:
-    theme: flatly
-    highlight: tango
-    toc: true
-    toc_float:
-      collapsed: false
-      smooth_scroll: true
-    toc_depth: 6
-link-citations: yes
-toc: yes
+output: github_document
 ---
 
-```{r setup, eval=F}
+```{r setup, eval=F, include=F}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
 # This document 
-This document summarizes the different steps required for the downscaling approach described in XXX and links to the scripts within this repository in the adequate order. 
+This document summarizes the different steps required for the downscaling approach described in XXX and links to the scripts within this repository in the adequate order. The resulting downscaling model and necessary predictor data to downscale a MODIS scene captured during the austral summer months during daylight conditions and the McMurdo Dry Valleys can be installed from [Github repo downscaleLST.MDV](https://github.com/MLezamaValdes/downscaleLST.MDV)  
 
 
 ## Basic settings 
@@ -93,5 +81,49 @@ source(paste0(scriptpath_organized, "0a_setup.R"))
 # this is one raster with a complete coverage of the research area to use as a template 
 template <- raster("E:/new_downscaling/clean_data/template_new.tif")
 
+```
+
+## 1 Preparing the Digital Elevation Model (DEM)
+```{r, eval=F}
+file.edit("1_DEM.R")
+```
+
+## 2 Selecting, downloading and processing Landsat Band 10 to Land Surface Temperature (LST)
+Scenes that show little cloud contamination, are overlapping the AOI sufficiently and are temporally closely matching an available MODIS scene are being selected and queried.
+```{r, eval=F}
+file.edit(paste0(scriptpath_organized, "2_1_selectLandsat.R"))
+file.edit(paste0(scriptpath_organized, "2_2a_downloadLandsat.R"))
+file.edit(paste0(scriptpath_organized, "2_2b_downloadLandsat.R"))
+file.edit(paste0(scriptpath_organized, "2_2c_place_scenes.R"))
+file.edit(paste0(scriptpath_organized, "2_3_processLandsat.R"))
+```
+
+## 3 MODIS 
+MOD11_L2 and MYD11_L2 data come already cloud masked by MODIS product MOD35_L2. 
+```{r, eval=F}
+file.edit("3_MODIS.R")
+```
+
+
+## 4 Creating a Landsat and MODIS data stack per month 
+```{r, eval=F}
+file.edit("4_make_sat_stack.R")
+```
+
+## 5 Create incidence angle and hillshading raster
+For each unique MODIS scene capturing time, topographic solar shading and the solar incidence angle are calculated based on the DEM and the corresponding solar position. 
+```{r, eval=F}
+file.edit("Palma/5_ia_hs_Palma.R")
+```
+
+
+## 6 Match satellite LST data and solar insolation variables
+```{r, eval=F}
+file.edit("6_match_MOD_L_ia_hs.R")
+```
+
+## 7 extract data from raster stacks to table format
+```{r, eval=F}
+file.edit("Palma/7_stack_extraction_Palma.R")
 ```
 

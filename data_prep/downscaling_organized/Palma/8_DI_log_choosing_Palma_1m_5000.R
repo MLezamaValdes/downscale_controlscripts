@@ -15,12 +15,11 @@ library(caret,lib.loc="/home/l/llezamav/R/")
 
 datpath <- "/scratch/tmp/llezamav/"
 inputpath <- paste0(datpath, "extraction/")
-outputpath <- paste0(datpath, "train_test_DI_3m/")
-
+# outputpath <- paste0(datpath, "train_test_DI_3m/")
+outputpath <- paste0(datpath, "train_test_after_paper/")
 ############################################################################################
 ###################### put away temporal testing ###########################################
 ############################################################################################
-
 
 # take only those months that go into training 
 avym <- read.csv2("/scratch/tmp/llezamav/available_months_scenes_test.csv")
@@ -31,10 +30,9 @@ testdates <- avym$date[avym$test==1]
 
 `%notin%` <- Negate(`%in%`)
 
+ex_files <- ex_files[ex_files_use %notin% testdates]
 ## LAST MISSING FILE 
-# ex_files <- ex_files[ex_files_use %notin% testdates]
-
-ex_files <- ex_files[grepl("2019-03", ex_files)]
+# ex_files <- ex_files[grepl("2019-03", ex_files)]
 ############################################################################################
 ###################### put away spatial testing ###########################################
 ############################################################################################
@@ -75,10 +73,10 @@ di_log_choosing <- function(extr, ym){
     
     ##### 1 get 150.000 random samples per month ###########################################
     
-    if(nrow(potDI)<150000){
+    if(nrow(potDI)<5000){
       n <- nrow(potDI)*0.75
     } else {
-      n <- 150000
+      n <- 5000
     }
     
     set.seed(100)
@@ -99,7 +97,7 @@ di_log_choosing <- function(extr, ym){
     # if(location=="Laptop"){
     #       cli <- makeCluster(2, outfile="C:/Users/mleza/test.txt")
     # } else {
-      cli <- makeCluster(27, outfile="/home/l/llezamav/scripts_new/par_aoa_out.txt")
+      cli <- makeCluster(27, outfile="/home/l/llezamav/LST_after_paper/par_aoa_out.txt")
       #cli <- makeCluster(2, outfile="/home/l/llezamav/scripts_new/par_aoa_out.txt")
       
     # }
@@ -151,8 +149,8 @@ di_log_choosing <- function(extr, ym){
     trainDS <- extr[rownames(samples),]
     all(rownames(trainDS)==rownames(samples))
     
-    saveRDS(trainDS, paste0(outputpath, "train_DI_", ym, ".rds"))
-    write.csv2(trainDS, paste0(outputpath, "train_DI_",  ym, ".csv"))
+    saveRDS(trainDS, paste0(outputpath, "train_DI_5000_", ym, ".rds"))
+    write.csv2(trainDS, paste0(outputpath, "train_DI_5000_",  ym, ".csv"))
     
     
     stopCluster(cli)
@@ -164,9 +162,9 @@ di_log_choosing <- function(extr, ym){
 
 ########################### RUN ###########################################
 
-no_cores <- 2
+no_cores <- 5
 
-cl <- makeCluster(no_cores, outfile="/home/l/llezamav/scripts_new/par_log_choosing_ym_out.txt")
+cl <- makeCluster(no_cores, outfile="/home/l/llezamav/LST_after_paper/par_log_choosing_ym_out.txt")
 
 registerDoParallel(cl)
 jnk = clusterEvalQ(cl, {
@@ -191,18 +189,18 @@ parLapply(cl, seq(ex_files), function(m){
       
       pottrain <- extr_all[!extr_all$spatialblocks %in% blocktestsample$x,]
       
-      # get 3.15 mio samples for pottrain to run DI on 
-      if(nrow(pottrain)<3150000){
+      # get 1 mio samples for pottrain to run DI on 
+      if(nrow(pottrain)<1000000){
         ntrain <- nrow(pottrain) # if there are less samples available, take those
       } else {
-        ntrain <- 3150000
+        ntrain <- 1000000
       }
       
-      extr_3mi <- sample(rownames(pottrain), ntrain)
-      pott3 <- pottrain[extr_3mi,]
+      extr_background_sample <- sample(rownames(pottrain), ntrain)
+      pott1 <- pottrain[extr_background_sample,]
       
       ## run DI sampling for potential training samples
-      di_log_choosing(extr=pott3, ym)
+      di_log_choosing(extr=pott1, ym)
 })
 
 
