@@ -12,7 +12,7 @@ outdir <- "/scratch/tmp/llezamav/train_test_after_paper/train_valid/"
 # DIdir <- paste0(cddir, "train_test_DI/")
 # outdir <- paste0(cddir, "train_valid/")
 
-n = 150000
+n = 50000
 valmonths <- c("2014-11", "2015-01", "2017-02", "2018-12", "2019-03")
 
 # list training files 
@@ -111,10 +111,10 @@ write.csv2(alltestall, paste0(DIdir, "val_1_full_pre_LHS.csv"))
 
 # alltestall <- read.csv2(paste0(DIdir, "val_1_full_pre_LHS.csv"))
 print(nrow(alltestall))
-rnds <- sample(rownames(alltestall), 150000)
+rnds <- sample(rownames(alltestall), 50000)
 alltestall_samp <- alltestall[rnds,]
 
-write.csv2(alltestall_samp, paste0(outdir, "validation_1_rand_150000.csv"))
+write.csv2(alltestall_samp, paste0(outdir, "validation_1_rand_50000.csv"))
 
 print("validation 1 done")
 
@@ -147,10 +147,10 @@ write.csv2(val2all, paste0(outdir, "val_2_full_pre_LHS.csv"))
 print(nrow(val2))
 val2 <- val2all
 
-rnds2 <- sample(rownames(val2), 150000)
+rnds2 <- sample(rownames(val2), 50000)
 val2_samp <- val2[rnds2,]
 
-write.csv2(val2_samp, paste0(outdir, "validation_2_rand_150000.csv"))
+write.csv2(val2_samp, paste0(outdir, "validation_2_rand_50000.csv"))
 
 print("validation 2 done")
 
@@ -191,10 +191,10 @@ write.csv2(val3all, paste0(outdir, "val_3_full_pre_LHS.csv"))
 # val3 <- read.csv2(paste0(outdir, "val_3_full_pre_LHS.csv"))
 print(nrow(val3all))
 val3 <- val3all 
-rnds3 <- sample(rownames(val3), 150000)
+rnds3 <- sample(rownames(val3), 50000)
 val3_samp <- val3[rnds3,]
 
-write.csv2(val3_samp, paste0(outdir, "validation_3_rand_150000.csv"))
+write.csv2(val3_samp, paste0(outdir, "validation_3_rand_50000.csv"))
 
 print("validation 3 done")
 

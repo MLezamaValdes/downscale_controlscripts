@@ -4,10 +4,10 @@
 #SBATCH --nodes=1
 
 # set the number of CPU cores per node
-#SBATCH --ntasks-per-node 50
+#SBATCH --ntasks-per-node 12
 
 # How much memory is needed (per node)
-#SBATCH --mem=100GB
+#SBATCH --mem=160GB
 
 # set a partition
 #SBATCH --partition normal
@@ -16,13 +16,13 @@
 #SBATCH --time=50:00:00
 
 # set name of job
-#SBATCH --job-name=ffs_rf
+#SBATCH --job-name=8a
 
 # mail alert at start, end and abortion of execution
 #SBATCH --mail-type=ALL
 
 # set an output file
-#SBATCH --output output_9_training_ffs.dat
+#SBATCH --output output_8a.dat
 
 # send mail to this address
 #SBATCH --mail-user=llezamav@uni-muenster.de
@@ -30,4 +30,4 @@
 # run the application
 module add palma/2020b
 module add foss R GDAL
-R CMD BATCH --vanilla 9_FFS_models_rf_SE_F.R
+R CMD BATCH --vanilla 8a_gather_train_LHS_valid_rand.R

@@ -26,7 +26,7 @@ figurepath <- "C:/Users/mleza/OneDrive/Documents/PhD/work_packages/auto_downscal
 # }
 
 # amount of training samples
-n <- 150000
+n <- 50000
 methods <- c("rf")
 rf_remodelling <- c("SE_F")
 par(mfrow=c(2,2), mar=c(5,3,2,2)+2)
@@ -38,7 +38,7 @@ eval <- lapply(seq(rf_remodelling), function(i){
   print(method)
   
   
-  mp <- list.files(modelpath, pattern=rf_remodelling[i], full.names=T)
+  mp <- list.files(modelpath, pattern=as.character(n), full.names=T)
   #load(paste0(modelpath, "ffs_model_",method,"time_only_", n, ".RData"))
   load(mp)
   
@@ -170,20 +170,20 @@ ffsp <- lapply(eval, `[[`, 5)
 
 
 # plot scatter
-eg <- grid.arrange(plots[[1]], plots[[2]], nrow = 1)
+eg <- grid.arrange(plots[[1]], nrow = 1)
 ggsave(paste0(figurepath, "internal_ffs_eval_remodeling.png"), plot = eg)
 
 
 # plot tuning
-cv_p <- grid.arrange(cv_plots[[1]], cv_plots[[2]],nrow = 2)
+cv_p <- grid.arrange(cv_plots[[1]],nrow = 2)
 ggsave(paste0(figurepath, "tuning_ffs_eval_remodeling.png"), plot = cv_p)
 
 
 # plot rmse
-ffsplots <- grid.arrange(ffsp[[1]], ffsp[[2]],nrow = 2)
+ffsplots <- grid.arrange(ffsp[[1]], nrow = 2)
 ggsave(paste0(figurepath, "rmse_ffs_eval_remodeling.png"), plot = ffsplots)
 
 
-saveRDS(perf, "add_files/selected_predictors_FFS_remodeling.Rds")
-saveRDS(stats, "add_files/stats_FFS_remodeling.Rds")
+saveRDS(perf, paste0(figurepath, "selected_predictors.Rds"))
+saveRDS(stats, paste0(figurepath, "stats_FFS.Rds"))
 
